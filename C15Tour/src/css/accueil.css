@@ -1,0 +1,60 @@
+.background {
+  background-image: url('/damier_accueil.svg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  top: 0;
+  left: 0;
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: auto;
+}
+
+.logoAccueil {
+  /* Secondary / Large (Default) */
+
+  /* Mise en page automatique */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 15px 30px;
+
+  width: 720px;
+  height: 497px;
+
+  /* À l'intérieur de l'auto layout */
+  flex: none;
+  order: 1;
+  flex-grow: 0;
+
+}
+
+.authButton {
+  /* Secondary / Large (Default) */
+
+  /* Mise en page automatique */
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 15px 30px;
+
+  width: 227px;
+  height: 54px;
+
+  /* Neutral/200 */
+  background: #E9ECEF;
+  border-radius: 100px;
+
+  /* À l'intérieur de l'auto layout */
+  flex: none;
+  order: 1;
+  flex-grow: 0;
+}
