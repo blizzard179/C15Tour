@@ -1,6 +1,7 @@
 import './css/carte.css'
 import './css/leaflet.css';
 import { MapContainer, TileLayer } from 'react-leaflet';
+import HomeButton from './components/HomeButton';
 
 function Carte() {
 
@@ -20,6 +21,9 @@ function Carte() {
     //     <div id="map" ref={mapRef}></div>
     // </>
     return (
+        
+        <>
+        <HomeButton />
         <MapContainer
             center={[47.216671, -1.55]}
             zoom={13}
@@ -27,9 +31,10 @@ function Carte() {
         >
             <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            />
+                attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>' />
         </MapContainer>
+        </>
+
     );
 }
 
