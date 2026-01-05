@@ -1,7 +1,7 @@
 import './css/carte.css'
 import './css/leaflet.css';
 import { MapContainer, TileLayer } from 'react-leaflet';
-import HomeButton from './components/HomeButton';
+import CardConvoi from './components/CardConvoi.jsx';
 
 function Carte() {
 
@@ -23,7 +23,7 @@ function Carte() {
     return (
         
         <>
-        <HomeButton />
+        
         <MapContainer
             center={[47.216671, -1.55]}
             zoom={13}
@@ -33,6 +33,7 @@ function Carte() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>' />
         </MapContainer>
+        <CardConvoi />
         </>
 
     );

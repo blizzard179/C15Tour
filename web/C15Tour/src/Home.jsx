@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import './css/accueil.css'
-import logoAccueil from '/src/assets/logo_accueil.svg'
+import './css/accueil.css';
+import logoAccueil from '../../../Global assets/logo_accueil.svg';
 
 function Home() {
 

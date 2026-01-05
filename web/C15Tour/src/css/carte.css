@@ -35,3 +35,121 @@ body, html, #root {
   outline-offset: 15px;
   text-shadow: 1px 1px 2px #ffffff; 
 }
+
+/* Style pour CardConvoi */
+.convoyCard {
+    
+  width: 320px;
+  border: 2px solid #c24a8b;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  color: #c24a8b;
+  overflow: hidden;
+  position: fixed;
+  top: 20px;
+  left: 50px;
+  z-index: 999;
+  font-family: Montserrat, sans-serif;
+}
+
+.convoyHeader {
+  padding: 14px;
+}
+
+.convoyNameRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.convoyNameInput {
+  flex: 1;
+  border: 2px solid #e7b4cf;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 700;
+  color: #c24a8b;
+  outline: none;
+}
+
+.convoyBody {
+  padding: 14px;
+  padding-top: 0;
+}
+
+.convoyTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8px 0 10px;
+}
+
+.convoyTitle {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.convoySection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.convoySectionLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.label {
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.timeEdit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 2px solid #e7b4cf;
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+
+.timeInput {
+  width: 60px;
+  border: none;
+  outline: none;
+  font-weight: 800;
+  color: #c24a8b;
+  background: transparent;
+  text-align: center;
+}
+
+.stepsEmpty {
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.75;
+  padding: 12px 0;
+}
+
+.arriveeTime {
+  font-weight: 800;
+}
+
+.convoyActions {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 10px;
+}
+
+.iconBtn {
+  border: none;
+  background: transparent;
+  color: #c24a8b;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 6px;
+  line-height: 1;
+}
