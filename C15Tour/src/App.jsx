@@ -1,15 +1,20 @@
-import './css/accueil.css'
-import logoAccueil from '/logo_accueil.svg'
+import { createBrowserRouter, RouterProvider, useRouteError } from 'react-router-dom';
+import Home from './Home';
+import Carte from './Carte';
 
-const AUTHENTIFICATION = "AUTHENTIFICATION"
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Home />,
+  },
+  {
+    path: '/map',
+    element: <Carte />
+  }
+]);
 
 function App() {
-  return <>
-    <div className="background">
-      <img src={logoAccueil} className="logoAccueil" />
-      <button className="authButton"><strong>{AUTHENTIFICATION}</strong></button>
-    </div>
-  </>
+  return <RouterProvider router={router} />
 }
 
 export default App
