@@ -1,0 +1,79 @@
+.background {
+  background-image: url('/damier_accueil.svg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  top: 0;
+  left: 0;
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: auto;
+}
+
+.logoAccueil {
+  /* Secondary / Large (Default) */
+
+  /* Mise en page automatique */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 15px 30px;
+
+  width: 50%;
+  height: 50%;
+
+  /* À l'intérieur de l'auto layout */
+  flex: none;
+  order: 1;
+  flex-grow: 0;
+
+}
+
+.authButton {
+  /* Secondary / Large (Default) */
+
+  /* Mise en page automatique */
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 15px 30px;
+
+  width: 227px;
+  height: 54px;
+
+  /* Neutral/200 */
+  background: #E9ECEF;
+  border-radius: 100px;
+
+  /* À l'intérieur de l'auto layout */
+  flex: none;
+  order: 1;
+  flex-grow: 0;
+
+  cursor: pointer;
+  
+  /* pour l'animation du bouton */
+  border: 0 solid;
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.5);
+  outline: 1px solid;
+  outline-color: rgba(255, 255, 255, .5);
+  outline-offset: 0px;
+  text-shadow: none;
+  transition: all 1250ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.authButton:hover {
+  background: #942968;
+  box-shadow: inset 0 0 200px rgba(255, 255, 255, .5), 0 0 20px rgba(255, 255, 255, .2);
+  outline-color: rgba(255, 255, 255, 0);
+  outline-offset: 15px;
+  text-shadow: 1px 1px 2px #ffffff; 
+}
