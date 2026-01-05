@@ -1,8 +1,6 @@
-import { useEffect, useRef } from 'react';
 import './css/carte.css'
+import './css/leaflet.css';
 import { MapContainer, TileLayer } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import leaflet from "leaflet"
 
 function Carte() {
 
@@ -23,9 +21,9 @@ function Carte() {
     // </>
     return (
         <MapContainer
-            center={[51.505, -0.09]}
+            center={[47.216671, -1.55]}
             zoom={13}
-            style={{ height: '100%', width: '100%' }}
+            style={{ height: '100vh', width: '100vw' }}
         >
             <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
