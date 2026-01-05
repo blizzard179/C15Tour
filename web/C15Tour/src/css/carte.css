@@ -7,6 +7,7 @@ body, html, #root {
 }
 
 /* Style sur l'img pour éviter l'espace blanc */
+/* le bouton home ne sert a rien pour l'instant */
 .buttonHome img {
     display: block;
 }
