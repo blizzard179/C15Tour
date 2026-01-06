@@ -9,10 +9,5 @@ export default defineConfig({
     alias: {
       '@shared': path.resolve(__dirname, '../../shared')
     }
-  },
-  server: {
-    fs: {
-      allow: ['../../']
-    }
   }
 })
