@@ -1,8 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import './css/accueil.css';
-import logoAccueil from '../../../Global assets/logo_accueil.svg';
+import damier from '@shared/global_assets/damier_accueil.svg'
+import logoAccueil from '@shared/global_assets/logo_accueil.svg';
 
 function Home() {
+    document.documentElement.style.setProperty(
+        '--damier',
+        `url(${damier})`
+    )
 
     const navigate = useNavigate();
 

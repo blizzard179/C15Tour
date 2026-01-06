@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
-import PenIcon from "../../../../Global assets/pictos/Pen.svg";
-import FlagIcon from "../../../../Global assets/pictos/Flag.svg";
-import GearIcon from "../../../../Global assets/pictos/Gear.svg";
-import ShareIcon from "../../../../Global assets/pictos/Share.svg";
-import DownloadIcon from "../../../../Global assets/pictos/Download.svg";
+import PenIcon from "@shared/global_assets/pictos/Pen.svg";
+import FlagIcon from "@shared/global_assets/pictos/Flag.svg";
+import GearIcon from "@shared/global_assets/pictos/Gear.svg";
+import ShareIcon from "@shared/global_assets/pictos/Share.svg";
+import DownloadIcon from "@shared/global_assets/pictos/Download.svg";
 
 export default function ConvoyCard({
   initialName = "NOM DE L'ÉDITION",

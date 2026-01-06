@@ -1,5 +1,5 @@
 .background {
-  background-image: url('/src/assets/damier_accueil.svg');
+  background-image: var(--damier);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
