@@ -6,12 +6,24 @@ import ShareIcon from "@shared/global_assets/pictos/Share.svg";
 import DownloadIcon from "@shared/global_assets/pictos/Download.svg";
 
 export default function ConvoyCard({
-  initialName = "NOM DE L'ÉDITION",
+  initialName = "Nom du convoi",
   initialStartTime = "00:00",
 }) {
   const [name, setName] = useState(initialName);
   const [startTime, setStartTime] = useState(initialStartTime);
   const [isEdited, setIsEdited] = useState(false);
+
+  const [expanded, setExpanded] = useState(false);
+
+  const containerStyle = useMemo(
+    () => ({
+      maxHeight: expanded ? '1000px' : '0px',
+      transition: 'max-height 0.5s ease-out',
+      overflow: 'hidden'
+    }),
+    [expanded]
+  );
+
 
   // Fake data a remplacer plus tard
   const data = useMemo(
@@ -26,8 +38,18 @@ export default function ConvoyCard({
 
   const handleNameChange = (e) => {
     setName(e.target.value);
-    if (e.target.value !== initialName) {
+  };
+
+  const handleConfirmEdit = () => {
+    if (name.trim() !== '') {
+      setExpanded(true);
       setIsEdited(true);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleConfirmEdit();
     }
   };
 
@@ -40,9 +62,15 @@ export default function ConvoyCard({
             className="convoyNameInput"
             value={name}
             onChange={handleNameChange}
+            onKeyDown={handleKeyPress}
             placeholder="Nom du convoi"
           />
-          <button className="iconBtn" type="button" aria-label="Éditer le nom">
+          <button 
+            className="iconBtn" 
+            type="button" 
+            aria-label="Éditer le nom"
+            onClick={handleConfirmEdit}
+          >
             <img src={PenIcon} alt="Éditer" />
           </button>
         </div>
@@ -53,9 +81,7 @@ export default function ConvoyCard({
       <div className="convoyBody">
         <div className="convoyTitleRow">
           <div className="convoyTitle">{name || " "}</div>
-          <button className="iconBtn" type="button" aria-label="Éditer">
-            <img src={PenIcon} alt="Éditer" />
-          </button>
+
         </div>
 
         <div className="convoySection">
