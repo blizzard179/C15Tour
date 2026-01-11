@@ -1,0 +1,240 @@
+
+/* Style global pour s'assurer que la carte prend toute la hauteur/la largeur */
+body, html, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* Style sur l'img pour éviter l'espace blanc */
+/* le bouton home ne sert a rien pour l'instant */
+.buttonHome img {
+    display: block;
+}
+
+.buttonHome {
+    position: fixed;
+    top: 20px;
+    left: 60px;
+    z-index: 1000;
+    background-color: #FFFFFF;
+    border: none;
+    border-radius: 8px;
+    padding: 0px;
+    margin: 0px;
+
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* code réutilisé qui vient de accueil.css pour l'animation du bouton */
+.buttonHome:hover {
+  background: #942968;
+  box-shadow: inset 0 0 200px #942968, 0 0 20px #942968;
+  outline-color: rgba(255, 255, 255, 0);
+  outline-offset: 15px;
+  text-shadow: 1px 1px 2px #ffffff; 
+}
+
+/* Style pour CardConvoi */
+.convoyCard {
+    
+  width: 320px;
+  border: 2px solid #c24a8b;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  color: #c24a8b;
+  overflow: hidden;
+  position: fixed;
+  top: 20px;
+  left: 50px;
+  z-index: 999;
+  font-family: Montserrat, sans-serif;
+}
+
+.convoyHeader {
+  padding: 14px;
+}
+
+.convoyNameRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.convoyNameInput {
+  flex: 1;
+  border: 2px solid #e7b4cf;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 700;
+  color: #c24a8b;
+  outline: none;
+}
+
+.convoyBody {
+  padding: 14px;
+  padding-top: 0;
+}
+
+.convoyTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8px 0 10px;
+}
+
+.convoyTitle {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.convoySection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.convoySectionLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.label {
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.timeEdit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 2px solid #e7b4cf;
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+
+.timeInput {
+  width: 60px;
+  border: none;
+  outline: none;
+  font-weight: 800;
+  color: #c24a8b;
+  background: transparent;
+  text-align: center;
+}
+
+.stepsEmpty {
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.75;
+  padding: 12px 0;
+}
+
+.arriveeTime {
+  font-weight: 800;
+}
+
+.convoyActions {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 10px;
+}
+
+.iconBtn {
+  border: none;
+  background: transparent;
+  color: #c24a8b;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 6px;
+  line-height: 1;
+}
+
+/* Style pour ResearchBar */
+.ResearchBarWrapper {
+  position: absolute;
+  top: 20px;
+  left: 55%;
+  transform: translateX(-50%);
+  width: 80%;
+  max-width: 600px;
+  z-index: 1000;
+  padding: 0 14px;
+  pointer-events: none;
+}
+
+.search-input-container {
+  position: relative;
+  width: 80%;
+  margin: 0 auto;
+  pointer-events: auto;
+}
+
+.ResearchBarInput {
+  width: 85%;
+  height: 50px;
+  padding: 0 50px 0 24px;
+  border-radius: 25px;
+  border: 2px solid #c24a8b;
+  background: rgba(255, 255, 255, 0.95);
+  color: #c24a8b;
+  font-size: 16px;
+  font-weight: 500;
+  outline: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.search-icon {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+}
+
+.ResearchBarInput::placeholder {
+  color: #c24a8b;
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+.ResearchBarInput:focus {
+  box-shadow: 0 0 0 3px rgba(194, 74, 139, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Conteneur principal de la carte */
+.map-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+}
+
+/* Conteneur des éléments superposés */
+.overlay-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Réactive les événements de souris sur les éléments enfants */
+.overlay-container > * {
+  pointer-events: auto;
+}
+
+/* Ajustement pour la carte */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
