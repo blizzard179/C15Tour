@@ -10,7 +10,7 @@ const HomeButton = () => {
             onClick={handleClick}
             className="buttonHome"
         >
-            <img src="/src/assets/picto/boutton_home.svg" alt="Home" />
+            <img src="../../Global assets/picto/boutton_home.svg" alt="Home" />
         </button>
     );
 };
