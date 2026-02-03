@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Trip {
+  trip_id          Int       @id @default(autoincrement())
+  trip_name        String    @db.VarChar(255)
+  trip_speed       Int?
+  trip_user_code   String    @unique @db.VarChar(255)
+  trip_admin_code  String    @unique @db.VarChar(255)
+  trip_start_time  DateTime?
+  trip_autoroute   Boolean   @default(false)
+  trip_voie_rapide Boolean   @default(true)
+  trip_chemin      Boolean   @default(true)
+  trip_is_reduced  Boolean   @default(false)
+  trip_reduction   Int?
+  trip_created_at  DateTime  @default(now())
+  trip_update_at   DateTime  @default(now()) @updatedAt
+
+  steps      Step[]
+  telemetry  Telemetry[]
+
+  @@map("trip")
+}
+
+model Step {
+  step_id            Int      @id @default(autoincrement())
+  step_name          String   @db.VarChar(255)
+  step_address       String   @db.VarChar(255)
+  step_latitude      Decimal  @db.Decimal(9, 6)
+  step_longitude     Decimal  @db.Decimal(9, 6)
+  step_is_stop       Boolean  @default(false)
+  step_stop_duration Int?
+  step_order         Int?
+  step_trip_id       Int
+  step_created_at    DateTime @default(now())
+  step_updated_at    DateTime @default(now()) @updatedAt
+
+  trip Trip @relation(fields: [step_trip_id], references: [trip_id], onDelete: Cascade)
+
+  @@map("step")
+}
+
+model Telemetry {
+  telemetry_id         Int      @id @default(autoincrement())
+  telemetry_trip_id    Int
+  telemetry_latitude   Decimal  @db.Decimal(9, 6)
+  telemetry_longitude  Decimal  @db.Decimal(9, 6)
+  telemetry_speed      Float?
+  telemetry_heading    Float?
+  telemetry_timestamp  DateTime @default(now())
+  telemetry_created_at DateTime @default(now())
+
+  trip Trip @relation(fields: [telemetry_trip_id], references: [trip_id], onDelete: Cascade)
+
+  @@map("telemetry")
+  @@index([telemetry_trip_id, telemetry_timestamp])
+}

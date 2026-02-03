@@ -1,0 +1,141 @@
+const PDFDocument = require('pdfkit');
+const prisma = require('../config/database');
+
+// Export PDF
+const exportToPDF = async (tripId) => {
+  const trip = await prisma.trip.findUnique({
+    where: { trip_id: parseInt(tripId) },
+    include: {
+      steps: {
+        orderBy: { step_order: 'asc' }
+      }
+    }
+  });
+
+  if (!trip) {
+    throw { status: 404, message: 'Trip non trouvé' };
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument();
+      const chunks = [];
+
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      // En-tête
+      doc.fontSize(20).text('C15Tour - Feuille de route', { align: 'center' });
+      doc.moveDown();
+
+      // Informations du convoi
+      doc.fontSize(14).text(`Convoi: ${trip.trip_name}`, { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(10);
+      doc.text(`Code utilisateur: ${trip.trip_user_code}`);
+      doc.text(`Code admin: ${trip.trip_admin_code}`);
+      if (trip.trip_speed) {
+        doc.text(`Vitesse moyenne: ${trip.trip_speed} km/h`);
+      }
+      if (trip.trip_start_time) {
+        doc.text(`Heure de départ: ${new Date(trip.trip_start_time).toLocaleString('fr-FR')}`);
+      }
+      doc.moveDown();
+
+      // Préférences de route
+      doc.fontSize(12).text('Préférences de route:', { underline: true });
+      doc.fontSize(10);
+      doc.text(`Autoroute: ${trip.trip_autoroute ? 'Oui' : 'Non'}`);
+      doc.text(`Voie rapide: ${trip.trip_voie_rapide ? 'Oui' : 'Non'}`);
+      doc.text(`Chemin: ${trip.trip_chemin ? 'Oui' : 'Non'}`);
+      doc.moveDown();
+
+      // Liste des étapes
+      doc.fontSize(12).text('Étapes:', { underline: true });
+      doc.moveDown(0.5);
+
+      trip.steps.forEach((step, index) => {
+        doc.fontSize(10);
+        doc.text(`${index + 1}. ${step.step_name}`, { bold: true });
+        doc.fontSize(9);
+        doc.text(`   Adresse: ${step.step_address}`);
+        doc.text(`   Coordonnées: ${step.step_latitude}, ${step.step_longitude}`);
+        if (step.step_is_stop && step.step_stop_duration) {
+          doc.text(`   Pause: ${step.step_stop_duration} minutes`);
+        }
+        doc.moveDown(0.5);
+      });
+
+      // Pied de page
+      doc.fontSize(8).text(
+        `Généré le ${new Date().toLocaleString('fr-FR')}`,
+        50,
+        doc.page.height - 50,
+        { align: 'center' }
+      );
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
+// Export GPX
+const exportToGPX = async (tripId) => {
+  const trip = await prisma.trip.findUnique({
+    where: { trip_id: parseInt(tripId) },
+    include: {
+      steps: {
+        orderBy: { step_order: 'asc' }
+      }
+    }
+  });
+
+  if (!trip) {
+    throw { status: 404, message: 'Trip non trouvé' };
+  }
+
+  // Générer le GPX manuellement (format XML)
+  let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  gpx += '<gpx version="1.1" creator="C15Tour" xmlns="http://www.topografix.com/GPX/1/1">\n';
+  gpx += `  <metadata>\n`;
+  gpx += `    <name>${escapeXml(trip.trip_name)}</name>\n`;
+  gpx += `    <time>${new Date().toISOString()}</time>\n`;
+  gpx += `  </metadata>\n`;
+
+  // Ajouter une route
+  gpx += `  <rte>\n`;
+  gpx += `    <name>${escapeXml(trip.trip_name)}</name>\n`;
+
+  trip.steps.forEach((step, index) => {
+    gpx += `    <rtept lat="${step.step_latitude}" lon="${step.step_longitude}">\n`;
+    gpx += `      <name>${escapeXml(step.step_name)}</name>\n`;
+    gpx += `      <desc>${escapeXml(step.step_address)}</desc>\n`;
+    if (step.step_is_stop) {
+      gpx += `      <type>pause</type>\n`;
+    }
+    gpx += `    </rtept>\n`;
+  });
+
+  gpx += `  </rte>\n`;
+  gpx += '</gpx>';
+
+  return Buffer.from(gpx, 'utf-8');
+};
+
+// Échapper les caractères spéciaux XML
+const escapeXml = (text) => {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+};
+
+module.exports = {
+  exportToPDF,
+  exportToGPX
+};
