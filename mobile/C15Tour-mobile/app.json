@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "C15Tour_mobile",
-    "slug": "C15Tour_mobile",
+    "name": "C15Tour-mobile",
+    "slug": "C15Tour-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
