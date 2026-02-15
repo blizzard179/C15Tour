@@ -1,30 +1,31 @@
-
 /* Style global pour s'assurer que la carte prend toute la hauteur/la largeur */
-body, html, #root {
-    height: 100%;
-    margin: 0;
-    padding: 0;
+body,
+html,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /* Style sur l'img pour éviter l'espace blanc */
 /* le bouton home ne sert a rien pour l'instant */
 .buttonHome img {
-    display: block;
+  display: block;
 }
 
 .buttonHome {
-    position: fixed;
-    top: 20px;
-    left: 60px;
-    z-index: 1000;
-    background-color: #FFFFFF;
-    border: none;
-    border-radius: 8px;
-    padding: 0px;
-    margin: 0px;
+  position: fixed;
+  top: 20px;
+  left: 60px;
+  z-index: 1000;
+  background-color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  padding: 0px;
+  margin: 0px;
 
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 /* code réutilisé qui vient de accueil.css pour l'animation du bouton */
@@ -33,17 +34,17 @@ body, html, #root {
   box-shadow: inset 0 0 200px #942968, 0 0 20px #942968;
   outline-color: rgba(255, 255, 255, 0);
   outline-offset: 15px;
-  text-shadow: 1px 1px 2px #ffffff; 
+  text-shadow: 1px 1px 2px #ffffff;
 }
 
 /* Style pour CardConvoi */
 .convoyCard {
-    
+
   width: 320px;
   border: 2px solid #c24a8b;
   border-radius: 14px;
   background: #fff;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   color: #c24a8b;
   overflow: hidden;
   position: fixed;
@@ -228,7 +229,7 @@ body, html, #root {
 }
 
 /* Réactive les événements de souris sur les éléments enfants */
-.overlay-container > * {
+.overlay-container>* {
   pointer-events: auto;
 }
 
@@ -237,4 +238,24 @@ body, html, #root {
   width: 100%;
   height: 100%;
   position: relative;
+}
+
+.text-right-corner {
+  color: #c24a8b;
+  font-family: Montserrat, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.text-roads-tour {
+  font-size: 20px;
+
+}
+
+.container-right-corner {
+  margin: 10px;
+  margin-top: 20px;
+  position: fixed;
+  top: 0;
+  right: 0;
 }

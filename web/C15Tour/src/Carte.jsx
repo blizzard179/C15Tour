@@ -27,14 +27,6 @@ function Carte() {
                 zoom={13}
                 style={{ height: '100vh', width: '100%' }}
             >
-                {/* <button onClick={() => setWaypoints([])}>
-                    Réinitialiser
-                </button>
-                <button onClick={() =>
-                    setWaypoints(prev => prev.slice(0, -1))
-                }>
-                    Annuler dernier point
-                </button> */}
 
                 /* Tuile openstreetmap */
                 <TileLayer
@@ -59,6 +51,14 @@ function Carte() {
             <div className="overlay-container">
                 <ResearchBar />
                 <ConvoyCard />
+                <div className='container-right-corner'>
+                    <div className='text-right-corner text-roads-tour' >
+                        ROADS TOUR
+                    </div>
+                    <div className='text-right-corner'>
+                        By C15 Tour
+                    </div>
+                </div>
             </div>
         </div>
 
