@@ -4,6 +4,7 @@ import FlagIcon from "@shared/global_assets/pictos/Flag.svg";
 import GearIcon from "@shared/global_assets/pictos/Gear.svg";
 import ShareIcon from "@shared/global_assets/pictos/Share.svg";
 import DownloadIcon from "@shared/global_assets/pictos/Download.svg";
+import SaveIcon from "@shared/global_assets/pictos/Check.svg";
 
 export default function ConvoyCard({
   initialName = "Nom du convoi",
@@ -53,6 +54,14 @@ export default function ConvoyCard({
     }
   };
 
+  const checkNameConvoi = () => {
+    if (name.trim() === '') {
+      alert("Veuillez entrer un nom pour le convoi.");
+    } else {
+      // saveTrip, en attente des endpoints
+    }
+  }
+
   return (
     <div className="convoyCard">
       {/* Header (mode édition) */}
@@ -65,9 +74,9 @@ export default function ConvoyCard({
             onKeyDown={handleKeyPress}
             placeholder="Nom du convoi"
           />
-          <button 
-            className="iconBtn" 
-            type="button" 
+          <button
+            className="iconBtn"
+            type="button"
             aria-label="Éditer le nom"
             onClick={handleConfirmEdit}
           >
@@ -78,54 +87,57 @@ export default function ConvoyCard({
 
       {/* Body (affichage) */}
       {isEdited && (
-      <div className="convoyBody">
-        <div className="convoyTitleRow">
-          <div className="convoyTitle">{name || " "}</div>
+        <div className="convoyBody">
+          <div className="convoyTitleRow">
+            <div className="convoyTitle">{name || " "}</div>
 
-        </div>
-
-        <div className="convoySection">
-          <div className="convoySectionLeft">
-            <img src={FlagIcon} alt="Départ" className="flagIcon" />
-            <span className="label">{data.departLabel}</span>
           </div>
 
-          <div className="timeEdit">
-            <input
-              className="timeInput"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              placeholder="00:00"
-            />
-            <button className="iconBtn" type="button" aria-label="Éditer l’heure">
-              <img src={PenIcon} alt="Éditer" />
+          <div className="convoySection">
+            <div className="convoySectionLeft">
+              <img src={FlagIcon} alt="Départ" className="flagIcon" />
+              <span className="label">{data.departLabel}</span>
+            </div>
+
+            <div className="timeEdit">
+              <input
+                className="timeInput"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                placeholder="00:00"
+              />
+              <button className="iconBtn" type="button" aria-label="Éditer l’heure">
+                <img src={PenIcon} alt="Éditer" />
+              </button>
+            </div>
+          </div>
+
+          <div className="stepsEmpty">{data.stepsText}</div>
+
+          <div className="convoySection bottom">
+            <div className="convoySectionLeft">
+              <img src={FlagIcon} alt="Arrivée" className="flagIcon" />
+              <span className="label">{data.arriveeLabel}</span>
+            </div>
+
+            <div className="arriveeTime">{data.arriveeTime}</div>
+          </div>
+
+          <div className="convoyActions">
+            <button className="iconBtn" type="button" aria-label="Paramètres">
+              <img src={GearIcon} alt="Paramètres" />
+            </button>
+            <button className="iconBtn" type="button" aria-label="Sauvegarder" onClick={checkNameConvoi}>
+              <img src={SaveIcon} alt="Sauvegarder" />
+            </button>
+            <button className="iconBtn" type="button" aria-label="Partager">
+              <img src={ShareIcon} alt="Partager" />
+            </button>
+            <button className="iconBtn" type="button" aria-label="Télécharger">
+              <img src={DownloadIcon} alt="Télécharger" />
             </button>
           </div>
         </div>
-
-        <div className="stepsEmpty">{data.stepsText}</div>
-
-        <div className="convoySection bottom">
-          <div className="convoySectionLeft">
-            <img src={FlagIcon} alt="Arrivée" className="flagIcon" />
-            <span className="label">{data.arriveeLabel}</span>
-          </div>
-
-          <div className="arriveeTime">{data.arriveeTime}</div>
-        </div>
-
-        <div className="convoyActions">
-          <button className="iconBtn" type="button" aria-label="Paramètres">
-            <img src={GearIcon} alt="Paramètres" />
-          </button>
-          <button className="iconBtn" type="button" aria-label="Partager">
-            <img src={ShareIcon} alt="Partager" />
-          </button>
-          <button className="iconBtn" type="button" aria-label="Télécharger">
-            <img src={DownloadIcon} alt="Télécharger" />
-          </button>
-        </div>
-      </div>
       )}
     </div>
   );
