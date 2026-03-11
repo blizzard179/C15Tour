@@ -1,7 +1,7 @@
 import express from "express";
 import "dotenv/config";
-import tripsRouter from "./routes/trips.routes.js";
-import stepsRouter from "./routes/steps.routes.js";
+import tripsRouter from "./routes/tripRoutes.js";
+import stepsRouter from "./routes/stepRoutes.js";
 
 const app = express();
 app.use(express.json());
