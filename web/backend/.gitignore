@@ -1,10 +1,15 @@
 # Node
 node_modules/
+
+# Logs
+*.log
 npm-debug.log*
 yarn-error.log*
 
 # Environnement
 .env
+.env.local
+.env.production
 
 # Build
 dist/
