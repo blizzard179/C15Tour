@@ -1,17 +1,21 @@
 import './css/carte.css'
 import './css/leaflet.css';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import RoutingMachine from './helper/RoutingMachine';
 import ClickHandler from './helper/ClickHandler';
 import FlyTo from './helper/FlyTo';
 import ConvoyCard from './components/CardConvoi';
 import Pin from '@shared/global_assets/pictos/Pin 2.svg'
 import ResearchBar from './components/ResearchBar';
+import RoadsTour from './components/RoadsTour';
 
 function Carte() {
 
     const [waypoints, setWaypoints] = useState([])
+    const [isConvoyBelowSearch, setIsConvoyBelowSearch] = useState(false);
+    const leftPanelRef = useRef(null);
+    const searchLayerRef = useRef(null);
 
     const pinIcon = L.icon({
         iconUrl: Pin,
@@ -19,6 +23,33 @@ function Carte() {
         iconAnchor: [16, 32],
         popupAnchor: [0, -28]
     });
+
+    useLayoutEffect(() => {
+        const updateOverlayLayout = () => {
+            const leftPanel = leftPanelRef.current;
+            const searchLayer = searchLayerRef.current;
+            if (!leftPanel || !searchLayer) return;
+
+            const leftRect = leftPanel.getBoundingClientRect();
+            const searchRect = searchLayer.getBoundingClientRect();
+
+            const safetyGap = 40;
+            const mustStack = leftRect.right + safetyGap >= searchRect.left;
+            setIsConvoyBelowSearch((prev) => (prev === mustStack ? prev : mustStack));
+        };
+
+        updateOverlayLayout();
+        const observer = new ResizeObserver(updateOverlayLayout);
+
+        if (leftPanelRef.current) observer.observe(leftPanelRef.current);
+        if (searchLayerRef.current) observer.observe(searchLayerRef.current);
+        window.addEventListener('resize', updateOverlayLayout);
+
+        return () => {
+            observer.disconnect();
+            window.removeEventListener('resize', updateOverlayLayout);
+        };
+    }, []);
 
     return (
         <div className="map-container">
@@ -49,16 +80,16 @@ function Carte() {
 
             </MapContainer>
             <div className="overlay-container">
-                <ResearchBar />
-                <ConvoyCard />
-                <div className='container-right-corner'>
-                    <div className='text-right-corner text-roads-tour' >
-                        ROADS TOUR
-                    </div>
-                    <div className='text-right-corner'>
-                        By C15 Tour
-                    </div>
+                <div className="search-bar-layer" ref={searchLayerRef}>
+                    <ResearchBar />
                 </div>
+                <div
+                    className={`left-panel ${isConvoyBelowSearch ? 'left-panel-below' : ''}`}
+                    ref={leftPanelRef}
+                >
+                    <ConvoyCard />
+                </div>
+                <RoadsTour />
             </div>
         </div>
 

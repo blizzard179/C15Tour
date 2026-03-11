@@ -1,4 +1,4 @@
-/* Style global pour s'assurer que la carte prend toute la hauteur/la largeur */
+﻿/* Style global pour s'assurer que la carte prend toute la hauteur/la largeur */
 body,
 html,
 #root {
@@ -21,9 +21,8 @@ html,
   background-color: #FFFFFF;
   border: none;
   border-radius: 8px;
-  padding: 0px;
-  margin: 0px;
-
+  padding: 0;
+  margin: 0;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
@@ -39,18 +38,15 @@ html,
 
 /* Style pour CardConvoi */
 .convoyCard {
-
-  width: 320px;
+  width: clamp(240px, 28vw, 340px);
+  max-width: 100%;
   border: 2px solid #c24a8b;
   border-radius: 14px;
   background: #fff;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   color: #c24a8b;
   overflow: hidden;
-  position: fixed;
-  top: 20px;
-  left: 50px;
-  z-index: 999;
+  position: relative;
   font-family: Montserrat, sans-serif;
 }
 
@@ -142,6 +138,7 @@ html,
 .convoyActions {
   display: flex;
   justify-content: space-between;
+  margin-top: 80px;
   padding-top: 10px;
 }
 
@@ -157,26 +154,22 @@ html,
 
 /* Style pour ResearchBar */
 .ResearchBarWrapper {
-  position: absolute;
-  top: 20px;
-  left: 55%;
-  transform: translateX(-50%);
-  width: 80%;
-  max-width: 600px;
+  position: relative;
+  width: 100%;
   z-index: 1000;
-  padding: 0 14px;
+  padding: 0;
   pointer-events: none;
 }
 
 .search-input-container {
   position: relative;
-  width: 80%;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   pointer-events: auto;
 }
 
 .ResearchBarInput {
-  width: 85%;
+  width: 100%;
   height: 50px;
   padding: 0 50px 0 24px;
   border-radius: 25px;
@@ -185,6 +178,7 @@ html,
   color: #c24a8b;
   font-size: 16px;
   font-weight: 500;
+  box-sizing: border-box;
   outline: none;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
@@ -221,15 +215,21 @@ html,
 /* Conteneur des éléments superposés */
 .overlay-container {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  inset: 0;
   pointer-events: none;
   z-index: 1000;
+  --map-left-ui-space: 56px;
+  --roads-tour-width: 120px;
+  --roads-tour-height: 23px;
+  --roads-tour-right-offset: 16px;
+  --roads-tour-gap: 12px;
+  --search-max-width: 620px;
+  --map-right-ui-space: calc(
+    var(--roads-tour-width) + var(--roads-tour-right-offset) + var(--roads-tour-gap)
+  );
 }
 
-/* Réactive les événements de souris sur les éléments enfants */
-.overlay-container>* {
+.overlay-container > * {
   pointer-events: auto;
 }
 
@@ -240,22 +240,126 @@ html,
   position: relative;
 }
 
-.text-right-corner {
-  color: #c24a8b;
-  font-family: Montserrat, sans-serif;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.text-roads-tour {
-  font-size: 20px;
-
-}
-
-.container-right-corner {
-  margin: 10px;
-  margin-top: 20px;
+/* Overlay layout */
+.left-panel {
   position: fixed;
-  top: 0;
-  right: 0;
+  top: max(20px, env(safe-area-inset-top));
+  left: 50px;
+  z-index: 1200;
+}
+
+.left-panel.left-panel-below {
+  top: calc(max(20px, env(safe-area-inset-top)) + 60px);
+  left: 15px;
+}
+
+.search-bar-layer {
+  position: fixed;
+  top: max(20px, env(safe-area-inset-top));
+  left: calc(var(--map-left-ui-space) + env(safe-area-inset-left));
+  right: calc(var(--map-right-ui-space) + env(safe-area-inset-right));
+  width: auto;
+  max-width: var(--search-max-width);
+  margin-left: auto;
+  margin-right: auto;
+  z-index: 2100;
+  pointer-events: none;
+}
+
+.roads-tour-badge {
+  position: fixed;
+  top: max(18px, env(safe-area-inset-top));
+  right: var(--roads-tour-right-offset);
+  width: var(--roads-tour-width);
+  height: var(--roads-tour-height);
+  z-index: 1300;
+  text-align: right;
+  pointer-events: none;
+}
+
+.roads-tour-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+@media (max-width: 1024px) {
+  .convoyCard {
+    width: clamp(220px, 36vw, 300px);
+  }
+
+  .left-panel {
+    left: 44px;
+  }
+
+  .ResearchBarInput {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 760px) {
+  .overlay-container {
+    --map-left-ui-space: 56px;
+    --roads-tour-right-offset: 10px;
+    --map-right-ui-space: 10px;
+  }
+
+  .search-bar-layer {
+    top: max(10px, env(safe-area-inset-top));
+  }
+
+  .left-panel {
+    top: max(66px, calc(env(safe-area-inset-top) + 56px));
+    left: 10px;
+    right: 10px;
+  }
+
+  .left-panel.left-panel-below {
+    top: max(66px, calc(env(safe-area-inset-top) + 56px));
+  }
+
+  .convoyCard {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .roads-tour-badge {
+    display: none;
+  }
+
+  .ResearchBarInput {
+    height: 44px;
+    font-size: 14px;
+    padding: 0 44px 0 14px;
+  }
+
+  .search-icon {
+    right: 14px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .overlay-container {
+    --map-left-ui-space: 52px;
+  }
+
+  .left-panel {
+    top: max(62px, calc(env(safe-area-inset-top) + 52px));
+  }
+
+  .convoyHeader {
+    padding: 10px;
+  }
+
+  .convoyNameInput {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .iconBtn {
+    padding: 4px;
+  }
 }
