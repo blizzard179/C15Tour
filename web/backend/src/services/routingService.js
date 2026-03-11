@@ -1,5 +1,5 @@
-const axios = require('axios');
-const prisma = require('../config/database');
+import axios from 'axios';
+import prisma from '../config/database.js';
 
 // Utilisation de l'API OSRM (gratuite, pas de clé nécessaire)
 const OSRM_BASE_URL = 'https://router.project-osrm.org';
@@ -68,6 +68,6 @@ const computeRoute = async (tripId) => {
   }
 };
 
-module.exports = {
+export default {
   computeRoute
 };

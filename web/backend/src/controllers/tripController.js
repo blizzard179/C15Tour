@@ -1,4 +1,4 @@
-const tripService = require('../services/tripService');
+import tripService from '../services/tripService.js';
 
 // GET /api/trips
 const getAllTrips = async (req, res, next) => {
@@ -100,7 +100,7 @@ const regenerateUserCode = async (req, res, next) => {
   }
 };
 
-module.exports = {
+export default {
   getAllTrips,
   getTripById,
   getLastTrip,

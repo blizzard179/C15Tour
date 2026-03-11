@@ -1,4 +1,4 @@
-const routingService = require('../services/routingService');
+import routingService from '../services/routingService.js';
 
 // POST /api/trip/:tripId/compute
 const computeRoute = async (req, res, next) => {
@@ -10,6 +10,6 @@ const computeRoute = async (req, res, next) => {
   }
 };
 
-module.exports = {
+export default {
   computeRoute
 };

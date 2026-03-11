@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import stepController from '../controllers/stepController.js';
+import { validateStep, validateStepUpdate, validateReorder } from '../middlewares/validation.js';
+
 const router = express.Router();
-const stepController = require('../controllers/stepController');
-const { validateStep, validateStepUpdate, validateReorder } = require('../middlewares/validation');
 
 /**
  * @swagger
@@ -236,4 +237,4 @@ router.put('/steps/:id', validateStepUpdate, stepController.updateStep);
  */
 router.delete('/steps/:id', stepController.deleteStep);
 
-module.exports = router;
+export default router;

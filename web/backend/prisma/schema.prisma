@@ -20,7 +20,7 @@ model Trip {
   trip_is_reduced  Boolean   @default(false)
   trip_reduction   Int?
   trip_created_at  DateTime  @default(now())
-  trip_update_at   DateTime  @default(now()) @updatedAt
+  trip_updated_at   DateTime  @default(now()) @updatedAt
 
   steps      Step[]
   telemetry  Telemetry[]
@@ -30,7 +30,7 @@ model Trip {
 
 model Step {
   step_id            Int      @id @default(autoincrement())
-  step_name          String   @db.VarChar(255)
+  step_name          String    @db.VarChar(255)
   step_address       String   @db.VarChar(255)
   step_latitude      Decimal  @db.Decimal(9, 6)
   step_longitude     Decimal  @db.Decimal(9, 6)

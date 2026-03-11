@@ -1,4 +1,4 @@
-const geocodeService = require('../services/geocodeService');
+import geocodeService from '../services/geocodeService.js';
 
 // GET /api/geocode/search?q=...
 const searchAddress = async (req, res, next) => {
@@ -20,7 +20,7 @@ const reverseGeocode = async (req, res, next) => {
   }
 };
 
-module.exports = {
+export default {
   searchAddress,
   reverseGeocode
 };

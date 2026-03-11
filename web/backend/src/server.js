@@ -6,6 +6,7 @@ import stepsRouter from "./routes/stepRoutes.js";
 const app = express();
 app.use(express.json());
 
+app.get("/", (req, res) => res.json({ message: "C15Tour API" }));
 app.get("/health", (req, res) => res.json({ ok: true }));
 app.use("/api/trips", tripsRouter);
 app.use("/api/steps", stepsRouter);

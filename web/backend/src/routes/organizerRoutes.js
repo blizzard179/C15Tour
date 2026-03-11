@@ -1,6 +1,7 @@
-const express = require('express');
+import express from 'express';
+import organizerController from '../controllers/organizerController.js';
+
 const router = express.Router();
-const organizerController = require('../controllers/organizerController');
 
 /**
  * @swagger
@@ -14,4 +15,4 @@ const organizerController = require('../controllers/organizerController');
  */
 router.get('/dashboard', organizerController.getDashboard);
 
-module.exports = router;
+export default router;

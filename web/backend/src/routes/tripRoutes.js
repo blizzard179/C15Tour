@@ -1,10 +1,11 @@
-const express = require('express');
+import express from 'express';
+import tripController from '../controllers/tripController.js';
+import routingController from '../controllers/routingController.js';
+import exportController from '../controllers/exportController.js';
+import telemetryController from '../controllers/telemetryController.js';
+import { validateTrip, validateTelemetry } from '../middlewares/validation.js';
+
 const router = express.Router();
-const tripController = require('../controllers/tripController');
-const routingController = require('../controllers/routingController');
-const exportController = require('../controllers/exportController');
-const telemetryController = require('../controllers/telemetryController');
-const { validateTrip, validateTelemetry } = require('../middlewares/validation');
 
 /**
  * @swagger
@@ -39,7 +40,7 @@ const { validateTrip, validateTelemetry } = require('../middlewares/validation')
  *         trip_created_at:
  *           type: string
  *           format: date-time
- *         trip_update_at:
+ *         trip_updated_at:
  *           type: string
  *           format: date-time
  *     TripInput:
@@ -307,4 +308,4 @@ router.post('/:tripId/telemetry', validateTelemetry, telemetryController.createT
  */
 router.get('/:tripId/telemetry', telemetryController.getTelemetryByTrip);
 
-module.exports = router;
+export default router;

@@ -1,4 +1,4 @@
-const prisma = require('../config/database');
+import prisma from '../config/database.js';
 
 // Récupérer toutes les étapes d'un trip
 const getStepsByTripId = async (tripId) => {
@@ -181,7 +181,7 @@ const reorderSteps = async (tripId, stepIds) => {
   return getStepsByTripId(tripId);
 };
 
-module.exports = {
+export default {
   getStepsByTripId,
   getStepById,
   getStopsByTripId,

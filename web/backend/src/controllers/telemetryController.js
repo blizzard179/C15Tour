@@ -1,4 +1,4 @@
-const telemetryService = require('../services/telemetryService');
+import telemetryService from '../services/telemetryService.js';
 
 // POST /api/trip/:tripId/telemetry
 const createTelemetry = async (req, res, next) => {
@@ -20,7 +20,7 @@ const getTelemetryByTrip = async (req, res, next) => {
   }
 };
 
-module.exports = {
+export default {
   createTelemetry,
   getTelemetryByTrip
 };

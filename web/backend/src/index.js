@@ -1,12 +1,11 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
-
-const tripRoutes = require('./routes/tripRoutes');
-const stepRoutes = require('./routes/stepRoutes');
-const geocodeRoutes = require('./routes/geocodeRoutes');
-const organizerRoutes = require('./routes/organizerRoutes');
-const errorHandler = require('./middlewares/errorHandler');
+import express from 'express';
+import cors from 'cors';
+import 'dotenv/config';
+import tripRoutes from './routes/tripRoutes.js';
+import stepRoutes from './routes/stepRoutes.js';
+import geocodeRoutes from './routes/geocodeRoutes.js';
+import organizerRoutes from './routes/organizerRoutes.js';
+import errorHandler from './middlewares/errorHandler.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;

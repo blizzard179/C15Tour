@@ -1,4 +1,4 @@
-const organizerService = require('../services/organizerService');
+import organizerService from '../services/organizerService.js';
 
 // GET /api/organizer/dashboard
 const getDashboard = async (req, res, next) => {
@@ -10,6 +10,6 @@ const getDashboard = async (req, res, next) => {
   }
 };
 
-module.exports = {
+export default {
   getDashboard
 };

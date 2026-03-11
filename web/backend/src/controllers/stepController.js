@@ -1,4 +1,4 @@
-const stepService = require('../services/stepService');
+import stepService from '../services/stepService.js';
 
 // GET /api/trips/:tripId/steps
 const getStepsByTrip = async (req, res, next) => {
@@ -72,7 +72,7 @@ const reorderSteps = async (req, res, next) => {
   }
 };
 
-module.exports = {
+export default {
   getStepsByTrip,
   getStopsByTrip,
   getStepById,

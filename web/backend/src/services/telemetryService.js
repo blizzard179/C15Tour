@@ -1,4 +1,4 @@
-const prisma = require('../config/database');
+import prisma from '../config/database.js';
 
 // Enregistrer une position GPS
 const createTelemetry = async (tripId, data) => {
@@ -50,7 +50,7 @@ const getTelemetryByTrip = async (tripId, since) => {
   });
 };
 
-module.exports = {
+export default {
   createTelemetry,
   getTelemetryByTrip
 };

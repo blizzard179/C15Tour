@@ -1,5 +1,5 @@
-const PDFDocument = require('pdfkit');
-const prisma = require('../config/database');
+import PDFDocument from 'pdfkit';
+import prisma from '../config/database.js';
 
 // Export PDF
 const exportToPDF = async (tripId) => {
@@ -135,7 +135,7 @@ const escapeXml = (text) => {
     .replace(/'/g, '&apos;');
 };
 
-module.exports = {
+export default {
   exportToPDF,
   exportToGPX
 };

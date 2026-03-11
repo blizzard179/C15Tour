@@ -1,4 +1,4 @@
-const prisma = require('../config/database');
+import prisma from '../config/database.js';
 
 // Générer un code aléatoire
 const generateCode = (length) => {
@@ -29,7 +29,7 @@ const generateUniqueCode = async (length, isUserCode) => {
 // Récupérer tous les trips
 const getAllTrips = async () => {
   return prisma.trip.findMany({
-    orderBy: { trip_update_at: 'desc' },
+    orderBy: { trip_updated_at: 'desc' },
     include: { steps: { orderBy: { step_order: 'asc' } } }
   });
 };
@@ -168,11 +168,11 @@ const searchTripsByName = async (name) => {
     where: {
       trip_name: { contains: name }
     },
-    orderBy: { trip_update_at: 'desc' }
+    orderBy: { trip_updated_at: 'desc' }
   });
 };
 
-module.exports = {
+export default {
   getAllTrips,
   getTripById,
   getLastTrip,

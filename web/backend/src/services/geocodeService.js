@@ -1,4 +1,4 @@
-const axios = require('axios');
+import axios from 'axios';
 
 // Utilisation de l'API Nominatim d'OpenStreetMap 
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
@@ -82,7 +82,7 @@ const reverseGeocode = async (lat, lon) => {
   }
 };
 
-module.exports = {
+export default {
   searchAddress,
   reverseGeocode
 };

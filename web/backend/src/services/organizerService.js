@@ -1,4 +1,4 @@
-const prisma = require('../config/database');
+import prisma from '../config/database.js';
 
 // GET /api/organizer/dashboard - Tableau de bord organisateur
 const getDashboard = async () => {
@@ -40,6 +40,6 @@ const getDashboard = async () => {
   };
 };
 
-module.exports = {
+export default {
   getDashboard
 };

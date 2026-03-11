@@ -1,4 +1,4 @@
-const Joi = require('joi');
+import Joi from 'joi';
 
 // Validation pour créer/modifier un Trip
 const tripSchema = Joi.object({
@@ -123,10 +123,8 @@ const validate = (schema) => {
   };
 };
 
-module.exports = {
-  validateTrip: validate(tripSchema),
-  validateStep: validate(stepSchema),
-  validateStepUpdate: validate(stepUpdateSchema),
-  validateReorder: validate(reorderSchema),
-  validateTelemetry: validate(telemetrySchema)
-};
+export const validateTrip = validate(tripSchema);
+export const validateStep = validate(stepSchema);
+export const validateStepUpdate = validate(stepUpdateSchema);
+export const validateReorder = validate(reorderSchema);
+export const validateTelemetry = validate(telemetrySchema);

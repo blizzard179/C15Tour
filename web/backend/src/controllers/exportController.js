@@ -1,4 +1,4 @@
-const exportService = require('../services/exportService');
+import exportService from '../services/exportService.js';
 
 // GET /api/trip/:tripId/exports/pdf
 const exportToPDF = async (req, res, next) => {
@@ -26,7 +26,7 @@ const exportToGPX = async (req, res, next) => {
   }
 };
 
-module.exports = {
+export default {
   exportToPDF,
   exportToGPX
 };

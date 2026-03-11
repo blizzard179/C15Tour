@@ -1,6 +1,7 @@
-const express = require('express');
+import express from 'express';
+import geocodeController from '../controllers/geocodeController.js';
+
 const router = express.Router();
-const geocodeController = require('../controllers/geocodeController');
 
 /**
  * @swagger
@@ -46,4 +47,4 @@ router.get('/search', geocodeController.searchAddress);
  */
 router.get('/reverse', geocodeController.reverseGeocode);
 
-module.exports = router;
+export default router;
