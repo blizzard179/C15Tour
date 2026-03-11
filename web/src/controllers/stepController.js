@@ -39,14 +39,7 @@ const createStep = async (req, res, next) => {
     next(error);
   }
 };
-const createTrip= async (req, res, next) => {
-  try {
-    const trip = await stepService.createTrip(req.body);
-    res.status(201).json(trip);
-  } catch (error) {
-    next(error);
-  }
-};
+
 
 // PUT /api/steps/:id
 const updateStep = async (req, res, next) => {

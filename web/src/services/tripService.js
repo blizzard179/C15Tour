@@ -94,7 +94,18 @@ const getTripByAdminCode = async (adminCode) => {
 const createTrip = async (data) => {
   const userCode = await generateUniqueCode(6, true);
   const adminCode = await generateUniqueCode(8, false);
-  
+
+  // Cohérence reduction
+
+  const isReduced = data.trip_is_reduced ?? false;
+  let tripReduction = data.trip_reduction ?? 0;
+  if (isReduced && tripReduction == 0){
+    throw { status: 400, message: 'Le taux de réduction est obligatoire quand is_reduced est true' };
+  }
+  if (!isReduced) {
+    tripReduction = 0;
+  }
+
   return prisma.trip.create({
     data: {
       trip_name: data.trip_name,
@@ -103,8 +114,8 @@ const createTrip = async (data) => {
       trip_autoroute: data.trip_autoroute ?? true,
       trip_voie_rapide: data.trip_voie_rapide ?? true,
       trip_chemin: data.trip_chemin ?? false,
-      trip_is_reduced: data.trip_is_reduced ?? false,
-      trip_reduction: data.trip_reduction ?? 0,
+      trip_is_reduced: isReduced,
+      trip_reduction: tripReduction,
       trip_user_code: userCode,
       trip_admin_code: adminCode
     },
