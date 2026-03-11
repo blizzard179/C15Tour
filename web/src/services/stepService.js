@@ -73,7 +73,7 @@ const createStep = async (tripId, data) => {
   // Cohérence is_stop / stop_duration
   const isStop = data.step_is_stop ?? false;
   let stopDuration = data.step_stop_duration ?? null;
-  if (isStop && stopDuration == null) {
+  if (isStop && (stopDuration == null || stopDuration == 0)) {
     throw { status: 400, message: 'La durée de pause est obligatoire quand is_stop est true' };
   }
   if (!isStop) {
