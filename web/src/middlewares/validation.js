@@ -21,12 +21,10 @@ const tripSchema = Joi.object({
   })
 });
 
-// Validation pour créer/modifier un Step
+// Validation pour créer un Step
 const stepSchema = Joi.object({
-  step_name: Joi.string().max(100).required().messages({
-    'string.empty': "Le nom de l'étape est obligatoire",
-    'string.max': 'Le nom ne peut pas dépasser 100 caractères',
-    'any.required': "Le nom de l'étape est obligatoire"
+  step_name: Joi.string().max(100).allow('', null).optional().messages({
+    'string.max': 'Le nom ne peut pas dépasser 100 caractères'
   }),
   step_address: Joi.string().max(255).required().messages({
     'string.empty': "L'adresse de l'étape est obligatoire",
@@ -48,6 +46,29 @@ const stepSchema = Joi.object({
     'number.min': 'La durée de pause doit être positive ou nulle'
   }),
   step_order: Joi.number().positive().allow(null)
+});
+
+// Validation pour modifier un Step (tout est optionnel)
+const stepUpdateSchema = Joi.object({
+  step_name: Joi.string().max(100).allow('', null).optional().messages({
+    'string.max': 'Le nom ne peut pas dépasser 100 caractères'
+  }),
+  step_address: Joi.string().max(255).optional().messages({
+    'string.max': 'L\'adresse ne peut pas dépasser 255 caractères'
+  }),
+  step_latitude: Joi.number().min(-90).max(90).optional().messages({
+    'number.min': 'La latitude doit être entre -90 et 90',
+    'number.max': 'La latitude doit être entre -90 et 90'
+  }),
+  step_longitude: Joi.number().min(-180).max(180).optional().messages({
+    'number.min': 'La longitude doit être entre -180 et 180',
+    'number.max': 'La longitude doit être entre -180 et 180'
+  }),
+  step_is_stop: Joi.boolean().optional(),
+  step_stop_duration: Joi.number().min(0).allow(null).optional().messages({
+    'number.min': 'La durée de pause doit être positive ou nulle'
+  }),
+  step_order: Joi.number().positive().allow(null).optional()
 });
 
 // Validation pour réorganiser les étapes
@@ -105,6 +126,7 @@ const validate = (schema) => {
 module.exports = {
   validateTrip: validate(tripSchema),
   validateStep: validate(stepSchema),
+  validateStepUpdate: validate(stepUpdateSchema),
   validateReorder: validate(reorderSchema),
   validateTelemetry: validate(telemetrySchema)
 };

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const stepController = require('../controllers/stepController');
-const { validateStep, validateReorder } = require('../middlewares/validation');
+const { validateStep, validateStepUpdate, validateReorder } = require('../middlewares/validation');
 
 /**
  * @swagger
@@ -214,7 +214,7 @@ router.get('/steps/:id', stepController.getStepById);
  *       404:
  *         description: Étape non trouvée
  */
-router.put('/steps/:id', validateStep, stepController.updateStep);
+router.put('/steps/:id', validateStepUpdate, stepController.updateStep);
 
 /**
  * @swagger

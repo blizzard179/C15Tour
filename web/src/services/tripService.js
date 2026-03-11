@@ -155,7 +155,7 @@ const regenerateUserCode = async (id) => {
 const searchTripsByName = async (name) => {
   return prisma.trip.findMany({
     where: {
-      trip_name: { contains: name, mode: 'insensitive' }
+      trip_name: { contains: name }
     },
     orderBy: { trip_update_at: 'desc' }
   });
