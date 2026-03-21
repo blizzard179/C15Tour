@@ -10,13 +10,13 @@ import ScrollUp from '@/components/ui/scroll-up';
 import BottomSheet from '@gorhom/bottom-sheet';
 
 export default function HomeScreen() {
-  return (
+  /*return (
     <ThemedView style={styles.acceuilerContainer}>
       <BottomSheet style={styles.titleContainer} snapPoints={['25%', '50%']}>
         <ScrollUp />
       </BottomSheet>
     </ThemedView>
-  );
+  );*/
 }
 
 const styles = StyleSheet.create({
