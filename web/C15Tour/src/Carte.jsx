@@ -176,39 +176,10 @@ function Carte() {
       localStorage.setItem(CONVOYS_STORAGE_KEY, JSON.stringify(savedConvoys));
     }, [savedConvoys, isStorageLoaded]);
 
-    useEffect(() => {
-      if (!currentConvoyId) return;
-      localStorage.setItem(LAST_CONVOY_STORAGE_KEY, currentConvoyId);
-      setSavedConvoys((prev) =>
-        prev.map((convoy) =>
-          convoy.id === currentConvoyId
-            ? {
-                ...convoy,
-                name: currentConvoyName || convoy.name,
-                waypoints,
-                waypointNames,
-                generalSettings,
-                updatedAt: new Date().toISOString()
-              }
-            : convoy
-        )
-      );
-    }, [currentConvoyId, currentConvoyName, waypoints, waypointNames, generalSettings]);
-
     const createNewConvoy = () => {
       const now = new Date();
-      const id = `${now.getTime()}`;
-      const convoy = {
-        id,
-        name: currentConvoyName || `Convoi ${now.toLocaleString('fr-FR')}`,
-        waypoints: [],
-        waypointNames: [],
-        generalSettings,
-        updatedAt: now.toISOString()
-      };
-      setSavedConvoys((prev) => [convoy, ...prev]);
-      setCurrentConvoyId(id);
-      setCurrentConvoyName(convoy.name);
+      setCurrentConvoyId(null);
+      setCurrentConvoyName(`Convoi ${now.toLocaleString('fr-FR')}`);
       setWaypoints([]);
       setWaypointNames([]);
       setRouteCoordinates([]);
@@ -262,6 +233,7 @@ function Carte() {
       setWaypoints(Array.isArray(convoy.waypoints) ? convoy.waypoints : []);
       setWaypointNames(Array.isArray(convoy.waypointNames) ? convoy.waypointNames : []);
       setGeneralSettings(convoy.generalSettings || generalSettings);
+      localStorage.setItem(LAST_CONVOY_STORAGE_KEY, convoy.id);
       setShowConvoySelector(false);
     };
 
@@ -275,7 +247,7 @@ function Carte() {
     const lastConvoyId = localStorage.getItem(LAST_CONVOY_STORAGE_KEY);
     const lastConvoy = savedConvoys.find((c) => c.id === lastConvoyId) || savedConvoys[0] || null;
 
-    const parseGpxText = (gpxText) => {
+    const parseGpxText = (gpxText, sourceFileName = '') => {
       const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
       const wptNodes = Array.from(xml.querySelectorAll('wpt'));
       const trkptNodes = Array.from(xml.querySelectorAll('trkpt'));
@@ -305,10 +277,29 @@ function Carte() {
         (w) => Number.isFinite(w.lat) && Number.isFinite(w.lng)
       );
       const names = validWaypoints.map((w, i) => w.display_name || `Etape ${i + 1}`);
+      const normalizeName = (value = '') => value.trim().toLowerCase().replace(/\s+/g, ' ');
+      const isDuplicatedLabel = (value = '') => {
+        const parts = value.split(',').map((part) => normalizeName(part)).filter(Boolean);
+        return parts.length === 2 && parts[0] === parts[1];
+      };
+
+      const metadataName = xml.querySelector('metadata > name')?.textContent?.trim() || '';
+      const trackName = xml.querySelector('trk > name')?.textContent?.trim() || '';
+      const firstWaypointName = names[0]?.trim() || '';
+      const fileBaseName = sourceFileName.replace(/\.[^/.]+$/, '').trim();
+
+      let convoyName = metadataName || trackName;
+      if (
+        !convoyName ||
+        normalizeName(convoyName) === normalizeName(firstWaypointName) ||
+        isDuplicatedLabel(convoyName)
+      ) {
+        convoyName = fileBaseName || convoyName;
+      }
 
       if (validWaypoints.length < 2) return null;
       return {
-        name: xml.querySelector('metadata > name')?.textContent || `Import ${new Date().toLocaleString('fr-FR')}`,
+        name: convoyName || `Import ${new Date().toLocaleString('fr-FR')}`,
         waypoints: validWaypoints,
         waypointNames: names
       };
@@ -320,7 +311,7 @@ function Carte() {
 
       try {
         const text = await file.text();
-        const parsed = parseGpxText(text);
+        const parsed = parseGpxText(text, file.name);
         if (!parsed) return;
 
         const id = `${Date.now()}`;
@@ -372,6 +363,7 @@ function Carte() {
       if (!routeCoordinates || routeCoordinates.length < 2) return false;
 
       const nowIso = new Date().toISOString();
+      const convoyNameForExport = (currentConvoyName || waypointNames[0] || 'Trajet C15Tour').trim();
       const gpxWaypoints = waypoints
         .map((point, index) => formatWaypointForGpx(point, index))
         .filter((wpt) => wpt && Number.isFinite(wpt.lat) && Number.isFinite(wpt.lon));
@@ -390,12 +382,12 @@ function Carte() {
       const gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="C15Tour" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata>
-    <name>${escapeXml(waypointNames[0] || 'Trajet C15Tour')}</name>
+    <name>${escapeXml(convoyNameForExport)}</name>
     <time>${nowIso}</time>
   </metadata>
   ${wptXml}
   <trk>
-    <name>${escapeXml(waypointNames[0] || 'Trajet C15Tour')}</name>
+    <name>${escapeXml(convoyNameForExport)}</name>
     <trkseg>${trkptXml}</trkseg>
   </trk>
 </gpx>`;
@@ -404,8 +396,14 @@ function Carte() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       const timestamp = nowIso.replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '_');
+      const sanitizedBaseName = convoyNameForExport
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .replace(/_+/g, '_');
       a.href = url;
-      a.download = `trajet_${timestamp}.gpx`;
+      a.download = `${sanitizedBaseName || `trajet_${timestamp}`}.gpx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -913,6 +911,3 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometry
 };
 
 export default Carte;
-
-
-

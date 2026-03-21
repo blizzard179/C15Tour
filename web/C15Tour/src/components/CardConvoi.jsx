@@ -468,6 +468,7 @@ export default function CardConvoi({
     if (!isGeneralSettingsOpen) return null;
 
     return (
+      // parameters generaux
       <div className="general-settings-overlay" onClick={closeGeneralSettings}>
         <div className="general-settings-popup" onClick={(e) => e.stopPropagation()}>
           <h3>PARAMETRES GENERAUX</h3>
