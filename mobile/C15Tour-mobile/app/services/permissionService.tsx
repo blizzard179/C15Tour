@@ -1,19 +1,48 @@
-import { Alert, PermissionsAndroid } from "react-native";
+import { Alert, Linking } from "react-native";
+import * as Location from "expo-location";
 
-export default async function requestPermissions() {
-    try {
-        console.log("ok");
-        const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-        );
-        console.log("perm");
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-            console.log("granted");
-        }else {
-            Alert.alert("Problème","Vous ne pouvez pas utiliser l'application sans l'usage de la localisation. Vous pouvez changer ce choix dans les paramètres de votre téléphone.")
-            console.log("denied");
+export default async function checkLocationPermission() {
+    try{
+        const permission = await Location.getForegroundPermissionsAsync();
+
+        if (permission.status === "granted") {
+            return true;
         }
-    } catch (err) {
-        console.warn(err);
+        
+        if(!permission.canAskAgain){
+            Alert.alert(
+                "Permission bloquée",
+                "La localisation doit être activée depuis les paramètres pour accéder à l'application",
+                [
+                    { text: "Annuler", style: "cancel"},
+                    { text: "Paramètres", onPress: () => Linking.openSettings()}
+                ]
+            );
+            return false;
+        }
+
+        // La permission n'est pas accordée et on peut demander à nouveau
+        const newPermission = await Location.requestForegroundPermissionsAsync();
+        
+        if (newPermission.status === "granted") {
+            return true;
+        } else {
+            // Permission refusée mais on peut redemander
+            Alert.alert(
+                "Permission refusée",
+                "L'application a besoin de la localisation pour fonctionner",
+                [
+                    { text: "Annuler", style: "cancel" },
+                    { text: "Réessayer", onPress: () => checkLocationPermission() }
+                ]
+            );
+            return false;
+        }
+    }
+    catch(error){
+        console.error("Erreur lors de la vérification de la permission:", error);
+        Alert.alert("Erreur", "Une erreur est survenue lors de la vérification de la permission.");
+        return false;
     }
 }
+
