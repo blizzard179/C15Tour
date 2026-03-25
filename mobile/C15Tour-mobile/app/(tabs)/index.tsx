@@ -8,7 +8,7 @@ import ScrollUp from '@/components/ui/scroll-up';
 const WEB_MAP_URL = 'http://localhost:5173/map';
 
 export default function HomeScreen() {
-  return (
+  /*return (
     <ThemedView style={styles.acceuilerContainer}>
       <WebView
         source={{ uri: WEB_MAP_URL }}
@@ -20,7 +20,7 @@ export default function HomeScreen() {
         <ScrollUp />
       </BottomSheet>
     </ThemedView>
-  );
+  );*/
 }
 
 const styles = StyleSheet.create({
