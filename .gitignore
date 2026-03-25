@@ -9,6 +9,13 @@ dist/
 web-build/
 expo-env.d.ts
 
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
 # Native
 .kotlin/
 *.orig.*
@@ -26,9 +33,10 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
+# OS
 .DS_Store
 *.pem
+Thumbs.db
 
 # local env files
 .env*.local
@@ -42,3 +50,11 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Build
+dist/
+build/
+
+# Logs
+logs/
+*.log
