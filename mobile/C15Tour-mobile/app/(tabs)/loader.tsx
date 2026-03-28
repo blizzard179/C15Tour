@@ -7,7 +7,7 @@ const damier = require('../../assets/images/damier_accueil_mobile.png');
 const loaderAnimation = require('../../../../shared/global_assets/gif/loadingLoop.gif');
 const loaderAnimationJump = require('../../../../shared/global_assets/gif/loadingJump.gif');
 const LOADER_CYCLE_DURATION_MS = 4500;
-const LOOP_PROBABILITY = 0.1;
+const LOOP_PROBABILITY = 0.25;
 
 type Profile = 'leader' | 'participant';
 
