@@ -1,7 +1,11 @@
 import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 
+<<<<<<< HEAD
 export async function getLocation() {
+=======
+export default async function getLocation() {
+>>>>>>> a7bf74b (feat: getLocation)
     try {
         // Vérifier si les services de localisation sont activés
         const enabled = await Location.hasServicesEnabledAsync();
@@ -30,7 +34,11 @@ export async function getLocation() {
             mayShowUserSettingsDialog: true,
         });
         
+<<<<<<< HEAD
         console.log('✅ Localisation obtenue:', location.coords.latitude.toFixed(6), location.coords.longitude.toFixed(6));
+=======
+        console.log('✅ Localisation obtenue:', location.coords);
+>>>>>>> a7bf74b (feat: getLocation)
         Alert.alert(
             'Localisation obtenue',
             `Latitude: ${location.coords.latitude.toFixed(6)}\nLongitude: ${location.coords.longitude.toFixed(6)}`
@@ -42,6 +50,7 @@ export async function getLocation() {
     }
 }
 
+<<<<<<< HEAD
 
 let subscription: Location.LocationSubscription | null = null;
 
@@ -71,3 +80,5 @@ export function stopTracking() {
     subscription = null;
     console.log('🛑 Suivi de localisation arrêté');
 }
+=======
+>>>>>>> a7bf74b (feat: getLocation)

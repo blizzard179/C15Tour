@@ -1,7 +1,11 @@
 import { Button, View, StyleSheet } from "react-native";
 import checkLocationPermission from "../services/permissions/locationPermissionService";
 import checkMicrophonePermission from "../services/permissions/microphonePermissionService";
+<<<<<<< HEAD
 import { getLocation, startTracking } from "../services/locations/locationService";
+=======
+import getLocation from "../services/locations/locationService";
+>>>>>>> a7bf74b (feat: getLocation)
 
 export default function PermissionScreen() {
   const handlePress = async () => {
@@ -26,7 +30,10 @@ export default function PermissionScreen() {
       <Button title="Demander les permissions de localisation" onPress={handlePress} />
       <Button title="Demander les permissions de micro" onPress={microPermission} />
       <Button title="Get Location" onPress={getLocation} />
+<<<<<<< HEAD
       <Button title="Start Tracking" onPress={startTracking} />
+=======
+>>>>>>> a7bf74b (feat: getLocation)
     </View>
   );
 }
