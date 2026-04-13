@@ -1,15 +1,17 @@
 import express from "express";
+import cors from "cors";
 import "dotenv/config";
 import tripsRouter from "./routes/tripRoutes.js";
 import stepsRouter from "./routes/stepRoutes.js";
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => res.json({ message: "C15Tour API" }));
 app.get("/health", (req, res) => res.json({ ok: true }));
 app.use("/api/trips", tripsRouter);
-app.use("/api/steps", stepsRouter);
+app.use("/api", stepsRouter);
 
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`API: http://localhost:${port}`));

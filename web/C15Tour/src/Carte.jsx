@@ -2,7 +2,7 @@ import './css/carte.css'
 import './css/leaflet.css';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useLayoutEffect, useRef, useState, useRef, useEffect } from 'react';
+import { useLayoutEffect, useRef, useState, useEffect } from 'react';
 import RoutingMachine from './helper/RoutingMachine';
 import ClickHandler from './helper/ClickHandler';
 import FlyTo from './helper/FlyTo';
@@ -17,6 +17,7 @@ import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 
 const CONVOYS_STORAGE_KEY = 'c15tour_convoys_v1';
 const LAST_CONVOY_STORAGE_KEY = 'c15tour_last_convoy_id';
+const BACKEND_BASE_URL = 'http://localhost:3000';
 
 // Styles pour le popup personnalisé
 const popupStyles = `

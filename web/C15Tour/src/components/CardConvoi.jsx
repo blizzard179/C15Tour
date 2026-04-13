@@ -5,6 +5,7 @@ import FlagIcon from "@shared/global_assets/pictos/Flag.svg";
 import GearIcon from "@shared/global_assets/pictos/Gear.svg";
 import ShareIcon from "@shared/global_assets/pictos/Share.svg";
 import DownloadIcon from "@shared/global_assets/pictos/Download.svg";
+import SaveIcon from "@shared/global_assets/pictos/Save.svg";
 import PlusIcon from "@shared/global_assets/pictos/Plus.svg";
 import CloseIcon from "@shared/global_assets/pictos/Close.svg";
 import MenuIcon from "@shared/global_assets/pictos/Menu.svg";
@@ -33,6 +34,8 @@ const mergeGeneralSettings = (input) => ({
   }
 });
 
+const BACKEND_BASE_URL = "http://localhost:3000";
+
 export default function CardConvoi({
   initialName = "Nom du convoi",
   initialStartTime = "00:00",
@@ -48,8 +51,7 @@ export default function CardConvoi({
   onExportGpx,
   canSaveConvoy = false,
   onSaveConvoy,
-  onConvoyNameChange,
-  onStartEditingCoords
+  onConvoyNameChange
 }) {
   const [name, setName] = useState(initialName);
   const [startTime, setStartTime] = useState(initialStartTime);
@@ -70,6 +72,7 @@ export default function CardConvoi({
   const [isGeneralSettingsOpen, setIsGeneralSettingsOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [exportSaveMessage, setExportSaveMessage] = useState("");
+  const [persistMessage, setPersistMessage] = useState("");
   const [generalSettingsDraft, setGeneralSettingsDraft] = useState(mergeGeneralSettings(generalSettings));
 
   const popupRef = useRef(null);
@@ -380,12 +383,154 @@ export default function CardConvoi({
     onExportGpx?.();
   };
 
-  const handleSaveConvoy = () => {
-    const saved = onSaveConvoy?.();
-    if (saved) {
-      setExportSaveMessage("Convoi enregistre localement.");
-    } else {
-      setExportSaveMessage("Impossible d'enregistrer (au moins 2 points requis).");
+  const handleSaveConvoyLocally = () => {
+    if (!waypoints || waypoints.length < 2) {
+      setExportSaveMessage("Impossible d'enregistrer localement : au moins 2 étapes requises.");
+      return;
+    }
+
+    const tripPayload = buildTripPayload();
+    const pendingPayload = {
+      trip: tripPayload,
+      steps: buildStepsPayload()
+    };
+
+    saveTripPayloadLocally(pendingPayload);
+    setExportSaveMessage("Convoi sauvegarde temporairement.");
+
+    if (typeof onSaveConvoy === "function") {
+      onSaveConvoy();
+    }
+  };
+
+  const PERSIST_TRIP_STORAGE_KEY = "C15Tour.pendingTrip";
+
+  const saveTripPayloadLocally = (payload) => {
+    try {
+      localStorage.setItem(
+        PERSIST_TRIP_STORAGE_KEY,
+        JSON.stringify({
+          createdAt: new Date().toISOString(),
+          payload
+        })
+      );
+    } catch (error) {
+      console.warn("Unable to save pending trip locally", error);
+    }
+  };
+
+  const clearPendingTripPayload = () => {
+    try {
+      localStorage.removeItem(PERSIST_TRIP_STORAGE_KEY);
+    } catch (error) {
+      console.warn("Unable to clear pending trip payload", error);
+    }
+  };
+
+  const buildTripPayload = () => {
+    const trimmedName = name.trim() || initialName || "Convoi";
+    let tripStartTime = null;
+
+    if (startTime && startTime !== "--:--") {
+      const [hours, minutes] = startTime.split(":").map(Number);
+      if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+        const date = new Date();
+        date.setHours(hours, minutes, 0, 0);
+        tripStartTime = date.toISOString();
+      }
+    }
+
+    const speedValue = Number(resolvedGeneralSettings.speed.generalSpeedKmH);
+    const isReduced = Boolean(resolvedGeneralSettings.speed.autoReductionEnabled);
+
+    return {
+      trip_name: trimmedName,
+      trip_speed: Number.isFinite(speedValue) && speedValue > 0 ? speedValue : null,
+      trip_start_time: tripStartTime,
+      trip_autoroute: resolvedGeneralSettings.routeType.avoidMotorway,
+      trip_voie_rapide: resolvedGeneralSettings.routeType.avoidFastRoad,
+      trip_chemin: resolvedGeneralSettings.routeType.avoidTrack,
+      trip_is_reduced: isReduced,
+      trip_reduction: isReduced ? Number(resolvedGeneralSettings.speed.reductionPercent || 0) : 0
+    };
+  };
+
+  const buildStepsPayload = () => {
+    return waypoints.map((waypoint, index) => {
+      const address =
+        waypoint.display_name || waypoint.address || waypoint.name || waypointNames[index] || `${waypoint.lat}, ${waypoint.lng}`;
+      const nameToUse = waypointNames[index] || address || `Etape ${index + 1}`;
+
+      return {
+        step_name: nameToUse,
+        step_address: address,
+        step_latitude: Number(waypoint.lat),
+        step_longitude: Number(waypoint.lng),
+        step_is_stop: false,
+        step_stop_duration: null,
+        step_order: index + 1
+      };
+    });
+  };
+
+  const persistTripSteps = async (tripId) => {
+    const steps = buildStepsPayload();
+    for (const step of steps) {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(step)
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+      }
+    }
+  };
+
+  const handlePersistConvoy = async () => {
+    setPersistMessage("");
+    if (!waypoints || waypoints.length < 2) {
+      setPersistMessage("Un convoi doit contenir au moins deux étapes pour être enregistre.");
+      return;
+    }
+
+    const savedLocally = onSaveConvoy?.();
+    if (!savedLocally) {
+      setPersistMessage("Impossible d'enregistrer localement le convoi avant l'envoi.");
+      return;
+    }
+
+    const tripPayload = buildTripPayload();
+    const pendingPayload = {
+      trip: tripPayload,
+      steps: buildStepsPayload()
+    };
+
+    saveTripPayloadLocally(pendingPayload);
+
+    try {
+      const tripResponse = await fetch(`${BACKEND_BASE_URL}/api/trips`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tripPayload)
+      });
+
+      if (!tripResponse.ok) {
+        const errorBody = await tripResponse.json().catch(() => null);
+        throw new Error(errorBody?.error || tripResponse.statusText || `HTTP ${tripResponse.status}`);
+      }
+
+      const createdTrip = await tripResponse.json();
+      await persistTripSteps(createdTrip.trip_id);
+      clearPendingTripPayload();
+      setPersistMessage("Convoi enregistre avec succes.");
+    } catch (error) {
+      console.error("Failed to persist convoy", error);
+      setPersistMessage(
+        `Erreur lors de l'enregistrement du convoi : ${error.message || "Une erreur s'est produite"}`
+      );
     }
   };
 
@@ -625,7 +770,7 @@ export default function CardConvoi({
               <button
                 className="export-link-btn"
                 type="button"
-                onClick={handleSaveConvoy}
+                onClick={handleSaveConvoyLocally}
                 disabled={!canSaveConvoy}
               >
                 Enregistrer
@@ -802,10 +947,14 @@ export default function CardConvoi({
             <button className="iconBtn" type="button" aria-label="Partager">
               <img src={ShareIcon} alt="Partager" />
             </button>
+            <button className="iconBtn" type="button" aria-label="Enregistrer" onClick={handlePersistConvoy}>
+              <img src={SaveIcon} alt="Enregistrer" />
+            </button>
             <button className="iconBtn" type="button" aria-label="Telecharger" onClick={openExportModal}>
               <img src={DownloadIcon} alt="Telecharger" />
             </button>
           </div>
+          {persistMessage && <div className="persist-message">{persistMessage}</div>}
         </div>
       )}
 

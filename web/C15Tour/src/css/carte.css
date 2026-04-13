@@ -1159,8 +1159,6 @@ input[type="number"] {
   );
 }
 
-.overlay-container > * {
-}
 
 /* Ajustement pour la carte */
 .leaflet-container {
