@@ -1153,10 +1153,15 @@ input[type="number"] {
   --roads-tour-height: 23px;
   --roads-tour-right-offset: 16px;
   --roads-tour-gap: 12px;
-  --search-max-width: 620px;
+  --search-max-width: 400px;
+  --search-right-offset: 20px;
   --map-right-ui-space: calc(
     var(--roads-tour-width) + var(--roads-tour-right-offset) + var(--roads-tour-gap)
   );
+}
+
+.overlay-container.overlay-container--inactive {
+  pointer-events: none;
 }
 
 
@@ -1183,14 +1188,31 @@ input[type="number"] {
 .search-bar-layer {
   position: fixed;
   top: max(20px, env(safe-area-inset-top));
-  left: calc(var(--map-left-ui-space) + env(safe-area-inset-left));
-  right: calc(var(--map-right-ui-space) + env(safe-area-inset-right));
-  width: auto;
-  max-width: var(--search-max-width);
-  margin-left: auto;
-  margin-right: auto;
+  left: auto;
+  right: calc(var(--map-right-ui-space) + env(safe-area-inset-right) + var(--search-right-offset));
+  width: min(
+    var(--search-max-width),
+    calc(100vw - var(--map-left-ui-space) - var(--map-right-ui-space) - 32px)
+  );
   z-index: 2100;
   pointer-events: none;
+}
+
+.search-bar-layer .ResearchBarWrapper {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  pointer-events: auto;
+}
+
+.search-bar-layer .search-input-container {
+  width: 100%;
+  margin: 0;
+  transform: none;
 }
 
 .roads-tour-badge {

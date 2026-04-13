@@ -178,6 +178,20 @@ function Carte() {
       localStorage.setItem(CONVOYS_STORAGE_KEY, JSON.stringify(savedConvoys));
     }, [savedConvoys, isStorageLoaded]);
 
+    useEffect(() => {
+      // Si un convoi est chargé, on ferme le panneau de sélection
+      // pour réactiver immédiatement l'overlay principal.
+      if (!showConvoySelector) return;
+      if (currentConvoyId || waypoints.length > 0) {
+        setShowConvoySelector(false);
+      }
+    }, [showConvoySelector, currentConvoyId, waypoints.length]);
+
+    useEffect(() => {
+      if (!currentConvoyId) return;
+      setShowConvoySelector(false);
+    }, [currentConvoyId]);
+
     const createNewConvoy = () => {
       const now = new Date();
       setCurrentConvoyId(null);
@@ -241,9 +255,10 @@ function Carte() {
 
     const openLastConvoy = () => {
       const lastId = localStorage.getItem(LAST_CONVOY_STORAGE_KEY);
-      if (!lastId) return;
-      const convoy = savedConvoys.find((c) => c.id === lastId);
-      if (convoy) openConvoy(convoy);
+      const convoy = savedConvoys.find((c) => c.id === lastId) || savedConvoys[0];
+      if (convoy) {
+        openConvoy(convoy);
+      }
     };
 
     const lastConvoyId = localStorage.getItem(LAST_CONVOY_STORAGE_KEY);
@@ -590,11 +605,10 @@ function Carte() {
                 <FlyTo position={waypoints} mapRef={mapRef} />
 
             </MapContainer>
-            <div className="overlay-container">
-                {showConvoySelector && (
-                  <div className="convoy-selector-overlay">
-                    <div className="convoy-selector-panel">
-                      <h2>SELECTION DU CONVOI</h2>
+            {showConvoySelector && (
+              <div className="convoy-selector-overlay">
+                <div className="convoy-selector-panel">
+                  <h2>SELECTION DU CONVOI</h2>
 
                       <div className="selector-section-title">LE DERNIER CONVOI</div>
                       <div className="last-convoy-row">
@@ -663,9 +677,11 @@ function Carte() {
                         />
                       </div>
 
-                    </div>
-                  </div>
-                )}
+                </div>
+              </div>
+            )}
+            <div className={`overlay-container ${showConvoySelector ? 'overlay-container--inactive' : ''}`}>
+                <div className="search-bar-layer">
                 <ResearchBar 
                     value={searchQuery}
                     onChange={setSearchQuery}
@@ -703,6 +719,8 @@ function Carte() {
                         setSearchQuery('');
                     }}
                 />
+                </div>
+                <div className="left-panel">
                 <ConvoyCard 
                     initialName={currentConvoyName}
                     waypoints={waypoints} 
@@ -758,13 +776,25 @@ function Carte() {
                     onExportGpx={exportCurrentRouteAsGpx}
                     canSaveConvoy={waypoints.length >= 2}
                     onSaveConvoy={saveCurrentConvoyLocal}
-                    onConvoyNameChange={setCurrentConvoyName}
+                    onConvoyNameChange={(newName) => {
+                      setCurrentConvoyName(newName);
+                      if (!currentConvoyId) return;
+                      const nowIso = new Date().toISOString();
+                      setSavedConvoys((prev) =>
+                        prev.map((convoy) =>
+                          convoy.id === currentConvoyId
+                            ? { ...convoy, name: newName, updatedAt: nowIso }
+                            : convoy
+                        )
+                      );
+                    }}
                     onStartEditingCoords={(index) => {
                         setEditingWaypointIndex(index);
                         setSearchQuery(waypointNames[index] || '');
                         document.querySelector('.ResearchBarInput')?.focus();
                     }}
                 />
+                </div>
             </div>
         </div>
 
