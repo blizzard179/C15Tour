@@ -37,6 +37,7 @@ model Step {
   step_is_stop       Boolean  @default(false)
   step_stop_duration Int?
   step_order         Int?
+  step_segment       Int      @default(0)
   step_trip_id       Int
   step_created_at    DateTime @default(now())
   step_updated_at    DateTime @default(now()) @updatedAt
