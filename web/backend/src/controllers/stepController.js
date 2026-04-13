@@ -72,6 +72,16 @@ const reorderSteps = async (req, res, next) => {
   }
 };
 
+// GET /api/trips/:tripId/steps/segments
+const getStepsByTripGroupedBySegment = async (req, res, next) => {
+  try {
+    const segments = await stepService.getStepsByTripGroupedBySegment(req.params.tripId);
+    res.json(segments);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   getStepsByTrip,
   getStopsByTrip,
@@ -79,5 +89,6 @@ export default {
   createStep,
   updateStep,
   deleteStep,
-  reorderSteps
+  reorderSteps,
+  getStepsByTripGroupedBySegment
 };

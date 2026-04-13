@@ -92,6 +92,7 @@ const createStep = async (tripId, data) => {
       step_is_stop: isStop,
       step_stop_duration: stopDuration,
       step_order: stepOrder,
+      step_segment: data.step_segment ?? 0,
       step_trip_id: parseInt(tripId)
     }
   });
@@ -108,6 +109,7 @@ const updateStep = async (id, data) => {
   if (data.step_latitude !== undefined) updateData.step_latitude = data.step_latitude;
   if (data.step_longitude !== undefined) updateData.step_longitude = data.step_longitude;
   if (data.step_order !== undefined) updateData.step_order = data.step_order;
+  if (data.step_segment !== undefined) updateData.step_segment = data.step_segment;
 
   // Vérifier unicité de l'order si modifié
   if (data.step_order !== undefined) {
@@ -181,6 +183,32 @@ const reorderSteps = async (tripId, stepIds) => {
   return getStepsByTripId(tripId);
 };
 
+// Récupérer les étapes groupées par segment
+const getStepsByTripGroupedBySegment = async (tripId) => {
+  const trip = await prisma.trip.findUnique({ where: { trip_id: parseInt(tripId) } });
+  if (!trip) {
+    throw { status: 404, message: 'Trip non trouvé' };
+  }
+
+  const steps = await prisma.step.findMany({
+    where: { step_trip_id: parseInt(tripId) },
+    orderBy: [
+      { step_segment: 'asc' },
+      { step_order: 'asc' }
+    ]
+  });
+
+  // Grouper par segment
+  const segments = {};
+  steps.forEach((step) => {
+    const seg = step.step_segment;
+    if (!segments[seg]) segments[seg] = [];
+    segments[seg].push(step);
+  });
+
+  return segments;
+};
+
 export default {
   getStepsByTripId,
   getStepById,
@@ -188,5 +216,6 @@ export default {
   createStep,
   updateStep,
   deleteStep,
-  reorderSteps
+  reorderSteps,
+  getStepsByTripGroupedBySegment
 };

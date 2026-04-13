@@ -18,8 +18,8 @@ app.get('/', (req, res) => {
   res.json({ message: 'C15Tour API' });
 });
 
-app.use('/api/trips', tripRoutes);
 app.use('/api', stepRoutes);
+app.use('/api/trips', tripRoutes);
 app.use('/api/geocode', geocodeRoutes);
 app.use('/api/organizer', organizerRoutes);
 

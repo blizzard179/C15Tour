@@ -45,7 +45,8 @@ const stepSchema = Joi.object({
   step_stop_duration: Joi.number().min(0).allow(null).messages({
     'number.min': 'La durée de pause doit être positive ou nulle'
   }),
-  step_order: Joi.number().positive().allow(null)
+  step_order: Joi.number().positive().allow(null),
+  step_segment: Joi.number().integer().min(0).default(0)
 });
 
 // Validation pour modifier un Step (tout est optionnel)
@@ -68,7 +69,8 @@ const stepUpdateSchema = Joi.object({
   step_stop_duration: Joi.number().min(0).allow(null).optional().messages({
     'number.min': 'La durée de pause doit être positive ou nulle'
   }),
-  step_order: Joi.number().positive().allow(null).optional()
+  step_order: Joi.number().positive().allow(null).optional(),
+  step_segment: Joi.number().integer().min(0).optional()
 });
 
 // Validation pour réorganiser les étapes

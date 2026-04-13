@@ -29,6 +29,9 @@ const router = express.Router();
  *           type: integer
  *         step_order:
  *           type: integer
+ *         step_segment:
+ *           type: integer
+ *           description: Numéro du segment
  *         step_trip_id:
  *           type: integer
  *         step_created_at:
@@ -70,6 +73,10 @@ const router = express.Router();
  *         step_order:
  *           type: integer
  *           nullable: true
+ *         step_segment:
+ *           type: integer
+ *           default: 0
+ *           description: Numéro du segment auquel l'étape appartient
  */
 
 /**
@@ -139,6 +146,26 @@ router.get('/trips/:tripId/stops', stepController.getStopsByTrip);
  *         description: Convoi non trouvé
  */
 router.post('/trips/:tripId/steps', validateStep, stepController.createStep);
+
+/**
+ * @swagger
+ * /api/trips/{tripId}/steps/segments:
+ *   get:
+ *     summary: Récupérer les étapes groupées par segment
+ *     tags: [Steps]
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Étapes groupées par numéro de segment
+ *       404:
+ *         description: Convoi non trouvé
+ */
+router.get('/trips/:tripId/steps/segments', stepController.getStepsByTripGroupedBySegment);
 
 /**
  * @swagger
