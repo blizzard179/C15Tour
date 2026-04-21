@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     top: '30%',
     left: '50%',
     transform: [{ translateX: -20 }, { translateY: -20 }],
-  }
+  },
   topBar: {
     position: 'absolute',
     top: 40,
