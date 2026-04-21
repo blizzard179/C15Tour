@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 
-export default async function getLocation() {
+export async function getLocation() {
     try {
         // Vérifier si les services de localisation sont activés
         const enabled = await Location.hasServicesEnabledAsync();
@@ -42,3 +42,32 @@ export default async function getLocation() {
     }
 }
 
+
+let subscription: Location.LocationSubscription | null = null;
+
+export async function startTracking() {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+        Alert.alert(
+            'Autorisation refusée',
+            'Cette application a besoin de votre permission pour accéder à votre localisation'
+        );
+        throw new Error('Permission de localisation refusée');
+    }
+
+    let subscription = await Location.watchPositionAsync(
+        {
+            accuracy: Location.Accuracy.Balanced,
+            distanceInterval: 10,
+        },
+        (location) => {
+            console.log('📍 Nouvelle position:', location.coords.latitude.toFixed(6), location.coords.longitude.toFixed(6));
+        }
+    );
+}
+
+export function stopTracking() {
+    subscription?.remove();
+    subscription = null;
+    console.log('🛑 Suivi de localisation arrêté');
+}
