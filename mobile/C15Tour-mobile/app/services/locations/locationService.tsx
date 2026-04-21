@@ -1,11 +1,7 @@
 import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 
-<<<<<<< HEAD
 export async function getLocation() {
-=======
-export default async function getLocation() {
->>>>>>> a7bf74b (feat: getLocation)
     try {
         // Vérifier si les services de localisation sont activés
         const enabled = await Location.hasServicesEnabledAsync();
@@ -46,7 +42,6 @@ export default async function getLocation() {
     }
 }
 
-<<<<<<< HEAD
 
 let subscription: Location.LocationSubscription | null = null;
 
@@ -76,5 +71,3 @@ export function stopTracking() {
     subscription = null;
     console.log('🛑 Suivi de localisation arrêté');
 }
-=======
->>>>>>> a7bf74b (feat: getLocation)
