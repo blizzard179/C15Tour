@@ -30,7 +30,7 @@ export default async function getLocation() {
             mayShowUserSettingsDialog: true,
         });
         
-        console.log('✅ Localisation obtenue:', location.coords);
+        console.log('✅ Localisation obtenue:', location.coords.latitude.toFixed(6), location.coords.longitude.toFixed(6));
         Alert.alert(
             'Localisation obtenue',
             `Latitude: ${location.coords.latitude.toFixed(6)}\nLongitude: ${location.coords.longitude.toFixed(6)}`
