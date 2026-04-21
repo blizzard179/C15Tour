@@ -6,6 +6,7 @@ import MicButton from '@/components/ui/MicButton';
 import ConvoyName from '@/components/ui/ConvoyName';
 import MicIcon from '../../../../shared/global_assets/pictos/Mic.svg';
 import MicMutedIcon from '../../../../shared/global_assets/pictos/MicMuted.svg';
+import checkAudioPermission from '../services/permissions/microphonePermissionService';
 
 const urlOpenStreetView =
   'https://www.openstreetmap.org/export/embed.html?bbox=-1.595%2C47.196%2C-1.505%2C47.237&layer=mapnik';
@@ -21,14 +22,18 @@ export default function ExploreScreen() {
   const [isMicActive, setIsMicActive] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
 
-  const handleMicPress = () => {
-    setIsMicActive((prev: boolean) => {
-      const next = !prev;
-      if (!next) {
-        setCallStatus('idle');
-      }
-      return next;
-    });
+  const handleMicPress = async () => {
+
+        setIsMicActive((prev: boolean) => {
+        const next = !prev;
+        if (!next) {
+          setCallStatus('idle');
+        } else {
+          checkAudioPermission();
+        }
+        return next;
+      });
+    
   };
 
   const handleCallToggle = () => {
