@@ -24,11 +24,11 @@ export default function ExploreScreen() {
 
   const handleMicPress = async () => {
 
-        setIsMicActive((prev: boolean) => {
+      setIsMicActive((prev: boolean) => {
         const next = !prev;
-        if (!next) {
+        if (!next) {//va dedans quand on stop
           setCallStatus('idle');
-        } else {
+        } if (!prev) {
           checkAudioPermission();
         }
         return next;
