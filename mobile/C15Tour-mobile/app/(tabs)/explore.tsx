@@ -26,7 +26,7 @@ export default function ExploreScreen() {
 
       setIsMicActive((prev: boolean) => {
         const next = !prev;
-        if (!next) {//va dedans quand on stop
+        if (!next) {
           setCallStatus('idle');
         } if (!prev) {
           checkAudioPermission();
