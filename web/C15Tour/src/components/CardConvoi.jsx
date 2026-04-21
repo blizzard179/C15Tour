@@ -74,10 +74,12 @@ export default function CardConvoi({
   const [exportSaveMessage, setExportSaveMessage] = useState("");
   const [persistMessage, setPersistMessage] = useState("");
   const [generalSettingsDraft, setGeneralSettingsDraft] = useState(mergeGeneralSettings(generalSettings));
+  const [isNameButtonLocked, setIsNameButtonLocked] = useState(false);
 
   const popupRef = useRef(null);
   const inputRef = useRef(null);
   const timeInputRef = useRef(null);
+  const nameButtonLockTimeoutRef = useRef(null);
 
   const resolvedGeneralSettings = useMemo(
     () => mergeGeneralSettings(generalSettings),
@@ -87,6 +89,12 @@ export default function CardConvoi({
   useEffect(() => {
     setName(initialName);
   }, [initialName]);
+
+  useEffect(() => {
+    if (waypoints.length > 0) {
+      setIsEdited(true);
+    }
+  }, [waypoints.length]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -110,6 +118,14 @@ export default function CardConvoi({
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (nameButtonLockTimeoutRef.current) {
+        clearTimeout(nameButtonLockTimeoutRef.current);
+      }
+    };
   }, []);
 
   const hasWaypoints = waypoints.length > 0;
@@ -224,6 +240,29 @@ export default function CardConvoi({
     }
   };
 
+  const lockNameButtonTemporarily = () => {
+    setIsNameButtonLocked(true);
+    if (nameButtonLockTimeoutRef.current) {
+      clearTimeout(nameButtonLockTimeoutRef.current);
+    }
+    nameButtonLockTimeoutRef.current = setTimeout(() => {
+      setIsNameButtonLocked(false);
+      nameButtonLockTimeoutRef.current = null;
+    }, 1500);
+  };
+
+  const handleNameButtonClick = () => {
+    if (isNameButtonLocked) return;
+
+    if (isEditing) {
+      handleNameSubmit();
+    } else {
+      setIsEditing(true);
+    }
+
+    lockNameButtonTemporarily();
+  };
+
   const startTimeEdit = () => {
     let [hours, minutes] = startTime.split(":");
     hours = (hours || "00").padStart(2, "0");
@@ -243,6 +282,18 @@ export default function CardConvoi({
     setStartTime(formattedTime);
     setTempTime(formattedTime);
     setIsEditingTime(false);
+  };
+
+  const openTimePicker = () => {
+    const input = timeInputRef.current;
+    if (!input) return;
+
+    input.focus();
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+    input.click();
   };
 
   const handleAddWaypointClick = () => {
@@ -813,7 +864,8 @@ export default function CardConvoi({
             className="iconBtn"
             type="button"
             aria-label={isEditing ? "Valider" : "Editer le nom"}
-            onClick={isEditing ? handleNameSubmit : () => setIsEditing(true)}
+            onClick={handleNameButtonClick}
+            disabled={isNameButtonLocked}
           >
             <img src={isEditing ? CheckIcon : PenIcon} alt={isEditing ? "Valider" : "Editer le nom"} />
           </button>
@@ -831,7 +883,11 @@ export default function CardConvoi({
             <div className="timeEdit">
               {isEditingTime ? (
                 <>
-                  <div className="timeInputWrapper">
+                  <div
+                    className="timeInputWrapper"
+                    onClick={openTimePicker}
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
                     <input
                       ref={timeInputRef}
                       type="time"

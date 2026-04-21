@@ -67,17 +67,23 @@ html,
 }
 
 .convoyTitle {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   font-weight: 700;
   color: #c24a8b;
   font-size: 16px;
   padding: 4px 0;
   margin: 0;
   line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .convoyNameInput {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  box-sizing: border-box;
   border: 2px solid #e7b4cf;
   border-radius: 8px;
   padding: 8px 12px;
@@ -156,14 +162,17 @@ html,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
 }
 
 .timeInputWrapper .timeInput {
   position: absolute;
+  inset: 0;
   opacity: 0;
   width: 100%;
   height: 100%;
   cursor: pointer;
+  z-index: 2;
 }
 
 .timeDisplay {
@@ -1305,6 +1314,10 @@ input[type="number"] {
 
   .convoyNameInput {
     padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .convoyTitle {
     font-size: 13px;
   }
 
