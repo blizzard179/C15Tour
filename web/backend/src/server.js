@@ -1,11 +1,12 @@
 import express from "express";
 import "dotenv/config";
-import tripsRouter from "./routes/trips.routes.js";
-import stepsRouter from "./routes/steps.routes.js";
+import tripsRouter from "./routes/tripRoutes.js";
+import stepsRouter from "./routes/stepRoutes.js";
 
 const app = express();
 app.use(express.json());
 
+app.get("/", (req, res) => res.json({ message: "C15Tour API" }));
 app.get("/health", (req, res) => res.json({ ok: true }));
 app.use("/api/trips", tripsRouter);
 app.use("/api/steps", stepsRouter);
