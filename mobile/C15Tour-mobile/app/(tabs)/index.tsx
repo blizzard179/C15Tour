@@ -1,34 +1,54 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import React, { useCallback, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, ImageBackground, Image } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import ScrollUp from '@/components/ui/scroll-up';
-import BottomSheet from '@gorhom/bottom-sheet';
 
-export default function HomeScreen() {
+
+
+const Login = () => {
+  // ref
+  const bottomSheetRef = useRef<BottomSheet>(null);
+
+  // renders
   return (
-    <ThemedView style={styles.acceuilerContainer}>
-      <BottomSheet style={styles.titleContainer} snapPoints={['25%', '50%']}>
-        <ScrollUp />
-      </BottomSheet>
-    </ThemedView>
+    <ImageBackground
+      source={require('../../assets/images/damier_accueil_mobile.png')}
+      style={styles.background}
+    >
+      
+      <GestureHandlerRootView style={styles.container}>
+        <Image source={require('../../assets/images/Logo_1.png')} style={{ width: 150, height: 150, alignSelf: 'center', marginTop: 50 }} resizeMode='contain' />
+        <BottomSheet
+          ref={bottomSheetRef}
+          index={0}
+          snapPoints={['15%', '75%']}
+        >
+          <BottomSheetView style={styles.contentContainer}>
+            <ScrollUp />
+          </BottomSheetView>
+        </BottomSheet>
+
+      </GestureHandlerRootView>
+    </ImageBackground>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+
+
   },
-  acceuilerContainer: {
+  background: {
     flex: 1,
     justifyContent: 'center',
-    backgroundImage: '@/assets/images/damier_acceuil.svg',
+  },
+  contentContainer: {
+    flex: 1,
+    padding: 36,
+    alignItems: 'center',
   },
 });
 
+export default Login;
