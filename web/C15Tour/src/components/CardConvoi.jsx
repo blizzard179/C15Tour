@@ -574,7 +574,39 @@ export default function CardConvoi({
       }
 
       const createdTrip = await tripResponse.json();
-      await persistTripSteps(createdTrip.trip_id);
+      try {
+        await persistTripSteps(createdTrip.trip_id);
+      } catch (stepsError) {
+        console.error("Failed to persist steps", stepsError);
+
+        const deleteTrip = false;
+
+        // on regarde si des étapes ont été créées malgré l'erreur, pour éviter de laisser un trip sans étapes en cas de problème de persistance
+        await fetch(`${BACKEND_BASE_URL}/api/trips/${createdTrip.trip_id}/steps`, {
+          method: "GET"
+        }).then((res) => res.json()).then((data) => {
+          console.log("Steps persisted before failure:", data);
+          if (Array.isArray(data) && data.length === 0) {
+            console.warn("No steps were persisted for the trip before failure, deleting created trip");
+            deleteTrip = true;
+          }
+        })
+          .catch((fetchStepsError) => {
+            console.error("Failed to fetch steps after persistence failure", fetchStepsError);
+            deleteTrip = true;
+          });
+
+        if (deleteTrip) {
+          // Suppression du trip créé pour éviter d'avoir un trip sans étapes
+          await fetch(`${BACKEND_BASE_URL}/api/trips/${createdTrip.trip_id}`, {
+            method: "DELETE"
+          }).catch((deleteError) => {
+            console.error("Failed to delete trip after steps persistence failure", deleteError);
+          });
+        }
+
+        throw new Error("Une erreur est survenue lors de l'enregistrement des étapes. Veuillez réessayer.");
+      }
       clearPendingTripPayload();
       setPersistMessage("Convoi enregistre avec succes.");
     } catch (error) {
