@@ -97,6 +97,128 @@ npx expo start
 
 ## Structure du projet
 
+C15Tour/
+├── 📱 MOBILE (React Native + Expo)
+│   ├── app/
+│   │   ├── _layout.tsx .......................... Router principal (Expo Router)
+│   │   ├── modal.tsx ........................... Modal générique
+│   │   ├── (tabs)/
+│   │   │   ├── _layout.tsx ..................... Bottom Tabs Navigation
+│   │   │   ├── index.tsx ....................... Home Screen
+│   │   │   ├── explore.tsx ..................... Map & Location Screen
+│   │   │   ├── loader.tsx ...................... Loading Screen
+│   │   │   └── permission.tsx .................. Permissions Screen
+│   │   ├── services/
+│   │   │   └── permissions/
+│   │   │       ├── locationPermissionService.tsx .. Gère perms localisation
+│   │   │       └── microphonePermissionService.tsx  Gère perms microphone
+│   │   │   └── locations/
+│   │   │       └── locationService.tsx ........ GPS & localisation en temps réel
+│   │   ├── components/
+│   │   │   ├── HomeButton.tsx
+│   │   │   ├── MicButton.tsx
+│   │   │   ├── ConvoyName.tsx
+│   │   │   ├── parallax-scroll-view.tsx
+│   │   │   ├── themed-text.tsx
+│   │   │   ├── themed-view.tsx
+│   │   │   └── ui/
+│   │   │       ├── Collapsible.tsx
+│   │   │       ├── icon-symbol.tsx
+│   │   │       └── ...
+│   │   ├── constants/
+│   │   │   └── theme.ts ........................ Thème, couleurs
+│   │   └── hooks/
+│   │       ├── use-color-scheme.ts
+│   │       └── use-theme-color.ts
+│   ├── assets/
+│   │   └── images/
+│   ├── metro.config.js
+│   ├── tsconfig.json
+│   ├── package.json
+│   └── expo-env.d.ts
+│
+├── 🌐 WEB (React + Vite)
+│   ├── C15Tour/
+│   │   ├── src/
+│   │   │   ├── App.jsx ......................... Component root
+│   │   │   ├── main.jsx ........................ Entry point
+│   │   │   ├── pages/
+│   │   │   │   ├── Home.jsx ................... Home page
+│   │   │   │   └── Carte.jsx .................. Map page
+│   │   │   ├── components/
+│   │   │   │   ├── CardConvoi.jsx ............ Convoy card
+│   │   │   │   ├── HomeButton.jsx
+│   │   │   │   ├── ResearchBar.jsx
+│   │   │   │   └── RoadsTour.jsx ............ Route display
+│   │   │   ├── helper/
+│   │   │   │   ├── ClickHandler.jsx
+│   │   │   │   ├── ErrorHelper.jsx
+│   │   │   │   ├── FlyTo.jsx ............... Map navigation
+│   │   │   │   ├── RoutingMachine.jsx ...... Route calculation
+│   │   │   │   └── SearchBar.jsx
+│   │   │   └── css/
+│   │   │       ├── accueil.css ............ Home styles
+│   │   │       ├── carte.css ............. Map styles
+│   │   │       ├── leaflet.css
+│   │   │       └── searchBar.css
+│   │   ├── vite.config.js
+│   │   ├── package.json
+│   │   └── index.html
+│
+├── 🔧 BACKEND (Node.js + Express)
+│   ├── backend/
+│   │   └── package.json
+│   ├── api/
+│   │   ├── placeholder.ts
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   ├── src/
+│   │   ├── server.js .......................... Express app principal
+│   │   ├── index.js .......................... Entry point
+│   │   ├── db.js ............................ DB connection
+│   │   ├── config/
+│   │   │   ├── database.js .................. Config DB
+│   │   │   └── swagger.js .................. Swagger/OpenAPI
+│   │   ├── routes/
+│   │   │   ├── tripRoutes.js .............. Routes convois
+│   │   │   ├── stepRoutes.js ............. Routes étapes
+│   │   │   ├── geocodeRoutes.js .......... Routes géocodage
+│   │   │   └── organizerRoutes.js ....... Routes organisateur
+│   │   ├── controllers/
+│   │   │   ├── tripController.js ........ Logique convois
+│   │   │   ├── stepController.js ....... Logique étapes
+│   │   │   ├── geocodeController.js .... Logique géocodage
+│   │   │   ├── routingController.js .... Logique routage
+│   │   │   ├── exportController.js .... Logique export (PDF/GPX)
+│   │   │   ├── telemetryController.js .. Logique GPS
+│   │   │   └── organizerController.js .. Logique dashboard
+│   │   ├── services/
+│   │   │   ├── tripService.js ......... Business logic convois
+│   │   │   ├── stepService.js ........ Business logic étapes
+│   │   │   ├── geocodeService.js .... Appels API géocodage
+│   │   │   ├── routingService.js .... Calculs itinéraires
+│   │   │   ├── exportService.js .... Génération exports
+│   │   │   ├── telemetryService.js .. Suivi positions
+│   │   │   └── organizerService.js .. Stats dashboard
+│   │   └── middlewares/
+│   │       ├── validation.js ........ Validation des données
+│   │       └── errorHandler.js ..... Gestion erreurs
+│   ├── prisma/
+│   │   └── schema.prisma ........... ORM Prisma
+│   └── package.json
+│
+├── 📦 SHARED
+│   ├── global_assets/
+│   │   ├── animations/
+│   │   ├── gif/
+│   │   ├── logos/
+│   │   └── pictos/ ........... SVG icons utilisés partout
+│   └── index.js
+│
+└── assets/
+    ├── logos/
+    └── pictos/
+
 ## Base de données
 
 La base de données du projet C15 Tour est composée de trois tables principales : `trip`, `step` et `telemetry`.
@@ -221,7 +343,6 @@ Voici la liste complète des endpoints backend implémentés dans ton projet:
 - `GET /` - Message d'accueil de l'API
 - `GET /health` - Vérifier l'état du serveur
 
----
 
 ### **Convois (Trips)** `/api/trips`
 
@@ -245,7 +366,6 @@ Voici la liste complète des endpoints backend implémentés dans ton projet:
 - `GET /api/trips/{tripId}/exports/gpx` - Exporter le convoi en GPX
 - `POST /api/trips/{tripId}/telemetry` - Enregistrer une position GPS
 
----
 
 ### **Étapes (Steps)** `/api`
 
@@ -262,14 +382,12 @@ Voici la liste complète des endpoints backend implémentés dans ton projet:
 #### Actions spéciales
 - `PUT /api/trips/{tripId}/steps/reorder` - Réorganiser les étapes d'un convoi
 
----
 
 ### **Géocodage** `/api/geocode`
 
 - `GET /api/geocode/search?q={adresse}` - Rechercher une adresse (géocodage)
 - `GET /api/geocode/reverse?lat={lat}&lon={lon}` - Géocodage inverse
 
----
 
 ### **Organisateur** `/api/organizer`
 
