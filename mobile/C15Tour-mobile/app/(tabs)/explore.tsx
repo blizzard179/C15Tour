@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { useAppTheme } from '@/context/theme';
 import HomeButton from '@/components/ui/HomeButton';
 import MicButton from '@/components/ui/MicButton';
 import ConvoyName from '@/components/ui/ConvoyName';
@@ -24,6 +25,8 @@ type CallStatus = 'idle' | 'live' | 'muted';
 export default function ExploreScreen() {
   const [isMicActive, setIsMicActive] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
+  const { colorScheme } = useAppTheme();
+  const isDark = colorScheme === 'dark';
 
   // Demander la permission de localisation au chargement de la page
   useEffect(() => {
@@ -106,7 +109,7 @@ export default function ExploreScreen() {
       </View>
 
       {isMicActive && (
-        <View style={styles.micPanel}>
+        <View style={[styles.micPanel, { backgroundColor: isDark ? 'rgba(28,28,30,0.96)' : 'rgba(255,255,255,0.96)' }]}>
           <View
             style={[
               styles.roundMicButtonOuter,
@@ -181,7 +184,6 @@ const styles = StyleSheet.create({
     left: 15,
     right: 15,
     zIndex: 9,
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
     borderRadius: 16,
     borderWidth: 2,
     borderColor: '#BB487C',
