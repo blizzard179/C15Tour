@@ -962,6 +962,33 @@ input[type="number"] {
   max-width: 420px;
 }
 
+.share-popup {
+  max-width: 720px;
+}
+
+.share-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #e8c9db;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.share-card h4 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #b14080;
+}
+
+.share-qr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .export-row {
   border-bottom: 1px solid #e8c9db;
   padding-bottom: 8px;
@@ -989,6 +1016,12 @@ input[type="number"] {
   font-size: 12px;
   color: #b14080;
   font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .share-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .convoy-selector-overlay {
