@@ -1,112 +1,220 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { WebView } from 'react-native-webview';
+import HomeButton from '@/components/ui/HomeButton';
+import MicButton from '@/components/ui/MicButton';
+import ConvoyName from '@/components/ui/ConvoyName';
+import MicIcon from '../../../../shared/global_assets/pictos/Mic.svg';
+import MicMutedIcon from '../../../../shared/global_assets/pictos/MicMuted.svg';
+import CursorVehicule from '../../../../shared/global_assets/pictos/CursorVehicule.svg';
+import CursorVehiculeLeader from '../../../../shared/global_assets/pictos/CursorVehiculeLeader.svg';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+const urlOpenStreetView =
+  'https://www.openstreetmap.org/export/embed.html?bbox=-1.595%2C47.196%2C-1.505%2C47.237&layer=mapnik';
+const MIC_STATUS_COLORS = {
+  idle: '#CCCCCC',
+  live: '#1DAD63',
+  muted: '#D64545',
+} as const;
 
-export default function TabTwoScreen() {
+type CallStatus = 'idle' | 'live' | 'muted';
+
+export default function ExploreScreen() {
+  const [isMicActive, setIsMicActive] = useState(false);
+  const [callStatus, setCallStatus] = useState<CallStatus>('idle');
+
+  const handleMicPress = () => {
+    setIsMicActive((prev: boolean) => {
+      const next = !prev;
+      if (!next) {
+        setCallStatus('idle');
+      }
+      return next;
+    });
+  };
+
+  const handleCallToggle = () => {
+    setCallStatus((prev) => {
+      if (prev === 'idle') {
+        return 'live';
+      }
+
+      if (prev === 'live') {
+        return 'muted';
+      }
+
+      return 'live';
+    });
+  };
+
+  const statusContent = {
+    idle: {
+      status: 'MICRO INACTIF',
+      label: "Appuie sur le micro pour lancer l'appel.",
+    },
+    live: {
+      status: 'MICRO OUVERT',
+      label: 'Les participants peuvent vous entendre.',
+    },
+    muted: {
+      status: 'MICRO COUPE',
+      label: 'On ne vous entend plus.',
+    },
+  }[callStatus];
+
+  const RoundMicIcon = callStatus === 'muted' ? MicMutedIcon : MicIcon;
+  const isCallLive = callStatus === 'live';
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <WebView source={{ uri: urlOpenStreetView }} style={styles.webview} />
+
+      <View style={styles.cursorVehicule}>
+        <CursorVehicule width={40} height={40} />
+      </View>
+      <View style={styles.cursorVehiculeLeader}>
+        <CursorVehiculeLeader width={40} height={40} />
+      </View>
+
+      <View style={styles.topBar}>
+        <View style={styles.topBarSide}>
+          <HomeButton />
+        </View>
+
+        <View style={styles.topBarCenter}>
+          <ConvoyName />
+        </View>
+
+        <View style={styles.topBarSide}>
+          <MicButton isActive={isMicActive} onPress={handleMicPress} />
+        </View>
+      </View>
+
+      {isMicActive && (
+        <View style={styles.micPanel}>
+          <View
+            style={[
+              styles.roundMicButtonOuter,
+              { borderColor: MIC_STATUS_COLORS[callStatus] },
+            ]}>
+            <Pressable
+              style={[styles.roundMicButton, isCallLive && styles.roundMicButtonActive]}
+              onPress={handleCallToggle}>
+              <RoundMicIcon
+                width={28}
+                height={28}
+                color={isCallLive ? '#FFFFFF' : '#BB487C'}
+              />
+            </Pressable>
+          </View>
+
+          <View style={styles.statusColumn}>
+            <View style={styles.statusRow}>
+              <Text style={styles.statusMic}>{statusContent.status}</Text>
+            </View>
+            <Text style={styles.confirmationText}>{statusContent.label}</Text>
+          </View>
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
   },
-  titleContainer: {
+  webview: {
+    flex: 1,
+  },
+  cursorVehicule: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -20 }, { translateY: -20 }],
+  },
+  cursorVehiculeLeader: {
+    position: 'absolute',
+    top: '30%',
+    left: '50%',
+    transform: [{ translateX: -20 }, { translateY: -20 }],
+  },
+  topBar: {
+    position: 'absolute',
+    top: 40,
+    left: 15,
+    right: 15,
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 10,
+  },
+  topBarSide: {
+    width: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topBarCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  micPanel: {
+    position: 'absolute',
+    bottom: 30,
+    left: 15,
+    right: 15,
+    zIndex: 9,
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#BB487C',
+    padding: 16,
+    gap: 12,
+  },
+  statusColumn: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusMic: {
+    color: '#BB487C',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  roundMicButtonOuter: {
+    alignSelf: 'center',
+    padding: 4,
+    borderRadius: 999,
+    borderWidth: 6,
+  },
+  roundMicButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    width: 72,
+    height: 72,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: '#BB487C',
+    elevation: 4,
+  },
+  roundMicButtonActive: {
+    backgroundColor: '#BB487C',
+    borderColor: '#FFFFFF',
+  },
+  confirmationText: {
+    color: '#BB487C',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

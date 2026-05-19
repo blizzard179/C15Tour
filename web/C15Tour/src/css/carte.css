@@ -1,10 +1,13 @@
-﻿/* Style global pour s'assurer que la carte prend toute la hauteur/la largeur */
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+/* Style global pour s'assurer que la carte prend toute la hauteur/la largeur */
 body,
 html,
 #root {
   height: 100%;
   margin: 0;
   padding: 0;
+    font-family: 'Montserrat', sans-serif;
 }
 
 /* Style sur l'img pour éviter l'espace blanc */
@@ -50,24 +53,53 @@ html,
   font-family: Montserrat, sans-serif;
 }
 
+/* En-tête du convoi */
 .convoyHeader {
   padding: 14px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .convoyNameRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.convoyTitle {
+  flex: 1 1 0;
+  min-width: 0;
+  font-weight: 700;
+  color: #c24a8b;
+  font-size: 16px;
+  padding: 4px 0;
+  margin: 0;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .convoyNameInput {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  box-sizing: border-box;
   border: 2px solid #e7b4cf;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   font-weight: 700;
   color: #c24a8b;
   outline: none;
+  font-size: 16px;
+  background: white;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.convoyNameInput:focus {
+  border-color: #c24a8b;
+  box-shadow: 0 0 0 3px rgba(194, 74, 139, 0.2);
 }
 
 .convoyBody {
@@ -75,16 +107,9 @@ html,
   padding-top: 0;
 }
 
+/* Masquer la rangée de titre redondante */
 .convoyTitleRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 8px 0 10px;
-}
-
-.convoyTitle {
-  font-weight: 800;
-  letter-spacing: 0.2px;
+  display: none;
 }
 
 .convoySection {
@@ -118,21 +143,169 @@ html,
   width: 60px;
   border: none;
   outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
   font-weight: 800;
   color: #c24a8b;
   background: transparent;
   text-align: center;
+  font-size: 14px;
+  padding: 2px 4px;
+}
+
+/* Masquer complètement l'input time natif et utiliser un wrapper */
+.timeInputWrapper {
+  position: relative;
+  width: 60px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.timeInputWrapper .timeInput {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.timeDisplay {
+  font-weight: 800;
+  color: #c24a8b;
+  background: transparent;
+  text-align: center;
+  font-size: 14px;
+  padding: 2px 4px;
+  border: none;
+  outline: none;
+  width: 60px;
+  cursor: pointer;
 }
 
 .stepsEmpty {
-  text-align: center;
-  font-size: 12px;
-  opacity: 0.75;
-  padding: 12px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #BB487C;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 12px;
+  background: rgba(187, 72, 124, 0.05);
+  border: 1px dashed #BB487C;
+  border-radius: 8px;
+  margin: 12px 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.arriveeTime {
-  font-weight: 800;
+.stepsEmpty:hover {
+  background: rgba(187, 72, 124, 0.1);
+  border-color: #c24a8b;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(194, 74, 139, 0.15);
+}
+
+.steps-list {
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.step-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 10px 40px 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+  min-height: 44px;
+}
+
+.step-item:last-child {
+  border-bottom: none;
+}
+
+.step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background-color: #BB487C;
+  color: white;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.step-address {
+  flex: 1;
+  font-size: 14px;
+  color: #333;
+  padding-right: 10px;
+  word-break: break-word;
+}
+
+.step-actions {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 6px;
+}
+
+.step-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #666;
+  font-size: 14px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.step-action-btn:hover {
+  background-color: #f0f0f0;
+  color: #c24a8b;
+}
+
+.step-edit-input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #e7b4cf;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #333;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.step-edit-input:focus {
+  border-color: #c24a8b;
+  box-shadow: 0 0 0 2px rgba(194, 74, 139, 0.2);
+}
+
+.step-item:last-child .step-address {
+  font-weight: 600;
+  color: #BB487C;
 }
 
 .convoyActions {
@@ -154,18 +327,341 @@ html,
 
 /* Style pour ResearchBar */
 .ResearchBarWrapper {
-  position: relative;
-  width: 100%;
+  position: absolute;
+  top: 20px;
+  left: 55%;
+  transform: translateX(-50%);
+  width: 80%;
+  max-width: 600px;
   z-index: 1000;
-  padding: 0;
-  pointer-events: none;
+  padding: 0 14px;
+
 }
 
 .search-input-container {
   position: relative;
+  width: 80%;
+  margin: 0 auto;
+}
+
+/* Styles pour la liste des étapes */
+.steps-list {
   width: 100%;
+  padding: 0;
   margin: 0;
-  pointer-events: auto;
+  list-style: none;
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.step-content {
+  display: flex;
+  align-items: center;
+  flex-grow: 1;
+  min-width: 0; /* Permet au contenu de se rétrécir si nécessaire */
+}
+
+.step-number {
+  width: 24px;
+  height: 24px;
+  background-color: #f0f5ff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #c24a8b;
+}
+
+.step-info {
+  flex-grow: 1;
+  min-width: 0; /* Permet au contenu de se rétrécir si nécessaire */
+}
+
+.step-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 8px;
+  color: #333;
+}
+
+.step-time {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 2px;
+}
+
+.step-drag-btn {
+  background: none;
+  border: none;
+  cursor: grab;
+  padding: 8px 6px;
+  margin-right: 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background-color: #f8f9fa;
+}
+
+.step-drag-btn:active {
+  cursor: grabbing;
+}
+
+.step-drag-btn img {
+  width: 16px;
+  height: 16px;
+  opacity: 0.75;
+}
+
+.step-item.is-drag-over {
+  background-color: rgba(194, 74, 139, 0.08);
+}
+
+.step-item.is-dragging {
+  opacity: 0.65;
+}
+
+.step-config-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  margin-left: 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  background-color: #f8f9fa;
+}
+
+.step-config-btn:hover {
+  background-color: #e9ecef;
+}
+
+.step-config-btn img {
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.step-config-btn:hover img {
+  opacity: 1;
+}
+
+.step-delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  margin-left: 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  background-color: #fff1f4;
+}
+
+.step-delete-btn:hover {
+  background-color: #ffdce5;
+}
+
+.step-delete-btn img {
+  width: 14px;
+  height: 14px;
+  opacity: 0.9;
+}
+
+.waypoint-config-popup {
+  width: 90%;
+  max-width: 400px;
+  box-sizing: border-box;
+  z-index: 1001;
+}
+
+.config-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.config-input:focus {
+  outline: none;
+  border-color: #4a6cf7;
+  box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.2);
+}
+
+.popup-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+/* Style pour le bouton Supprimer */
+.delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffebee;
+  color: #d32f2f;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.delete-btn:hover {
+  background: #ffcdd2;
+}
+
+/* Style pour les boutons Annuler et Valider */
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.cancel-btn {
+  background: #f5f5f5;
+  color: #666;
+  border: 1px solid #ddd;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: #e0e0e0;
+}
+
+.validate-btn {
+  background: #4a6cf7;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.validate-btn:hover {
+  background: #3a5ce4;
+}
+
+/* Ajustement pour les petits écrans à tester*/
+@media (max-width: 480px) {
+  .waypoint-config-popup {
+    width: 95%;
+    padding: 16px;
+  }
+  
+  .popup-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .action-buttons {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .action-buttons button {
+    flex: 1;
+    text-align: center;
+  }
+  
+  .delete-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Style pour la case à cocher */
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.config-checkbox {
+  width: 18px;
+  height: 18px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.break-time-container {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  margin-left: 28px;
+}
+
+.break-time-label {
+  margin-left: 10px;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.suggestions-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 0 0 4px 4px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.suggestion-item {
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.suggestion-item:hover {
+  background-color: #f5f5f5;
+}
+
+.suggestion-item:not(:last-child) {
+  border-bottom: 1px solid #eee;
 }
 
 .ResearchBarInput {
@@ -191,7 +687,7 @@ html,
   transform: translateY(-50%);
   width: 20px;
   height: 20px;
-  pointer-events: none;
+
 }
 
 .ResearchBarInput::placeholder {
@@ -205,6 +701,448 @@ html,
   transform: translateY(-1px);
 }
 
+/* Popup de configuration des étapes */
+.waypoint-config-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.waypoint-config-popup {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  position: relative;
+}
+
+.waypoint-config-popup h3 {
+  margin: 0 0 20px;
+  color: #333;
+  font-size: 1.2rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.waypoint-config-popup .form-group {
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.waypoint-config-popup label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  color: #555;
+  font-weight: 500;
+}
+
+.waypoint-config-popup .config-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.waypoint-config-popup .config-input:focus {
+  outline: none;
+  border-color: #4a6cf7;
+  box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.2);
+}
+
+.waypoint-config-popup .popup-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.waypoint-config-popup .delete-btn {
+  background: #ffebee;
+  color: #d32f2f;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.waypoint-config-popup .delete-btn:hover {
+  background: #ffcdd2;
+}
+
+.waypoint-config-popup .delete-btn img {
+  width: 16px;
+  height: 16px;
+}
+
+.waypoint-config-popup .action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.waypoint-config-popup .cancel-btn,
+.waypoint-config-popup .validate-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.waypoint-config-popup .cancel-btn {
+  background: #f5f5f5;
+  color: #666;
+  border: 1px solid #ddd;
+}
+
+.waypoint-config-popup .cancel-btn:hover {
+  background: #e0e0e0;
+}
+
+.waypoint-config-popup .validate-btn {
+  background: #4a6cf7;
+  color: white;
+  border: none;
+}
+
+.waypoint-config-popup .validate-btn:hover {
+  background: #3a5ce4;
+}
+
+/* Styles pour la case à cocher et son conteneur */
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.config-checkbox {
+  width: 18px;
+  height: 18px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.break-time-container {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  margin-left: 28px; /* Alignement avec la case à cocher */
+}
+
+.break-time-label {
+  margin-left: 10px;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Amélioration de la largeur des étapes */
+.step-item {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Ajustement des inputs pour éviter le débordement */
+input[type="time"],
+input[type="number"] {
+  max-width: 100%;
+}
+
+.general-settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2200;
+}
+
+.general-settings-popup {
+  width: min(92vw, 520px);
+  background: #f8f8f8;
+  border: 2px solid #c24a8b;
+  border-radius: 20px;
+  padding: 26px 34px 22px;
+  color: #b14080;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2);
+}
+
+.general-settings-popup h3 {
+  margin: 0 0 16px;
+  font-size: 24px;
+  line-height: 1;
+  color: #b14080;
+  font-weight: 900;
+}
+
+.settings-section {
+  margin-top: 12px;
+}
+
+.settings-section-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 16px;
+  margin: 6px 0;
+}
+
+.settings-row input[type=\"checkbox\"] {
+  width: 22px;
+  height: 22px;
+  accent-color: #b14080;
+}
+
+.settings-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.settings-number-input {
+  width: 70px;
+  border: 1px solid #d1d1d1;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 16px;
+  text-align: center;
+  color: #b14080;
+}
+
+.settings-sub-row {
+  font-size: 13px;
+  padding-left: 26px;
+}
+
+.general-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.general-settings-actions .delete-btn,
+.general-settings-actions .validate-btn {
+  border-radius: 999px;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 8px 16px;
+}
+
+.export-popup {
+  max-width: 420px;
+}
+
+.export-row {
+  border-bottom: 1px solid #e8c9db;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.export-link-btn {
+  border: none;
+  background: transparent;
+  color: #b14080;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.export-link-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.export-save-message {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #b14080;
+  font-weight: 600;
+}
+
+.convoy-selector-overlay {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 2500;
+  padding: 0;
+}
+
+.convoy-selector-panel {
+  width: min(92vw, 360px);
+  background: #fff;
+  border: 2px solid #c24a8b;
+  border-radius: 14px;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+  padding: 14px;
+  color: #b14080;
+}
+
+.convoy-selector-panel h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  text-align: center;
+  color: #b14080;
+  font-weight: 800;
+}
+
+.selector-section-title {
+  font-size: 12px;
+  font-weight: 800;
+  margin: 4px 0 8px;
+}
+
+.last-convoy-row,
+.other-convoy-row,
+.create-convoy-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.last-convoy-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.last-convoy-meta span {
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.last-convoy-meta small {
+  font-size: 10px;
+  color: #9b6b87;
+}
+
+.convoy-selector-btn {
+  border: 1px solid #c24a8b;
+  border-radius: 999px;
+  background: #fff;
+  color: #b14080;
+  padding: 6px 12px;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.convoy-selector-btn.primary {
+  background: #b14080;
+  color: #fff;
+}
+
+.convoy-selector-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.convoy-import-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.selector-divider {
+  height: 1px;
+  background: #ead1df;
+  margin: 10px 0;
+}
+
+.convoy-select {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #e1cfda;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 11px;
+  color: #6a5e67;
+  background: #fff;
+}
+
+.selector-or {
+  text-align: center;
+  color: #b17b96;
+  font-size: 11px;
+  font-weight: 700;
+  margin: 8px 0;
+}
+
+.convoy-history {
+  border-top: 1px solid #f0d6e3;
+  padding-top: 12px;
+}
+
+.convoy-history-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.convoy-history-empty {
+  font-size: 14px;
+  color: #7a7a7a;
+}
+
+.convoy-history-item {
+  width: 100%;
+  border: 1px solid #f0d6e3;
+  border-radius: 10px;
+  background: #fff;
+  color: #b14080;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  padding: 10px 12px;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.convoy-history-item small {
+  color: #8a8a8a;
+}
+
 /* Conteneur principal de la carte */
 .map-container {
   position: relative;
@@ -215,23 +1153,26 @@ html,
 /* Conteneur des éléments superposés */
 .overlay-container {
   position: absolute;
-  inset: 0;
-  pointer-events: none;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 1000;
   --map-left-ui-space: 56px;
   --roads-tour-width: 120px;
   --roads-tour-height: 23px;
   --roads-tour-right-offset: 16px;
   --roads-tour-gap: 12px;
-  --search-max-width: 620px;
+  --search-max-width: 400px;
+  --search-right-offset: 20px;
   --map-right-ui-space: calc(
     var(--roads-tour-width) + var(--roads-tour-right-offset) + var(--roads-tour-gap)
   );
 }
 
-.overlay-container > * {
-  pointer-events: auto;
+.overlay-container.overlay-container--inactive {
+  pointer-events: none;
 }
+
 
 /* Ajustement pour la carte */
 .leaflet-container {
@@ -256,14 +1197,31 @@ html,
 .search-bar-layer {
   position: fixed;
   top: max(20px, env(safe-area-inset-top));
-  left: calc(var(--map-left-ui-space) + env(safe-area-inset-left));
-  right: calc(var(--map-right-ui-space) + env(safe-area-inset-right));
-  width: auto;
-  max-width: var(--search-max-width);
-  margin-left: auto;
-  margin-right: auto;
+  left: auto;
+  right: calc(var(--map-right-ui-space) + env(safe-area-inset-right) + var(--search-right-offset));
+  width: min(
+    var(--search-max-width),
+    calc(100vw - var(--map-left-ui-space) - var(--map-right-ui-space) - 32px)
+  );
   z-index: 2100;
   pointer-events: none;
+}
+
+.search-bar-layer .ResearchBarWrapper {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  pointer-events: auto;
+}
+
+.search-bar-layer .search-input-container {
+  width: 100%;
+  margin: 0;
+  transform: none;
 }
 
 .roads-tour-badge {
@@ -356,6 +1314,10 @@ html,
 
   .convoyNameInput {
     padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .convoyTitle {
     font-size: 13px;
   }
 
