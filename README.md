@@ -223,7 +223,7 @@ Voici la liste complète des endpoints backend implémentés dans ton projet:
 
 ---
 
-### ** Convois (Trips)** `/api/trips`
+### **Convois (Trips)** `/api/trips`
 
 #### Lecture
 - `GET /api/trips` - Récupérer tous les convois
@@ -247,7 +247,7 @@ Voici la liste complète des endpoints backend implémentés dans ton projet:
 
 ---
 
-### ** Étapes (Steps)** `/api`
+### **Étapes (Steps)** `/api`
 
 #### Lecture
 - `GET /api/trips/{tripId}/steps` - Récupérer les étapes d'un convoi
@@ -264,14 +264,14 @@ Voici la liste complète des endpoints backend implémentés dans ton projet:
 
 ---
 
-### **🗺️ Géocodage** `/api/geocode`
+### **Géocodage** `/api/geocode`
 
 - `GET /api/geocode/search?q={adresse}` - Rechercher une adresse (géocodage)
 - `GET /api/geocode/reverse?lat={lat}&lon={lon}` - Géocodage inverse
 
 ---
 
-### ** Organisateur** `/api/organizer`
+### **Organisateur** `/api/organizer`
 
 - `GET /api/organizer/dashboard` - Tableau de bord avec KPIs et convois récents
 
