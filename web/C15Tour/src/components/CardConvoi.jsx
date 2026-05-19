@@ -42,6 +42,7 @@ export default function CardConvoi({
   waypoints = [],
   waypointNames = [],
   initialStepConfigs = {},
+  initialBackendTripId = null,
   routeDurationMinutes = null,
   generalSettings = DEFAULT_GENERAL_SETTINGS,
   onUpdateWaypoint,
@@ -69,6 +70,7 @@ export default function CardConvoi({
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [exportSaveMessage, setExportSaveMessage] = useState("");
   const [persistMessage, setPersistMessage] = useState("");
+  const [backendTripId, setBackendTripId] = useState(initialBackendTripId);
   const [generalSettingsDraft, setGeneralSettingsDraft] = useState(mergeGeneralSettings(generalSettings));
   const [isNameButtonLocked, setIsNameButtonLocked] = useState(false);
 
@@ -123,6 +125,10 @@ export default function CardConvoi({
   useEffect(() => {
     setName(initialName);
   }, [initialName]);
+
+  useEffect(() => {
+    setBackendTripId(initialBackendTripId ?? null);
+  }, [initialBackendTripId]);
 
   useEffect(() => {
     if (waypoints.length > 0) {
@@ -575,19 +581,97 @@ export default function CardConvoi({
     });
   };
 
+  const fetchExistingTripSteps = async (tripId) => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps`);
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+    return response.json();
+  };
+
+  const createTripStep = async (tripId, stepPayload) => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(stepPayload)
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+    return response.json();
+  };
+
+  const updateTripStep = async (stepId, stepPayload) => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/steps/${stepId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(stepPayload)
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+    return response.json();
+  };
+
+  const deleteTripStep = async (stepId) => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/steps/${stepId}`, {
+      method: "DELETE"
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+  };
+
+  const reorderTripSteps = async (tripId, stepIds) => {
+    if (!Array.isArray(stepIds) || stepIds.length === 0) return;
+    const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps/reorder`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stepIds })
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+    return response.json();
+  };
+
   const persistTripSteps = async (tripId) => {
     const steps = buildStepsPayload();
     for (const step of steps) {
-      const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(step)
-      });
+      await createTripStep(tripId, step);
+    }
+  };
 
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => null);
-        throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
-      }
+  const syncTripSteps = async (tripId) => {
+    const existingSteps = await fetchExistingTripSteps(tripId);
+    const steps = buildStepsPayload();
+    const finalStepIds = [];
+    const updateCount = Math.min(existingSteps.length, steps.length);
+
+    for (let i = 0; i < updateCount; i += 1) {
+      const existingStep = existingSteps[i];
+      const payload = { ...steps[i] };
+      delete payload.step_order;
+      await updateTripStep(existingStep.step_id, payload);
+      finalStepIds.push(existingStep.step_id);
+    }
+
+    for (let i = updateCount; i < steps.length; i += 1) {
+      const createdStep = await createTripStep(tripId, steps[i]);
+      finalStepIds.push(createdStep.step_id);
+    }
+
+    for (let i = steps.length; i < existingSteps.length; i += 1) {
+      await deleteTripStep(existingSteps[i].step_id);
+    }
+
+    if (finalStepIds.length > 0) {
+      await reorderTripSteps(tripId, finalStepIds);
     }
   };
 
@@ -607,14 +691,20 @@ export default function CardConvoi({
     const tripPayload = buildTripPayload();
     const pendingPayload = {
       trip: tripPayload,
-      steps: buildStepsPayload()
+      steps: buildStepsPayload(),
+      backendTripId
     };
 
     saveTripPayloadLocally(pendingPayload);
 
     try {
-      const tripResponse = await fetch(`${BACKEND_BASE_URL}/api/trips`, {
-        method: "POST",
+      const method = backendTripId ? "PUT" : "POST";
+      const tripUrl = backendTripId
+        ? `${BACKEND_BASE_URL}/api/trips/${backendTripId}`
+        : `${BACKEND_BASE_URL}/api/trips`;
+
+      const tripResponse = await fetch(tripUrl, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(tripPayload)
       });
@@ -625,35 +715,43 @@ export default function CardConvoi({
       }
 
       const createdTrip = await tripResponse.json();
+      const tripId = createdTrip.trip_id;
+      setBackendTripId(tripId);
       try {
-        await persistTripSteps(createdTrip.trip_id);
+        if (backendTripId) {
+          await syncTripSteps(tripId);
+        } else {
+          await persistTripSteps(tripId);
+        }
       } catch (stepsError) {
         console.error("Failed to persist steps", stepsError);
 
-        let deleteTrip = false;
+        if (!backendTripId) {
+          let deleteTrip = false;
 
-        // on regarde si des étapes ont été créées malgré l'erreur, pour éviter de laisser un trip sans étapes en cas de problème de persistance
-        await fetch(`${BACKEND_BASE_URL}/api/trips/${createdTrip.trip_id}/steps`, {
-          method: "GET"
-        }).then((res) => res.json()).then((data) => {
-          console.log("Steps persisted before failure:", data);
-          if (Array.isArray(data) && data.length === 0) {
-            console.warn("No steps were persisted for the trip before failure, deleting created trip");
-            deleteTrip = true;
+          // on regarde si des étapes ont été créées malgré l'erreur, pour éviter de laisser un trip sans étapes en cas de problème de persistance
+          await fetch(`${BACKEND_BASE_URL}/api/trips/${createdTrip.trip_id}/steps`, {
+            method: "GET"
+          }).then((res) => res.json()).then((data) => {
+            console.log("Steps persisted before failure:", data);
+            if (Array.isArray(data) && data.length === 0) {
+              console.warn("No steps were persisted for the trip before failure, deleting created trip");
+              deleteTrip = true;
+            }
+          })
+            .catch((fetchStepsError) => {
+              console.error("Failed to fetch steps after persistence failure", fetchStepsError);
+              deleteTrip = true;
+            });
+
+          if (deleteTrip) {
+            // Suppression du trip créé pour éviter d'avoir un trip sans étapes
+            await fetch(`${BACKEND_BASE_URL}/api/trips/${createdTrip.trip_id}`, {
+              method: "DELETE"
+            }).catch((deleteError) => {
+              console.error("Failed to delete trip after steps persistence failure", deleteError);
+            });
           }
-        })
-          .catch((fetchStepsError) => {
-            console.error("Failed to fetch steps after persistence failure", fetchStepsError);
-            deleteTrip = true;
-          });
-
-        if (deleteTrip) {
-          // Suppression du trip créé pour éviter d'avoir un trip sans étapes
-          await fetch(`${BACKEND_BASE_URL}/api/trips/${createdTrip.trip_id}`, {
-            method: "DELETE"
-          }).catch((deleteError) => {
-            console.error("Failed to delete trip after steps persistence failure", deleteError);
-          });
         }
 
         throw new Error("Une erreur est survenue lors de l'enregistrement des étapes. Veuillez réessayer.");
