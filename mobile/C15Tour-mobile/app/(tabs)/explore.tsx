@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import HomeButton from '@/components/ui/HomeButton';
@@ -8,6 +8,8 @@ import MicIcon from '../../../../shared/global_assets/pictos/Mic.svg';
 import MicMutedIcon from '../../../../shared/global_assets/pictos/MicMuted.svg';
 import CursorVehicule from '../../../../shared/global_assets/pictos/CursorVehicule.svg';
 import CursorVehiculeLeader from '../../../../shared/global_assets/pictos/CursorVehiculeLeader.svg';
+import checkAudioPermission from '../services/permissions/microphonePermissionService';
+import checkLocationPermission from '../services/permissions/locationPermissionService';
 
 const urlOpenStreetView =
   'https://www.openstreetmap.org/export/embed.html?bbox=-1.595%2C47.196%2C-1.505%2C47.237&layer=mapnik';
@@ -23,14 +25,27 @@ export default function ExploreScreen() {
   const [isMicActive, setIsMicActive] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
 
-  const handleMicPress = () => {
-    setIsMicActive((prev: boolean) => {
-      const next = !prev;
-      if (!next) {
-        setCallStatus('idle');
+  // Demander la permission de localisation au chargement de la page
+  useEffect(() => {
+    checkLocationPermission();
+  }, []);
+
+  const handleMicPress = async () => {
+    const nextStatus = !isMicActive;
+
+    // Si on veut activer le micro, vérifier la permission
+    if (nextStatus) {
+      const hasPermission = await checkAudioPermission();
+      if (!hasPermission) {
+        return;
       }
-      return next;
-    });
+    }
+
+    setIsMicActive(nextStatus);
+
+    if (!nextStatus) {
+      setCallStatus('idle');
+    }
   };
 
   const handleCallToggle = () => {
