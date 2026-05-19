@@ -30,13 +30,11 @@ export default function ExploreScreen() {
 
   const handleMicPress = async () => {
     const nextStatus = !isMicActive;
-    console.log(`🎤 Bouton micro pressé: ${isMicActive}`);
 
     // Si on veut activer le micro, vérifier la permission
     if (nextStatus) {
       const hasPermission = await checkAudioPermission();
       if (!hasPermission) {
-        console.log('❌ Permission microphone non accordée, activation du micro annulée');
         return;
       }
     }
@@ -46,7 +44,6 @@ export default function ExploreScreen() {
     if (!nextStatus) {
       setCallStatus('idle');
     }
-    console.log(`🎤 Micro ${nextStatus}`);
   };
 
   const handleCallToggle = () => {

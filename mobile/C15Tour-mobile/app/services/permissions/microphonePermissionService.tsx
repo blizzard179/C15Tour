@@ -6,7 +6,6 @@ export default async function checkAudioPermission() {
         const permission = await Audio.getRecordingPermissionsAsync();
 
         if (permission.status === "granted") {
-            console.log("✅ Permission microphone déjà accordée");
             return true;
         }
 
