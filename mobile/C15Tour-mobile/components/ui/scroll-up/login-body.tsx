@@ -1,80 +1,111 @@
-import BottomSheet from "@gorhom/bottom-sheet";
+import { ThemedText } from "@/components/themed-text";
 import { Button } from "@react-navigation/elements";
-import { useState, useMemo, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { API_BASE_URL } from "@/constants/api";
 
 
 function LoginBody() {
-    const [active, setActive] = useState('');
-    const bottomSheetRef = useRef(null);
+    const [active, setActive] = useState<'participant' | 'leader' | ''>('');
+    const [participantCode, setParticipantCode] = useState('');
+    const [leaderCode, setLeaderCode] = useState('');
 
+    const handleLogin = async () => {
+        if (!active) {
+            Alert.alert('Erreur', 'Veuillez choisir un rôle.');
+            return;
+        }
 
-    const snapPoints = useMemo(() => ["20%", "80%"], []);
+        const code = active === 'participant' ? participantCode : leaderCode;
+        if (!code.trim()) {
+            Alert.alert('Erreur', 'Veuillez entrer un code.');
+            return;
+        }
+
+        const endpoint = active === 'participant'
+            ? `${API_BASE_URL}/api/trips/code/${code.trim()}`
+            : `${API_BASE_URL}/api/trips/admin/${code.trim()}`;
+
+        try {
+            const response = await fetch(endpoint, { method: 'GET' });
+            const data = await response.json();
+
+            if (!response.ok) {
+                Alert.alert('Erreur', data.error || 'Convoi introuvable.');
+                return;
+            }
+
+            console.log('Trip data:', data);
+
+        } catch (err) {
+            Alert.alert('Erreur', 'Erreur réseau. Vérifiez votre connexion.');
+        }
+    };
 
     return (
         <View style={styles.container}>
-            <BottomSheet
-                ref={bottomSheetRef}
-                index={0} // start at 20%
-                snapPoints={snapPoints}
-                enablePanDownToClose={false}
+
+            {/* Button Participant */}
+            <TouchableOpacity
+                style={styles.row}
+                onPress={() => setActive('participant')}
             >
-
-                {/* Button A */}
-                <TouchableOpacity
-                    style={styles.row}
-                    onPress={() => setActive('A')}
-                >
-                    <View style={styles.outer}>
-                        {active === 'A' && <View style={styles.inner} />}
-                    </View>
-                    <Text style={styles.label}>Participant</Text>
-                </TouchableOpacity>
-
-                {/* Input A */}
-                <TextInput
-                    style={[
-                        styles.input,
-                        active === 'B' && styles.inputDisabled,
-                    ]}
-                    editable={active !== 'B'}
-                    placeholder="Input A"
-                />
-
-                {/* Separator */}
-                <View style={styles.separatorContainer}>
-                    <View style={styles.line} />
-                    <Text style={styles.text}>OU</Text>
-                    <View style={styles.line} />
+                <View style={styles.outer}>
+                    {active === 'participant' && <View style={styles.inner} />}
                 </View>
+                <ThemedText style={styles.label}>Participant</ThemedText>
+            </TouchableOpacity>
 
-                {/* Button B */}
-                <TouchableOpacity
-                    style={styles.row}
-                    onPress={() => setActive('B')}
-                >
-                    <View style={styles.outer}>
-                        {active === 'B' && <View style={styles.inner} />}
-                    </View>
-                    <Text style={styles.label}>Leader</Text>
-                </TouchableOpacity>
+            {/* Input Participant */}
+            <TextInput
+                style={[
+                    styles.input,
+                    active === 'leader' && styles.inputDisabled,
+                ]}
+                editable={active !== 'leader'}
+                placeholder="Code participant (6 caractères)"
+                value={participantCode}
+                onChangeText={setParticipantCode}
+                autoCapitalize="characters"
+                maxLength={6}
+            />
 
+            {/* Separator */}
+            <View style={styles.separatorContainer}>
+                <View style={styles.line} />
+                <Text style={styles.text}>OU</Text>
+                <View style={styles.line} />
+            </View>
 
-                {/* Input B */}
-                <TextInput
-                    style={[
-                        styles.input,
-                        active === 'A' && styles.inputDisabled,
-                    ]}
-                    editable={active !== 'A'}
-                    placeholder="Input B"
-                />
+            {/* Button Leader */}
+            <TouchableOpacity
+                style={styles.row}
+                onPress={() => setActive('leader')}
+            >
+                <View style={styles.outer}>
+                    {active === 'leader' && <View style={styles.inner} />}
+                </View>
+                <Text style={styles.label}>Leader</Text>
+            </TouchableOpacity>
 
-                {/* Submit Button */}
-                <Button style={styles.button} onPress={() => { console.log("EN ROUTE button pressed"); }} color="#fff">
-                    EN ROUTE !
-                </Button>
-            </BottomSheet>
+            {/* Input Leader */}
+            <TextInput
+                style={[
+                    styles.input,
+                    active === 'participant' && styles.inputDisabled,
+                ]}
+                editable={active !== 'participant'}
+                placeholder="Code leader (8 caractères)"
+                value={leaderCode}
+                onChangeText={setLeaderCode}
+                autoCapitalize="characters"
+                maxLength={8}
+            />
+
+            {/* Submit Button */}
+            <Button style={styles.button} onPress={handleLogin} color="#fff">
+                EN ROUTE !
+            </Button>
 
         </View>
     );
@@ -145,10 +176,10 @@ const styles = StyleSheet.create({
     },
 
     content: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+    },
 });
 
 export default LoginBody;
