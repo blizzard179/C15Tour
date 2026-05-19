@@ -99,7 +99,9 @@ npx expo start
 
 C15Tour/
 ├── 📱 MOBILE (React Native + Expo)
+
 │   ├── app/
+
 │   │   ├── _layout.tsx .......................... Router principal (Expo Router)
 │   │   ├── modal.tsx ........................... Modal générique
 │   │   ├── (tabs)/
