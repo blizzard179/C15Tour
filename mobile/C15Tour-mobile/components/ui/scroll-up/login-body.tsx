@@ -1,36 +1,73 @@
 import { ThemedText } from "@/components/themed-text";
 import { Button } from "@react-navigation/elements";
-import { useState, } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { API_BASE_URL } from "@/constants/api";
 
 
 function LoginBody() {
-    const [active, setActive] = useState('');
+    const [active, setActive] = useState<'participant' | 'leader' | ''>('');
+    const [participantCode, setParticipantCode] = useState('');
+    const [leaderCode, setLeaderCode] = useState('');
+
+    const handleLogin = async () => {
+        if (!active) {
+            Alert.alert('Erreur', 'Veuillez choisir un rôle.');
+            return;
+        }
+
+        const code = active === 'participant' ? participantCode : leaderCode;
+        if (!code.trim()) {
+            Alert.alert('Erreur', 'Veuillez entrer un code.');
+            return;
+        }
+
+        const endpoint = active === 'participant'
+            ? `${API_BASE_URL}/api/trips/code/${code.trim()}`
+            : `${API_BASE_URL}/api/trips/admin/${code.trim()}`;
+
+        try {
+            const response = await fetch(endpoint, { method: 'GET' });
+            const data = await response.json();
+
+            if (!response.ok) {
+                Alert.alert('Erreur', data.error || 'Convoi introuvable.');
+                return;
+            }
+
+            console.log('Trip data:', data);
+
+        } catch (err) {
+            Alert.alert('Erreur', 'Erreur réseau. Vérifiez votre connexion.');
+        }
+    };
 
     return (
         <View style={styles.container}>
 
-
-
-            {/* Button A */}
+            {/* Button Participant */}
             <TouchableOpacity
                 style={styles.row}
-                onPress={() => setActive('A')}
+                onPress={() => setActive('participant')}
             >
                 <View style={styles.outer}>
-                    {active === 'A' && <View style={styles.inner} />}
+                    {active === 'participant' && <View style={styles.inner} />}
                 </View>
                 <ThemedText style={styles.label}>Participant</ThemedText>
             </TouchableOpacity>
 
-            {/* Input A */}
+            {/* Input Participant */}
             <TextInput
                 style={[
                     styles.input,
-                    active === 'B' && styles.inputDisabled,
+                    active === 'leader' && styles.inputDisabled,
                 ]}
-                editable={active !== 'B'}
-                placeholder="participant"
+                editable={active !== 'leader'}
+                placeholder="Code participant (6 caractères)"
+                value={participantCode}
+                onChangeText={setParticipantCode}
+                autoCapitalize="characters"
+                maxLength={6}
             />
 
             {/* Separator */}
@@ -40,33 +77,35 @@ function LoginBody() {
                 <View style={styles.line} />
             </View>
 
-            {/* Button B */}
+            {/* Button Leader */}
             <TouchableOpacity
                 style={styles.row}
-                onPress={() => setActive('B')}
+                onPress={() => setActive('leader')}
             >
                 <View style={styles.outer}>
-                    {active === 'B' && <View style={styles.inner} />}
+                    {active === 'leader' && <View style={styles.inner} />}
                 </View>
                 <Text style={styles.label}>Leader</Text>
             </TouchableOpacity>
 
-
-            {/* Input B */}
+            {/* Input Leader */}
             <TextInput
                 style={[
                     styles.input,
-                    active === 'A' && styles.inputDisabled,
+                    active === 'participant' && styles.inputDisabled,
                 ]}
-                editable={active !== 'A'}
-                placeholder="Leader"
+                editable={active !== 'participant'}
+                placeholder="Code leader (8 caractères)"
+                value={leaderCode}
+                onChangeText={setLeaderCode}
+                autoCapitalize="characters"
+                maxLength={8}
             />
 
             {/* Submit Button */}
-            <Button style={styles.button} onPress={() => { console.log("EN ROUTE button pressed"); }} color="#fff">
+            <Button style={styles.button} onPress={handleLogin} color="#fff">
                 EN ROUTE !
             </Button>
-
 
         </View>
     );
