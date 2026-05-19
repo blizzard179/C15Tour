@@ -41,6 +41,7 @@ export default function CardConvoi({
   initialStartTime = "00:00",
   waypoints = [],
   waypointNames = [],
+  initialStepConfigs = {},
   routeDurationMinutes = null,
   generalSettings = DEFAULT_GENERAL_SETTINGS,
   onUpdateWaypoint,
@@ -57,12 +58,7 @@ export default function CardConvoi({
   const [startTime, setStartTime] = useState(initialStartTime);
   const [isEdited, setIsEdited] = useState(false);
   const [configPopup, setConfigPopup] = useState(null);
-  const [editData, setEditData] = useState({
-    name: "",
-    arrivalTime: "00:00",
-    breakTime: 5,
-    hasBreak: true
-  });
+  const [editData, setEditData] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingTime, setIsEditingTime] = useState(false);
   const [stepsConfig, setStepsConfig] = useState({});
@@ -74,10 +70,50 @@ export default function CardConvoi({
   const [exportSaveMessage, setExportSaveMessage] = useState("");
   const [persistMessage, setPersistMessage] = useState("");
   const [generalSettingsDraft, setGeneralSettingsDraft] = useState(mergeGeneralSettings(generalSettings));
+  const [isNameButtonLocked, setIsNameButtonLocked] = useState(false);
+
+  const createDefaultEditDataItem = () => ({
+    name: "",
+    arrivalTime: "00:00",
+    breakTime: 0,
+    hasBreak: false
+  });
+
+  const getEditDataItem = (index) => editData[index] || createDefaultEditDataItem();
+
+  const getStepLoadConfig = (index) => {
+    const waypoint = waypoints[index] || {};
+    const hasStop = waypoint.step_is_stop ?? waypoint.isStop ?? false;
+    const stopDuration = waypoint.step_stop_duration ?? waypoint.stopDuration;
+    return {
+      hasBreak: Boolean(hasStop),
+      breakTime: hasStop ? (Number.isFinite(stopDuration) ? stopDuration : 0) : 0
+    };
+  };
+
+  const getStepBreakTime = (index) => {
+    const configured = stepsConfig[index];
+    if (configured && Number.isFinite(configured.breakTime)) {
+      return configured.breakTime;
+    }
+    return getStepLoadConfig(index).breakTime;
+  };
+
+  const updateEditDataItem = (index, updater) =>
+    setEditData((prev) => {
+      const next = [...prev];
+      next[index] = updater(prev[index] || createDefaultEditDataItem());
+      return next;
+    });
+
+  useEffect(() => {
+    setStepsConfig({ ...initialStepConfigs });
+  }, [initialStepConfigs]);
 
   const popupRef = useRef(null);
   const inputRef = useRef(null);
   const timeInputRef = useRef(null);
+  const nameButtonLockTimeoutRef = useRef(null);
 
   const resolvedGeneralSettings = useMemo(
     () => mergeGeneralSettings(generalSettings),
@@ -87,6 +123,12 @@ export default function CardConvoi({
   useEffect(() => {
     setName(initialName);
   }, [initialName]);
+
+  useEffect(() => {
+    if (waypoints.length > 0) {
+      setIsEdited(true);
+    }
+  }, [waypoints.length]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -110,6 +152,14 @@ export default function CardConvoi({
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (nameButtonLockTimeoutRef.current) {
+        clearTimeout(nameButtonLockTimeoutRef.current);
+      }
+    };
   }, []);
 
   const hasWaypoints = waypoints.length > 0;
@@ -180,11 +230,9 @@ export default function CardConvoi({
     let totalMinutes = startHours * 60 + startMinutes;
     totalMinutes += getTotalTravelTime();
 
-    Object.values(stepsConfig).forEach((config) => {
-      if (config.breakTime) {
-        totalMinutes += config.breakTime;
-      }
-    });
+    for (let i = 0; i < waypoints.length; i += 1) {
+      totalMinutes += getStepBreakTime(i);
+    }
 
     const arrivalHours = Math.floor(totalMinutes / 60) % 24;
     const arrivalMinutes = totalMinutes % 60;
@@ -204,9 +252,7 @@ export default function CardConvoi({
     }
 
     for (let i = 0; i < index; i += 1) {
-      if (stepsConfig[i]?.breakTime) {
-        totalMinutes += stepsConfig[i].breakTime;
-      }
+      totalMinutes += getStepBreakTime(i);
     }
 
     const waypointHours = Math.floor(totalMinutes / 60) % 24;
@@ -222,6 +268,29 @@ export default function CardConvoi({
       setIsEditing(false);
       setIsEdited(true);
     }
+  };
+
+  const lockNameButtonTemporarily = () => {
+    setIsNameButtonLocked(true);
+    if (nameButtonLockTimeoutRef.current) {
+      clearTimeout(nameButtonLockTimeoutRef.current);
+    }
+    nameButtonLockTimeoutRef.current = setTimeout(() => {
+      setIsNameButtonLocked(false);
+      nameButtonLockTimeoutRef.current = null;
+    }, 1500);
+  };
+
+  const handleNameButtonClick = () => {
+    if (isNameButtonLocked) return;
+
+    if (isEditing) {
+      handleNameSubmit();
+    } else {
+      setIsEditing(true);
+    }
+
+    lockNameButtonTemporarily();
   };
 
   const startTimeEdit = () => {
@@ -245,6 +314,18 @@ export default function CardConvoi({
     setIsEditingTime(false);
   };
 
+  const openTimePicker = () => {
+    const input = timeInputRef.current;
+    if (!input) return;
+
+    input.focus();
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+    input.click();
+  };
+
   const handleAddWaypointClick = () => {
     const searchInput = document.querySelector(".ResearchBarInput");
     if (searchInput) {
@@ -257,13 +338,20 @@ export default function CardConvoi({
     e.stopPropagation();
     const currentConfig = stepsConfig[index] || {};
     const currentName = waypointNames[index] || "";
+    const loadedConfig = getStepLoadConfig(index);
 
     setConfigPopup(configPopup === index ? null : index);
-    setEditData({
-      name: currentConfig.name !== undefined ? currentConfig.name : currentName,
-      arrivalTime: currentConfig.arrivalTime || "00:00",
-      breakTime: currentConfig.breakTime || 5,
-      hasBreak: currentConfig.breakTime !== undefined ? currentConfig.breakTime > 0 : true
+    setEditData((prev) => {
+      const next = [...prev];
+      next[index] = {
+        name: currentConfig.name !== undefined ? currentConfig.name : currentName,
+        arrivalTime: currentConfig.arrivalTime || "00:00",
+        breakTime:
+          currentConfig.breakTime !== undefined ? currentConfig.breakTime : loadedConfig.breakTime,
+        hasBreak:
+          currentConfig.hasBreak !== undefined ? currentConfig.hasBreak : loadedConfig.hasBreak
+      };
+      return next;
     });
   };
 
@@ -271,13 +359,15 @@ export default function CardConvoi({
     e.stopPropagation();
     if (configPopup === null) return;
 
+    const currentEditData = editData[configPopup] || createDefaultEditDataItem();
     const nameToSave =
-      editData.name !== undefined ? editData.name.trim() : `Point ${configPopup + 1}`;
+      currentEditData.name !== undefined ? currentEditData.name.trim() : `Point ${configPopup + 1}`;
 
     const config = {
       name: nameToSave,
-      arrivalTime: editData.arrivalTime || "00:00",
-      breakTime: editData.hasBreak ? parseInt(editData.breakTime, 10) || 0 : 0
+      arrivalTime: currentEditData.arrivalTime || "00:00",
+      hasBreak: Boolean(currentEditData.hasBreak),
+      breakTime: currentEditData.hasBreak ? parseInt(currentEditData.breakTime, 10) || 0 : 0
     };
 
     setStepsConfig((prev) => ({
@@ -285,7 +375,10 @@ export default function CardConvoi({
       [configPopup]: config
     }));
 
-    onUpdateWaypoint?.(configPopup, nameToSave);
+    onUpdateWaypoint?.(configPopup, nameToSave, null, {
+      step_is_stop: config.breakTime > 0,
+      step_stop_duration: config.breakTime || 0
+    });
     setConfigPopup(null);
   };
 
@@ -300,6 +393,12 @@ export default function CardConvoi({
         if (k < index) next[k] = prev[k];
         if (k > index) next[k - 1] = prev[k];
       });
+      return next;
+    });
+
+    setEditData((prev) => {
+      const next = [...prev];
+      next.splice(index, 1);
       return next;
     });
 
@@ -460,14 +559,17 @@ export default function CardConvoi({
       const address =
         waypoint.display_name || waypoint.address || waypoint.name || waypointNames[index] || `${waypoint.lat}, ${waypoint.lng}`;
       const nameToUse = waypointNames[index] || address || `Etape ${index + 1}`;
+      const stepConfig = stepsConfig[index] || getStepLoadConfig(index);
+      const shouldStop = Boolean(stepConfig.hasBreak);
+      const stopDuration = Number.isFinite(stepConfig.breakTime) ? stepConfig.breakTime : 0;
 
       return {
         step_name: nameToUse,
         step_address: address,
         step_latitude: Number(waypoint.lat),
         step_longitude: Number(waypoint.lng),
-        step_is_stop: false,
-        step_stop_duration: null,
+        step_is_stop: shouldStop,
+        step_stop_duration: shouldStop ? stopDuration : 0,
         step_order: index + 1
       };
     });
@@ -528,7 +630,7 @@ export default function CardConvoi({
       } catch (stepsError) {
         console.error("Failed to persist steps", stepsError);
 
-        const deleteTrip = false;
+        let deleteTrip = false;
 
         // on regarde si des étapes ont été créées malgré l'erreur, pour éviter de laisser un trip sans étapes en cas de problème de persistance
         await fetch(`${BACKEND_BASE_URL}/api/trips/${createdTrip.trip_id}/steps`, {
@@ -568,6 +670,7 @@ export default function CardConvoi({
 
   const renderWaypointConfig = (index) => {
     if (configPopup !== index) return null;
+    const currentEditData = getEditDataItem(index);
 
     return (
       <div className="waypoint-config-overlay">
@@ -579,8 +682,8 @@ export default function CardConvoi({
             <input
               id="step-name"
               type="text"
-              value={editData.name}
-              onChange={(e) => setEditData((prev) => ({ ...prev, name: e.target.value }))}
+              value={currentEditData.name}
+              onChange={(e) => updateEditDataItem(index, (prev) => ({ ...prev, name: e.target.value }))}
               className="config-input"
               placeholder="Nom de l'etape"
             />
@@ -591,8 +694,8 @@ export default function CardConvoi({
             <input
               id="arrival-time"
               type="time"
-              value={editData.arrivalTime || "00:00"}
-              onChange={(e) => setEditData((prev) => ({ ...prev, arrivalTime: e.target.value }))}
+              value={currentEditData.arrivalTime || "00:00"}
+              onChange={(e) => updateEditDataItem(index, (prev) => ({ ...prev, arrivalTime: e.target.value }))}
               className="config-input"
             />
           </div>
@@ -602,21 +705,23 @@ export default function CardConvoi({
               <input
                 type="checkbox"
                 id="has-break"
-                checked={editData.hasBreak}
-                onChange={(e) => setEditData((prev) => ({ ...prev, hasBreak: e.target.checked }))}
+                checked={currentEditData.hasBreak}
+                onChange={(e) => updateEditDataItem(index, (prev) => ({ ...prev, hasBreak: e.target.checked }))}
                 className="config-checkbox"
               />
-              <label htmlFor="has-break">Ajouter un temps de pause</label>
+              <label htmlFor="has-break" value="currentEditData.hasBreak">
+                Ajouter un temps de pause
+              </label>
             </div>
-            {editData.hasBreak && (
+            {currentEditData.hasBreak && (
               <div className="break-time-container">
                 <input
                   id="break-time"
                   type="number"
                   min="0"
-                  value={editData.breakTime}
+                  value={currentEditData.breakTime}
                   onChange={(e) =>
-                    setEditData((prev) => ({
+                    updateEditDataItem(index, (prev) => ({
                       ...prev,
                       breakTime: parseInt(e.target.value, 10) || 0
                     }))
@@ -845,7 +950,8 @@ export default function CardConvoi({
             className="iconBtn"
             type="button"
             aria-label={isEditing ? "Valider" : "Editer le nom"}
-            onClick={isEditing ? handleNameSubmit : () => setIsEditing(true)}
+            onClick={handleNameButtonClick}
+            disabled={isNameButtonLocked}
           >
             <img src={isEditing ? CheckIcon : PenIcon} alt={isEditing ? "Valider" : "Editer le nom"} />
           </button>
@@ -863,7 +969,11 @@ export default function CardConvoi({
             <div className="timeEdit">
               {isEditingTime ? (
                 <>
-                  <div className="timeInputWrapper">
+                  <div
+                    className="timeInputWrapper"
+                    onClick={openTimePicker}
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
                     <input
                       ref={timeInputRef}
                       type="time"
@@ -935,7 +1045,7 @@ export default function CardConvoi({
                           <div className="step-name">{label}</div>
                           <div className="step-time">
                             {calculateWaypointTime(index)}
-                            {stepsConfig[index]?.breakTime > 0 && ` - ${stepsConfig[index].breakTime} min`}
+                            {getStepBreakTime(index) > 0 && ` - ${getStepBreakTime(index)} min`}
                           </div>
                         </div>
                       </div>
