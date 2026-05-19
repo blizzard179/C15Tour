@@ -97,156 +97,137 @@ npx expo start
 
 ## Structure du projet
 
+## Structure du projet
+
+Le projet C15 Tour est organisé en plusieurs parties : une application mobile, une application web, une API back-end et des ressources partagées.
+
+```bash
 C15Tour/
-├── 📱 MOBILE (React Native + Expo)
-
+│
+├── mobile/                         # Application mobile React Native + Expo
 │   ├── app/
-
-│   │   ├── _layout.tsx .......................... Router principal (Expo Router)
-
-│   │   ├── modal.tsx ........................... Modal générique
-
-│   │   ├── (tabs)/
-
-│   │   │   ├── _layout.tsx ..................... Bottom Tabs Navigation
-
-│   │   │   ├── index.tsx ....................... Home Screen
-
-│   │   │   ├── explore.tsx ..................... Map & Location Screen
-
-│   │   │   ├── loader.tsx ...................... Loading Screen
-
-│   │   │   └── permission.tsx .................. Permissions Screen
-
-│   │   ├── services/
-
-│   │   │   └── permissions/
-
-│   │   │       ├── locationPermissionService.tsx .. Gère perms localisation
-
-│   │   │       └── microphonePermissionService.tsx  Gère perms microphone
-
-│   │   │   └── locations/
-
-│   │   │       └── locationService.tsx ........ GPS & localisation en temps réel
-
-│   │   ├── components/
-
-
-│   │   │   └── ui/
-
-
-│   │   ├── constants/
-
-│   │   └── hooks/
-
-│   ├── assets/
-
-│   │   └── images/
-
+│   │   ├── _layout.tsx              # Router principal avec Expo Router
+│   │   ├── modal.tsx                # Modal générique
+│   │   └── (tabs)/                  # Navigation principale de l'application
+│   │       ├── _layout.tsx          # Bottom Tabs Navigation
+│   │       ├── index.tsx            # Écran d'accueil
+│   │       ├── explore.tsx          # Carte et localisation
+│   │       ├── loader.tsx           # Écran de chargement
+│   │       └── permission.tsx       # Écran de gestion des permissions
+│   │
+│   ├── services/
+│   │   ├── permissions/
+│   │   │   ├── locationPermissionService.tsx      # Gestion de la permission de localisation
+│   │   │   └── microphonePermissionService.tsx    # Gestion de la permission microphone
+│   │   └── locations/
+│   │       └── locationService.tsx                 # Gestion du GPS et de la localisation en temps réel
+│   │
+│   ├── components/                  # Composants réutilisables
+│   │   ├── HomeButton.tsx
+│   │   ├── MicButton.tsx
+│   │   ├── ConvoyName.tsx
+│   │   └── ui/
+│   │
+│   ├── constants/
+│   │   └── theme.ts                 # Thème et couleurs de l'application
+│   │
+│   ├── hooks/                       # Hooks personnalisés
+│   ├── assets/                      # Images et ressources mobiles
 │   ├── metro.config.js
-
 │   ├── tsconfig.json
-
-│   ├── package.json
-
-│   └── expo-env.d.ts
-
-│
-
-├── 🌐 WEB (React + Vite)
-
-│   ├── C15Tour/
-
-│   │   ├── src/
-
-│   │   │   ├── App.jsx ......................... Component root
-
-│   │   │   ├── main.jsx ........................ Entry point
-
-│   │   │   ├── pages/
-
-│   │   │   │   ├── Home.jsx ................... Home page
-
-│   │   │   │   └── Carte.jsx .................. Map page
-
-│   │   │   ├── components/
-
-│   │   │   │   ├── CardConvoi.jsx ............ Convoy card
-
-│   │   │   │   ├── HomeButton.jsx
-
-│   │   │   │   ├── ResearchBar.jsx
-
-│   │   │   │   └── RoadsTour.jsx ............ Route display
-
-│   │   │   ├── helper/
-
-
-│   │   │   └── css/
-
-│   │   ├── vite.config.js
-
-│   │   ├── package.json
-
-│   │   └── index.html
-
-│
-
-├── 🔧 BACKEND (Node.js + Express)
-│   ├── backend/
-
-│   ├── api/
-
-│   ├── src/
-
-│   │   ├── server.js .......................... Express app principal
-
-│   │   ├── index.js .......................... Entry point
-
-│   │   ├── db.js ............................ DB connection
-
-│   │   ├── config/
-
-│   │   │   ├── database.js .................. Config DB
-
-│   │   │   └── swagger.js .................. Swagger/OpenAPI
-
-│   │   ├── routes/
-
-│   │   ├── controllers/
-
-│   │   ├── services/
-
-│   │   └── middlewares/
-
-│   ├── prisma/
-
 │   └── package.json
-
 │
-
-├── 📦 SHARED
-
+├── web/                             # Application web React + Vite
+│   └── C15Tour/
+│       ├── src/
+│       │   ├── App.jsx              # Composant principal
+│       │   ├── main.jsx             # Point d'entrée de l'application
+│       │   │
+│       │   ├── pages/
+│       │   │   ├── Home.jsx         # Page d'accueil
+│       │   │   └── Carte.jsx        # Page de carte
+│       │   │
+│       │   ├── components/          # Composants de l'interface web
+│       │   │   ├── CardConvoi.jsx   # Carte d'affichage d'un convoi
+│       │   │   ├── HomeButton.jsx
+│       │   │   ├── ResearchBar.jsx
+│       │   │   └── RoadsTour.jsx    # Affichage du trajet
+│       │   │
+│       │   ├── helper/              # Fonctions d'aide pour la carte et les trajets
+│       │   │   ├── ClickHandler.jsx
+│       │   │   ├── ErrorHelper.jsx
+│       │   │   ├── FlyTo.jsx
+│       │   │   ├── RoutingMachine.jsx
+│       │   │   └── SearchBar.jsx
+│       │   │
+│       │   └── css/                 # Fichiers de style
+│       │       ├── accueil.css
+│       │       ├── carte.css
+│       │       ├── leaflet.css
+│       │       └── searchBar.css
+│       │
+│       ├── vite.config.js
+│       ├── package.json
+│       └── index.html
+│
+├── backend/                         # API Node.js + Express
+│   ├── src/
+│   │   ├── server.js                # Application Express principale
+│   │   ├── index.js                 # Point d'entrée du serveur
+│   │   ├── db.js                    # Connexion à la base de données
+│   │   │
+│   │   ├── config/
+│   │   │   ├── database.js          # Configuration de la base de données
+│   │   │   └── swagger.js           # Configuration Swagger / OpenAPI
+│   │   │
+│   │   ├── routes/                  # Déclaration des routes de l'API
+│   │   │   ├── tripRoutes.js        # Routes liées aux convois
+│   │   │   ├── stepRoutes.js        # Routes liées aux étapes
+│   │   │   ├── geocodeRoutes.js     # Routes liées au géocodage
+│   │   │   └── organizerRoutes.js   # Routes liées à l'organisateur
+│   │   │
+│   │   ├── controllers/             # Logique de traitement des requêtes
+│   │   │   ├── tripController.js
+│   │   │   ├── stepController.js
+│   │   │   ├── geocodeController.js
+│   │   │   ├── routingController.js
+│   │   │   ├── exportController.js
+│   │   │   ├── telemetryController.js
+│   │   │   └── organizerController.js
+│   │   │
+│   │   ├── services/                # Logique métier
+│   │   │   ├── tripService.js
+│   │   │   ├── stepService.js
+│   │   │   ├── geocodeService.js
+│   │   │   ├── routingService.js
+│   │   │   ├── exportService.js
+│   │   │   ├── telemetryService.js
+│   │   │   └── organizerService.js
+│   │   │
+│   │   └── middlewares/             # Middlewares Express
+│   │       ├── validation.js        # Validation des données
+│   │       └── errorHandler.js      # Gestion des erreurs
+│   │
+│   ├── prisma/
+│   │   └── schema.prisma            # Schéma Prisma
+│   │
+│   └── package.json
+│
+├── shared/                          # Ressources partagées
 │   ├── global_assets/
-
 │   │   ├── animations/
-
 │   │   ├── gif/
-
 │   │   ├── logos/
-
-│   │   └── pictos/ ........... SVG icons utilisés partout
-
+│   │   └── pictos/                  # Icônes SVG utilisées dans le projet
 │   └── index.js
-
 │
-
-└── assets/
-
-    ├── logos/
-    └── pictos/
-
+├── assets/
+│   ├── logos/
+│   └── pictos/
+│
+├── README.md
+└── .gitignore
+```
 ## Base de données
 
 La base de données du projet C15 Tour est composée de trois tables principales : `trip`, `step` et `telemetry`.
