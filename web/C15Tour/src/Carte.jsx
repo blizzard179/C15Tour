@@ -118,6 +118,7 @@ function Carte() {
 
     const [waypoints, setWaypoints] = useState([]);
     const [waypointNames, setWaypointNames] = useState([]);
+    const [stepConfigs, setStepConfigs] = useState({});
     const [searchQuery, setSearchQuery] = useState('');
     const mapRef = useRef();
     const importInputRef = useRef();
@@ -217,6 +218,7 @@ function Carte() {
                   name: currentConvoyName || convoy.name,
                   waypoints,
                   waypointNames,
+                  stepConfigs,
                   generalSettings,
                   updatedAt: nowIso
                 }
@@ -232,6 +234,7 @@ function Carte() {
         name: currentConvoyName || `Convoi ${new Date().toLocaleString('fr-FR')}`,
         waypoints,
         waypointNames,
+        stepConfigs,
         generalSettings,
         updatedAt: nowIso
       };
@@ -248,6 +251,7 @@ function Carte() {
       setCurrentConvoyName(convoy.name || 'Nom du convoi');
       setWaypoints(Array.isArray(convoy.waypoints) ? convoy.waypoints : []);
       setWaypointNames(Array.isArray(convoy.waypointNames) ? convoy.waypointNames : []);
+      setStepConfigs(convoy.stepConfigs && typeof convoy.stepConfigs === 'object' ? convoy.stepConfigs : {});
       setGeneralSettings(convoy.generalSettings || generalSettings);
       localStorage.setItem(LAST_CONVOY_STORAGE_KEY, convoy.id);
       setShowConvoySelector(false);
@@ -725,9 +729,10 @@ function Carte() {
                     initialName={currentConvoyName}
                     waypoints={waypoints} 
                     waypointNames={waypointNames}
+                  initialStepConfigs={stepConfigs}
                     routeDurationMinutes={routeDurationMinutes}
                     generalSettings={generalSettings}
-                    onUpdateWaypoint={(index, newName, newCoords = null) => {
+                  onUpdateWaypoint={(index, newName, newCoords = null, metadata = {}) => {
                         // Mise à jour du nom 
                         setWaypointNames(prev => {
                             const updated = [...prev];
@@ -743,6 +748,19 @@ function Carte() {
                                 return updated;
                             });
                         }
+                        if (metadata && typeof metadata === 'object') {
+                          setStepConfigs(prev => {
+                            const next = { ...prev };
+                            if (metadata.step_is_stop !== undefined || metadata.step_stop_duration !== undefined) {
+                              next[index] = {
+                                ...next[index],
+                                hasBreak: Boolean(metadata.step_is_stop),
+                                breakTime: metadata.step_is_stop ? Number(metadata.step_stop_duration || 0) : 0
+                              };
+                            }
+                            return next;
+                          });
+                        }
                     }}
                     onDeleteWaypoint={(index) => {
                         setWaypoints(prev => {
@@ -755,10 +773,30 @@ function Carte() {
                             updated.splice(index, 1);
                             return updated;
                         });
+                        setStepConfigs(prev => {
+                          const next = {};
+                          Object.keys(prev).forEach((key) => {
+                            const k = Number(key);
+                            if (k < index) next[k] = prev[k];
+                            if (k > index) next[k - 1] = prev[k];
+                          });
+                          return next;
+                        });
                     }}
                     onReorderWaypoints={(fromIndex, toIndex) => {
                         setWaypoints(prev => moveItem(prev, fromIndex, toIndex));
                         setWaypointNames(prev => moveItem(prev, fromIndex, toIndex));
+                        setStepConfigs(prev => {
+                           const length = Object.keys(prev).length;
+                           const order = Array.from({ length: Math.max(length, waypoints.length) }, (_, i) => i);
+                           const [moved] = order.splice(fromIndex, 1);
+                           order.splice(toIndex, 0, moved);
+                           const next = {};
+                           order.forEach((oldIndex, newIndex) => {
+                             if (prev[oldIndex] !== undefined) next[newIndex] = prev[oldIndex];
+                           });
+                           return next;
+                        });
                         if (editingWaypointIndex !== null) {
                             if (editingWaypointIndex === fromIndex) {
                                 setEditingWaypointIndex(toIndex);
