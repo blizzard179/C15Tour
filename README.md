@@ -3,8 +3,6 @@ C15 Tour
 
 ## Description
 
-## Description
-
 Le projet C15 Tour comporte une partie web et une partie mobile.
 
 La partie web est destinée aux organisateurs de convois. Elle permet de créer un convoi, de le modifier, de l’enregistrer en base de données et de le partager avec les participants. Un historique des convois est également disponible afin de retrouver d’anciens trajets enregistrés et de les modifier si nécessaire.
@@ -12,8 +10,6 @@ La partie web est destinée aux organisateurs de convois. Elle permet de créer 
 L’application mobile est destinée aux participants du convoi ainsi qu’à l’administrateur, qui correspond au véhicule de tête. Grâce à un code ou à un QR code, les participants peuvent rejoindre un convoi, suivre le trajet prédéfini, suivre la position du véhicule de tête, adapter leur vitesse et recevoir des messages audio.
 
 Le véhicule de tête suit également le parcours. Il dispose en plus de fonctionnalités d’administration, comme l’envoi de messages audio aux participants afin de transmettre des indications, signaler des ajustements ou animer le convoi.
-
-## Fonctionnalités
 
 ## Fonctionnalités
 
