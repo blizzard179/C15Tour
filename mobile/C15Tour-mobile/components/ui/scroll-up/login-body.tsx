@@ -1,14 +1,18 @@
 import { ThemedText } from "@/components/themed-text";
-import { Button } from "@react-navigation/elements";
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import { API_BASE_URL } from "@/constants/api";
+import { useAuth } from "@/context/auth";
+import { useRouter } from "expo-router";
 
 
 function LoginBody() {
     const [active, setActive] = useState<'participant' | 'leader' | ''>('');
     const [participantCode, setParticipantCode] = useState('');
     const [leaderCode, setLeaderCode] = useState('');
+    const [loading, setLoading] = useState(false);
+    const { login } = useAuth();
+    const router = useRouter();
 
     const handleLogin = async () => {
         if (!active) {
@@ -26,6 +30,7 @@ function LoginBody() {
             ? `${API_BASE_URL}/api/trips/code/${code.trim()}`
             : `${API_BASE_URL}/api/trips/admin/${code.trim()}`;
 
+        setLoading(true);
         try {
             const response = await fetch(endpoint, { method: 'GET' });
             const data = await response.json();
@@ -35,10 +40,13 @@ function LoginBody() {
                 return;
             }
 
-            console.log('Trip data:', data);
+            login(data, active);
+            router.replace('/(tabs)/explore');
 
         } catch (err) {
             Alert.alert('Erreur', 'Erreur réseau. Vérifiez votre connexion.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -103,9 +111,12 @@ function LoginBody() {
             />
 
             {/* Submit Button */}
-            <Button style={styles.button} onPress={handleLogin} color="#fff">
-                EN ROUTE !
-            </Button>
+            <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+                {loading
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.buttonText}>EN ROUTE !</Text>
+                }
+            </TouchableOpacity>
 
         </View>
     );
@@ -173,6 +184,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#BB487C',
         padding: 12,
         alignItems: 'center',
+        borderRadius: 6,
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
     },
 
     content: {
