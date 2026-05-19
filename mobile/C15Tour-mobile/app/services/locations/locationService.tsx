@@ -23,18 +23,16 @@ export async function getLocation() {
             throw new Error('Permission de localisation refusée');
         }
 
-        // Obtenir la position actuelle avec options
+        // Obtenir la position actuelle avec options (Haute Précision)
         const location = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-            timeInterval: 1000,
+            accuracy: Location.Accuracy.Highest,
+            timeInterval: 2000,
             mayShowUserSettingsDialog: true,
         });
         
         console.log('✅ Localisation obtenue:', location.coords.latitude.toFixed(6), location.coords.longitude.toFixed(6));
-        Alert.alert(
-            'Localisation obtenue',
-            `Latitude: ${location.coords.latitude.toFixed(6)}\nLongitude: ${location.coords.longitude.toFixed(6)}`
-        );
+        console.log('📍 Précision:', location.coords.accuracy, 'mètres');
+        
         return location;
     } catch (error) {
         console.error("❌ Erreur lors de l'obtention de la localisation:", error);
@@ -44,8 +42,9 @@ export async function getLocation() {
 
 
 let subscription: Location.LocationSubscription | null = null;
+let locationCallback: ((latitude: number, longitude: number) => void) | null = null;
 
-export async function startTracking() {
+export async function startTracking(onLocationUpdate?: (latitude: number, longitude: number) => void) {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
         Alert.alert(
@@ -55,13 +54,22 @@ export async function startTracking() {
         throw new Error('Permission de localisation refusée');
     }
 
-    let subscription = await Location.watchPositionAsync(
+    locationCallback = onLocationUpdate || null;
+
+    subscription = await Location.watchPositionAsync(
         {
-            accuracy: Location.Accuracy.Balanced,
-            distanceInterval: 10,
+            accuracy: Location.Accuracy.Highest,
+            distanceInterval: 5,
+            timeInterval: 2000,
         },
         (location) => {
-            console.log('📍 Nouvelle position:', location.coords.latitude.toFixed(6), location.coords.longitude.toFixed(6));
+            const lat = location.coords.latitude;
+            const lon = location.coords.longitude;
+            console.log('📍 Nouvelle position:', lat.toFixed(6), lon.toFixed(6), 'Précision:', location.coords.accuracy?.toFixed(0), 'm');
+            
+            if (locationCallback) {
+                locationCallback(lat, lon);
+            }
         }
     );
 }
@@ -69,5 +77,6 @@ export async function startTracking() {
 export function stopTracking() {
     subscription?.remove();
     subscription = null;
+    locationCallback = null;
     console.log('🛑 Suivi de localisation arrêté');
 }
