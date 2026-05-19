@@ -13,7 +13,7 @@ Le véhicule de tête suit également le parcours. Il dispose en plus de fonctio
 
 ## Fonctionnalités
 
-### Partie web — organisateur de convoi
+### Partie web - organisateur de convoi
 
 - Créer un convoi.
 - Modifier un convoi existant.
@@ -25,7 +25,7 @@ Le véhicule de tête suit également le parcours. Il dispose en plus de fonctio
 - Consulter l’historique des convois.
 - Réutiliser ou modifier d’anciens trajets enregistrés.
 
-### Partie mobile — participants
+### Partie mobile - participants
 
 - Rejoindre un convoi grâce à un code.
 - Rejoindre un convoi grâce à un QR code.
@@ -35,7 +35,7 @@ Le véhicule de tête suit également le parcours. Il dispose en plus de fonctio
 - Adapter sa vitesse en fonction du convoi.
 - Recevoir des messages audio envoyés par le véhicule de tête.
 
-### Partie mobile — administrateur / véhicule de tête
+### Partie mobile - administrateur / véhicule de tête
 
 - Rejoindre le convoi en tant que véhicule de tête.
 - Suivre le trajet prévu.
@@ -213,6 +213,67 @@ trip 1 ─── * step
 trip 1 ─── * telemetry
 
 ## API
+Voici la liste complète des endpoints backend implémentés dans ton projet:
+
+### Endpoints Backend C15Tour
+
+**Endpoints de base**
+- `GET /` - Message d'accueil de l'API
+- `GET /health` - Vérifier l'état du serveur
+
+---
+
+### ** Convois (Trips)** `/api/trips`
+
+#### Lecture
+- `GET /api/trips` - Récupérer tous les convois
+- `GET /api/trips/last` - Récupérer le dernier convoi créé
+- `GET /api/trips/search?name={texte}` - Rechercher des convois par nom
+- `GET /api/trips/code/{userCode}` - Récupérer un convoi par code utilisateur
+- `GET /api/trips/admin/{adminCode}` - Récupérer un convoi par code admin
+- `GET /api/trips/{id}` - Récupérer un convoi par ID
+
+#### Écriture
+- `POST /api/trips` - Créer un nouveau convoi
+- `PUT /api/trips/{id}` - Modifier un convoi
+- `DELETE /api/trips/{id}` - Supprimer un convoi
+
+#### Actions spéciales
+- `POST /api/trips/{id}/regenerate-code` - Régénérer le code utilisateur
+- `POST /api/trips/{tripId}/compute` - Calculer l'itinéraire du convoi
+- `GET /api/trips/{tripId}/exports/pdf` - Exporter le convoi en PDF
+- `GET /api/trips/{tripId}/exports/gpx` - Exporter le convoi en GPX
+- `POST /api/trips/{tripId}/telemetry` - Enregistrer une position GPS
+
+---
+
+### ** Étapes (Steps)** `/api`
+
+#### Lecture
+- `GET /api/trips/{tripId}/steps` - Récupérer les étapes d'un convoi
+- `GET /api/trips/{tripId}/stops` - Récupérer les pauses d'un convoi
+- `GET /api/steps/{id}` - Récupérer une étape par ID
+
+#### Écriture
+- `POST /api/trips/{tripId}/steps` - Ajouter une étape à un convoi
+- `PUT /api/steps/{id}` - Modifier une étape
+- `DELETE /api/steps/{id}` - Supprimer une étape
+
+#### Actions spéciales
+- `PUT /api/trips/{tripId}/steps/reorder` - Réorganiser les étapes d'un convoi
+
+---
+
+### **🗺️ Géocodage** `/api/geocode`
+
+- `GET /api/geocode/search?q={adresse}` - Rechercher une adresse (géocodage)
+- `GET /api/geocode/reverse?lat={lat}&lon={lon}` - Géocodage inverse
+
+---
+
+### ** Organisateur** `/api/organizer`
+
+- `GET /api/organizer/dashboard` - Tableau de bord avec KPIs et convois récents
 
 ## Tests et intégration continue
 
