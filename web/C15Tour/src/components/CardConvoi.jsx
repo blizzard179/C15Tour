@@ -54,6 +54,8 @@ export default function CardConvoi({
   onExportGpx,
   canSaveConvoy = false,
   onSaveConvoy,
+  shareTrip: savedShareTrip = null,
+  onTripPersisted,
   onConvoyNameChange
 }) {
   const [name, setName] = useState(initialName);
@@ -73,6 +75,7 @@ export default function CardConvoi({
   const [exportSaveMessage, setExportSaveMessage] = useState("");
   const [persistMessage, setPersistMessage] = useState("");
   const [backendTripId, setBackendTripId] = useState(initialBackendTripId);
+  const [shareTrip, setShareTrip] = useState(savedShareTrip);
   const [generalSettingsDraft, setGeneralSettingsDraft] = useState(mergeGeneralSettings(generalSettings));
   const [isNameButtonLocked, setIsNameButtonLocked] = useState(false);
 
@@ -131,6 +134,10 @@ export default function CardConvoi({
   useEffect(() => {
     setBackendTripId(initialBackendTripId ?? null);
   }, [initialBackendTripId]);
+
+  useEffect(() => {
+    setShareTrip(savedShareTrip);
+  }, [savedShareTrip]);
 
   useEffect(() => {
     if (waypoints.length > 0) {
@@ -767,6 +774,8 @@ export default function CardConvoi({
         throw new Error("Une erreur est survenue lors de l'enregistrement des étapes. Veuillez réessayer.");
       }
       clearPendingTripPayload();
+      setShareTrip(createdTrip);
+      onTripPersisted?.(createdTrip, savedLocally);
       setPersistMessage("Convoi enregistre avec succes.");
     } catch (error) {
       console.error("Failed to persist convoy", error);
@@ -982,6 +991,13 @@ export default function CardConvoi({
 
   const renderShareModal = () => {
     if (!isShareModalOpen) return null;
+    const participantCode = shareTrip?.trip_user_code || shareTrip?.trip_participant_code || "";
+    const organizerUrl = shareTrip?.trip_admin_code
+      ? `${BACKEND_BASE_URL}/api/trips/admin/${shareTrip.trip_admin_code}`
+      : "";
+    const participantUrl = participantCode
+      ? `${BACKEND_BASE_URL}/api/trips/code/${participantCode}`
+      : "";
 
     return (
       <div className="general-settings-overlay" onClick={closeShareModal}>
@@ -991,29 +1007,46 @@ export default function CardConvoi({
           <div style={{ display: "flex", flexDirection: "row", gap: "20px" }}>
             <div style={{ flex: 1 }}>
               <h4>Organisateur</h4>
-              <div style={{ display: "flex", flexDirection: "row", gap: "10px" }}>
-                <h5>Lien</h5>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", alignItems: "baseline" }}>
+                <h5>Code</h5>
                 <div>
+                  {shareTrip?.trip_admin_code}
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "row", gap: "10px" }}>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", marginTop: "14px" }}>
                 <h5>QR Code</h5>
                 <div className="share-qr">
+                  {organizerUrl ? (
+                    <QRCodeSVG
+                      value={organizerUrl}
+                      size={"auto"}
+                      fgColor="#8f2f66"
+                      includeMargin
+                    />
+                  ) : null}
                 </div>
               </div>
             </div>
 
             <div style={{ flex: 1 }}>
               <h4>Participant</h4>
-              <div style={{ display: "flex", flexDirection: "row", gap: "10px" }}>
-                <h5>Lien</h5>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", alignItems: "baseline" }}>
+                <h5>Code</h5>
                 <div>
+                  {participantCode}
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "row", gap: "10px" }}>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", marginTop: "14px" }}>
                 <h5>QR Code</h5>
                 <div className="share-qr">
-
+                  {participantUrl ? (
+                    <QRCodeSVG
+                      value={participantUrl}
+                      size={"auto"}
+                      fgColor="#8f2f66"
+                      includeMargin
+                    />
+                  ) : null}
                 </div>
               </div>
             </div>

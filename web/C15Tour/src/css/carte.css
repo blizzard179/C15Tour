@@ -966,13 +966,26 @@ input[type="number"] {
   max-width: 720px;
 }
 
+.share-popup h5 {
+  width: 70px;
+  flex: 0 0 70px;
+  margin: 0;
+}
+
+.share-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
 .share-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: stretch;
+  gap: 12px;
   padding: 14px;
   border: 1px solid #e8c9db;
-  border-radius: 14px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.75);
 }
 
@@ -983,10 +996,43 @@ input[type="number"] {
   color: #b14080;
 }
 
+.share-code-block {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.share-code-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #b14080;
+}
+
+.share-code {
+  font-size: 20px;
+  font-weight: 900;
+  color: #8f2f66;
+}
+
 .share-qr {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.share-link {
+  color: #8f2f66;
+  font-size: 12px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.share-empty {
+  margin: 0;
+  color: #8f2f66;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .export-row {
