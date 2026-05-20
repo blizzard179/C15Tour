@@ -70,6 +70,11 @@ const mapHtmlContent = `
         }).addTo(map);
 
         const stepsLayer = L.layerGroup().addTo(map);
+        const routeLine = L.polyline([], {
+          color: '#BB487C',
+          weight: 4,
+          opacity: 0.9
+        }).addTo(map);
 
         window.addEventListener('message', (event) => {
             try {
@@ -102,6 +107,18 @@ const mapHtmlContent = `
                     }
                   }
                 }
+                if (data.type === 'SET_ROUTE') {
+                  const { coordinates } = data;
+                  routeLine.setLatLngs([]);
+                  if (Array.isArray(coordinates) && coordinates.length > 1) {
+                    const latLngs = coordinates
+                      .map((coord) => Array.isArray(coord) ? [coord[1], coord[0]] : null)
+                      .filter((coord) => Array.isArray(coord));
+                    if (latLngs.length > 1) {
+                      routeLine.setLatLngs(latLngs);
+                    }
+                  }
+                }
             } catch(e) {}
         });
     <\/script>
@@ -118,11 +135,16 @@ type TripStep = {
   step_name?: string | null;
 };
 
+type RouteGeometry = {
+  coordinates: number[][];
+};
+
 export default function ExploreScreen() {
   const [isMicActive, setIsMicActive] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
   const webViewRef = useRef<WebView>(null);
   const [tripSteps, setTripSteps] = useState<TripStep[]>([]);
+  const [routeGeometry, setRouteGeometry] = useState<RouteGeometry | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
   const { trip } = useAuth();
   const { colorScheme } = useAppTheme();
@@ -132,6 +154,7 @@ export default function ExploreScreen() {
     const fetchSteps = async () => {
       if (!trip?.trip_id) {
         setTripSteps([]);
+        setRouteGeometry(null);
         return;
       }
 
@@ -159,6 +182,39 @@ export default function ExploreScreen() {
   }, [trip?.trip_id]);
 
   useEffect(() => {
+    const fetchRoute = async () => {
+      if (!trip?.trip_id) {
+        setRouteGeometry(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/trips/${trip.trip_id}/compute`, {
+          method: 'POST'
+        });
+
+        if (!response.ok) {
+          console.error('Erreur lors du calcul de l\'itineraire:', response.status);
+          setRouteGeometry(null);
+          return;
+        }
+
+        const data = await response.json();
+        if (data?.geometry?.coordinates) {
+          setRouteGeometry({ coordinates: data.geometry.coordinates });
+        } else {
+          setRouteGeometry(null);
+        }
+      } catch (error) {
+        console.error('Erreur reseau lors du calcul de l\'itineraire:', error);
+        setRouteGeometry(null);
+      }
+    };
+
+    fetchRoute();
+  }, [trip?.trip_id]);
+
+  useEffect(() => {
     if (!isMapReady || !webViewRef.current) return;
 
     const stepsPayload = tripSteps
@@ -176,6 +232,17 @@ export default function ExploreScreen() {
       })
     );
   }, [tripSteps, isMapReady]);
+
+  useEffect(() => {
+    if (!isMapReady || !webViewRef.current) return;
+
+    webViewRef.current.postMessage(
+      JSON.stringify({
+        type: 'SET_ROUTE',
+        coordinates: routeGeometry?.coordinates ?? []
+      })
+    );
+  }, [routeGeometry, isMapReady]);
 
   // Récupérer la position actuelle au chargement
   useEffect(() => {
