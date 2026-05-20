@@ -26,7 +26,7 @@ export async function getLocation() {
         // Obtenir la position actuelle avec options (Haute Précision)
         const location = await Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.Highest,
-            timeInterval: 2000,
+            timeInterval: 1500,
             mayShowUserSettingsDialog: true,
         });
         
@@ -60,7 +60,7 @@ export async function startTracking(onLocationUpdate?: (latitude: number, longit
         {
             accuracy: Location.Accuracy.Highest,
             distanceInterval: 5,
-            timeInterval: 2000,
+            timeInterval: 5000,
         },
         (location) => {
             const lat = location.coords.latitude;

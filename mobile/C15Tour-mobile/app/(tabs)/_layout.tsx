@@ -32,7 +32,6 @@ export default function TabLayout() {
       {/* Hidden screens — navigated to programmatically, not via tab bar */}
       <Tabs.Screen name="index" options={{ href: null }} />
       <Tabs.Screen name="loader" options={{ href: null }} />
-      <Tabs.Screen name="permission" options={{ href: null }} />
     </Tabs>
   );
 }
