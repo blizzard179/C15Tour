@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useAppTheme } from '@/context/theme';
+import { useAuth } from '@/context/auth';
+import { API_BASE_URL } from '@/constants/api';
 import HomeButton from '@/components/ui/HomeButton';
 import MicButton from '@/components/ui/MicButton';
 import ConvoyName from '@/components/ui/ConvoyName';
@@ -52,6 +54,8 @@ const mapHtmlContent = `
             title: 'Ma position'
         }).addTo(map);
 
+        const stepsLayer = L.layerGroup().addTo(map);
+
         window.addEventListener('message', (event) => {
             try {
                 const data = JSON.parse(event.data);
@@ -60,6 +64,25 @@ const mapHtmlContent = `
                     userMarker.setLatLng([latitude, longitude]);
                     map.setView([latitude, longitude], 13);
                     console.log('Map updated:', latitude, longitude);
+                }
+                if (data.type === 'SET_STEPS') {
+                  const { steps } = data;
+                  stepsLayer.clearLayers();
+                  if (Array.isArray(steps) && steps.length > 0) {
+                    const bounds = [];
+                    steps.forEach((step) => {
+                      if (typeof step.latitude !== 'number' || typeof step.longitude !== 'number') return;
+                      const marker = L.marker([step.latitude, step.longitude]);
+                      if (step.name) {
+                        marker.bindPopup(step.name);
+                      }
+                      marker.addTo(stepsLayer);
+                      bounds.push([step.latitude, step.longitude]);
+                    });
+                    if (bounds.length > 0) {
+                      map.fitBounds(bounds, { padding: [24, 24] });
+                    }
+                  }
                 }
             } catch(e) {}
         });
@@ -71,10 +94,70 @@ const mapHtmlContent = `
 
 type CallStatus = 'idle' | 'live' | 'muted';
 
+type TripStep = {
+  step_latitude: number;
+  step_longitude: number;
+  step_name?: string | null;
+};
+
 export default function ExploreScreen() {
   const [isMicActive, setIsMicActive] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
   const webViewRef = useRef<WebView>(null);
+  const [tripSteps, setTripSteps] = useState<TripStep[]>([]);
+  const [isMapReady, setIsMapReady] = useState(false);
+  const { trip } = useAuth();
+  const { colorScheme } = useAppTheme();
+  const isDark = colorScheme === 'dark';
+
+  useEffect(() => {
+    const fetchSteps = async () => {
+      if (!trip?.trip_id) {
+        setTripSteps([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/trips/${trip.trip_id}/steps`);
+        if (!response.ok) {
+          console.error('Erreur lors de la recuperation des etapes:', response.status);
+          setTripSteps([]);
+          return;
+        }
+
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setTripSteps(data);
+        } else {
+          setTripSteps([]);
+        }
+      } catch (error) {
+        console.error('Erreur reseau lors de la recuperation des etapes:', error);
+        setTripSteps([]);
+      }
+    };
+
+    fetchSteps();
+  }, [trip?.trip_id]);
+
+  useEffect(() => {
+    if (!isMapReady || !webViewRef.current) return;
+
+    const stepsPayload = tripSteps
+      .map((step) => ({
+        latitude: Number(step.step_latitude),
+        longitude: Number(step.step_longitude),
+        name: step.step_name ?? undefined,
+      }))
+      .filter((step) => Number.isFinite(step.latitude) && Number.isFinite(step.longitude));
+
+    webViewRef.current.postMessage(
+      JSON.stringify({
+        type: 'SET_STEPS',
+        steps: stepsPayload,
+      })
+    );
+  }, [tripSteps, isMapReady]);
 
   // Récupérer la position actuelle au chargement
   useEffect(() => {
@@ -173,6 +256,7 @@ export default function ExploreScreen() {
         style={styles.webview}
         javaScriptEnabled
         domStorageEnabled
+        onLoadEnd={() => setIsMapReady(true)}
       />
 
       <View style={styles.cursorVehiculeLeader}>
