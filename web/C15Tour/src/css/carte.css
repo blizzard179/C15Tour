@@ -325,6 +325,15 @@ html,
   line-height: 1;
 }
 
+.convoyBackBtn {
+  flex: 0 0 auto;
+}
+
+.convoyBackBtn img {
+  width: 18px;
+  height: 18px;
+}
+
 /* Style pour ResearchBar */
 .ResearchBarWrapper {
   position: absolute;

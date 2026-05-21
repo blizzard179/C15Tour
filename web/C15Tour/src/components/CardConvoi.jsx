@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import PenIcon from "@shared/global_assets/pictos/Pen.svg";
+import BackIcon from "@shared/global_assets/pictos/Back.svg";
 import CheckIcon from "@shared/global_assets/pictos/Check.svg";
 import FlagIcon from "@shared/global_assets/pictos/Flag.svg";
 import GearIcon from "@shared/global_assets/pictos/Gear.svg";
@@ -54,6 +55,7 @@ export default function CardConvoi({
   onExportGpx,
   canSaveConvoy = false,
   onSaveConvoy,
+  onBackToConvoySelector,
   shareTrip: savedShareTrip = null,
   onTripPersisted,
   onConvoyNameChange
@@ -1128,6 +1130,16 @@ export default function CardConvoi({
     <div className="convoyCard">
       <div className="convoyHeader">
         <div className="convoyNameRow">
+          {onBackToConvoySelector && (
+            <button
+              className="iconBtn convoyBackBtn"
+              type="button"
+              aria-label="Retour a la selection des convois"
+              onClick={onBackToConvoySelector}
+            >
+              <img src={BackIcon} alt="Retour" />
+            </button>
+          )}
           {isEditing ? (
             <input
               ref={inputRef}

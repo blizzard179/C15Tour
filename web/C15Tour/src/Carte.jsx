@@ -126,6 +126,7 @@ function Carte() {
     const [routeDurationMinutes, setRouteDurationMinutes] = useState(null);
     const [routeCoordinates, setRouteCoordinates] = useState([]);
     const [showConvoySelector, setShowConvoySelector] = useState(true);
+    const [isConvoySelectorOpen, setIsConvoySelectorOpen] = useState(false);
     const [savedConvoys, setSavedConvoys] = useState([]);
     const [currentConvoyId, setCurrentConvoyId] = useState(null);
     const [currentConvoyName, setCurrentConvoyName] = useState('Nom du convoi');
@@ -211,10 +212,11 @@ function Carte() {
       // Si un convoi est chargé, on ferme le panneau de sélection
       // pour réactiver immédiatement l'overlay principal.
       if (!showConvoySelector) return;
+      if (isConvoySelectorOpen) return;
       if (currentConvoyId || waypoints.length > 0) {
         setShowConvoySelector(false);
       }
-    }, [showConvoySelector, currentConvoyId, waypoints.length]);
+    }, [showConvoySelector, isConvoySelectorOpen, currentConvoyId, waypoints.length]);
 
     useEffect(() => {
       if (!currentConvoyId) return;
@@ -223,6 +225,7 @@ function Carte() {
 
     const createNewConvoy = () => {
       const now = new Date();
+      setIsConvoySelectorOpen(false);
       setCurrentConvoyId(null);
       setCurrentConvoyName(`Convoi ${now.toLocaleString('fr-FR')}`);
       setWaypoints([]);
@@ -294,6 +297,7 @@ function Carte() {
     };
 
     const openConvoy = (convoy) => {
+      setIsConvoySelectorOpen(false);
       setCurrentConvoyId(convoy.id);
       setCurrentConvoyName(convoy.name || 'Nom du convoi');
       setWaypoints(Array.isArray(convoy.waypoints) ? convoy.waypoints : []);
@@ -310,6 +314,20 @@ function Carte() {
       if (convoy) {
         openConvoy(convoy);
       }
+    };
+
+    const openConvoySelector = () => {
+      setIsConvoySelectorOpen(true);
+      setShowConvoySelector(true);
+      setCurrentConvoyId(null);
+      setCurrentConvoyName('Nom du convoi');
+      setWaypoints([]);
+      setWaypointNames([]);
+      setStepConfigs({});
+      setRouteCoordinates([]);
+      setRouteDurationMinutes(null);
+      setEditingWaypointIndex(null);
+      setSearchQuery('');
     };
 
     const lastConvoyId = localStorage.getItem(LAST_CONVOY_STORAGE_KEY);
@@ -757,19 +775,20 @@ function Carte() {
                     }}
                 />
                 </div>
-                <div
+                {!showConvoySelector && (
+                  <div
                     ref={leftPanelRef}
                     className={`left-panel ${isConvoyBelowSearch ? 'left-panel-below' : ''}`}
                 >
-                <ConvoyCard 
-                    initialName={currentConvoyName}
-                    waypoints={waypoints} 
-                    waypointNames={waypointNames}
-                    initialStepConfigs={stepConfigs}
-                    initialBackendTripId={currentSavedConvoy?.backendTripId || currentSavedConvoy?.shareTrip?.trip_id || null}
+                  <ConvoyCard 
+                      initialName={currentConvoyName}
+                      waypoints={waypoints} 
+                      waypointNames={waypointNames}
+                      initialStepConfigs={stepConfigs}
+                      initialBackendTripId={currentSavedConvoy?.backendTripId || currentSavedConvoy?.shareTrip?.trip_id || null}
                     routeDurationMinutes={routeDurationMinutes}
-                    generalSettings={generalSettings}
-                  onUpdateWaypoint={(index, newName, newCoords = null, metadata = {}) => {
+                      generalSettings={generalSettings}
+                    onUpdateWaypoint={(index, newName, newCoords = null, metadata = {}) => {
                         // Mise à jour du nom 
                         setWaypointNames(prev => {
                             const updated = [...prev];
@@ -851,6 +870,7 @@ function Carte() {
                     onExportGpx={exportCurrentRouteAsGpx}
                     canSaveConvoy={waypoints.length >= 2}
                     onSaveConvoy={saveCurrentConvoyLocal}
+                    onBackToConvoySelector={openConvoySelector}
                     shareTrip={currentSavedConvoy?.shareTrip || null}
                     onTripPersisted={handleTripPersisted}
                     onConvoyNameChange={(newName) => {
@@ -870,8 +890,9 @@ function Carte() {
                         setSearchQuery(waypointNames[index] || '');
                         document.querySelector('.ResearchBarInput')?.focus();
                     }}
-                />
-                </div>
+                  />
+                  </div>
+                )}
             </div>
         </div>
 
