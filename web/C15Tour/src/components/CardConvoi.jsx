@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import PenIcon from "@shared/global_assets/pictos/Pen.svg";
 import CheckIcon from "@shared/global_assets/pictos/Check.svg";
 import FlagIcon from "@shared/global_assets/pictos/Flag.svg";
@@ -53,6 +54,8 @@ export default function CardConvoi({
   onExportGpx,
   canSaveConvoy = false,
   onSaveConvoy,
+  shareTrip: savedShareTrip = null,
+  onTripPersisted,
   onConvoyNameChange
 }) {
   const [name, setName] = useState(initialName);
@@ -67,10 +70,12 @@ export default function CardConvoi({
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [isGeneralSettingsOpen, setIsGeneralSettingsOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [exportSaveMessage, setExportSaveMessage] = useState("");
   const [persistMessage, setPersistMessage] = useState("");
   const [backendTripId, setBackendTripId] = useState(initialBackendTripId);
+  const [shareTrip, setShareTrip] = useState(savedShareTrip);
   const [generalSettingsDraft, setGeneralSettingsDraft] = useState(mergeGeneralSettings(generalSettings));
   const [isNameButtonLocked, setIsNameButtonLocked] = useState(false);
 
@@ -129,6 +134,10 @@ export default function CardConvoi({
   useEffect(() => {
     setBackendTripId(initialBackendTripId ?? null);
   }, [initialBackendTripId]);
+
+  useEffect(() => {
+    setShareTrip(savedShareTrip);
+  }, [savedShareTrip]);
 
   useEffect(() => {
     if (waypoints.length > 0) {
@@ -475,6 +484,26 @@ export default function CardConvoi({
     setIsGeneralSettingsOpen(false);
   };
 
+  const getParticipantShareCode = (trip = shareTrip) =>
+    trip?.trip_user_code || trip?.trip_participant_code || "";
+
+  const hasShareCodes = () => Boolean(shareTrip?.trip_admin_code && getParticipantShareCode());
+
+  const openShareModal = () => {
+    if (!hasShareCodes()) {
+      setIsShareModalOpen(false);
+      setPersistMessage("Erreur : sauvegarde le convoi pour générer les codes et QR codes.");
+      return;
+    }
+
+    setPersistMessage("");
+    setIsShareModalOpen(true);
+  };
+
+  const closeShareModal = () => {
+    setIsShareModalOpen(false);
+  };
+
   const openExportModal = () => {
     setExportSaveMessage("");
     setIsExportOpen(true);
@@ -709,10 +738,10 @@ export default function CardConvoi({
         body: JSON.stringify(tripPayload)
       });
 
-      if (!tripResponse.ok) {
+    if (!tripResponse.ok) {
         const errorBody = await tripResponse.json().catch(() => null);
         throw new Error(errorBody?.error || tripResponse.statusText || `HTTP ${tripResponse.status}`);
-      }
+    }
 
       const createdTrip = await tripResponse.json();
       const tripId = createdTrip.trip_id;
@@ -757,6 +786,8 @@ export default function CardConvoi({
         throw new Error("Une erreur est survenue lors de l'enregistrement des étapes. Veuillez réessayer.");
       }
       clearPendingTripPayload();
+      setShareTrip(createdTrip);
+      onTripPersisted?.(createdTrip, savedLocally);
       setPersistMessage("Convoi enregistre avec succes.");
     } catch (error) {
       console.error("Failed to persist convoy", error);
@@ -964,6 +995,77 @@ export default function CardConvoi({
           <div className="general-settings-actions">
             <button className="delete-btn" onClick={closeGeneralSettings}>ANNULER</button>
             <button className="validate-btn" onClick={saveGeneralSettings}>VALIDER</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderShareModal = () => {
+    if (!isShareModalOpen) return null;
+    const participantCode = getParticipantShareCode();
+    const organizerUrl = shareTrip?.trip_admin_code
+      ? `${BACKEND_BASE_URL}/api/trips/admin/${shareTrip.trip_admin_code}`
+      : "";
+    const participantUrl = participantCode
+      ? `${BACKEND_BASE_URL}/api/trips/code/${participantCode}`
+      : "";
+
+    return (
+      <div className="general-settings-overlay" onClick={closeShareModal}>
+        <div className="general-settings-popup share-popup" onClick={(e) => e.stopPropagation()}>
+          <h3>PARTAGER LE CONVOI</h3>
+
+          <div style={{ display: "flex", flexDirection: "row", gap: "20px" }}>
+            <div style={{ flex: 1 }}>
+              <h4>Organisateur</h4>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", alignItems: "baseline" }}>
+                <h5>Code</h5>
+                <div>
+                  {shareTrip?.trip_admin_code}
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", marginTop: "14px" }}>
+                <h5>QR Code</h5>
+                <div className="share-qr">
+                  {organizerUrl ? (
+                    <QRCodeSVG
+                      value={organizerUrl}
+                      size={"auto"}
+                      fgColor="#8f2f66"
+                      includeMargin
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <h4>Participant</h4>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", alignItems: "baseline" }}>
+                <h5>Code</h5>
+                <div>
+                  {participantCode}
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", marginTop: "14px" }}>
+                <h5>QR Code</h5>
+                <div className="share-qr">
+                  {participantUrl ? (
+                    <QRCodeSVG
+                      value={participantUrl}
+                      size={"auto"}
+                      fgColor="#8f2f66"
+                      includeMargin
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="general-settings-actions">
+            <button className="delete-btn" onClick={closeShareModal}>FERMER</button>
           </div>
         </div>
       </div>
@@ -1184,7 +1286,7 @@ export default function CardConvoi({
             <button className="iconBtn" type="button" aria-label="Parametres" onClick={openGeneralSettings}>
               <img src={GearIcon} alt="Parametres" />
             </button>
-            <button className="iconBtn" type="button" aria-label="Partager">
+            <button className="iconBtn" type="button" aria-label="Partager" onClick={openShareModal}>
               <img src={ShareIcon} alt="Partager" />
             </button>
             <button className="iconBtn" type="button" aria-label="Enregistrer" onClick={handlePersistConvoy}>
@@ -1199,6 +1301,7 @@ export default function CardConvoi({
       )}
 
       {renderGeneralSettings()}
+      {renderShareModal()}
       {renderExportModal()}
     </div>
   );
