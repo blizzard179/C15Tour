@@ -484,7 +484,19 @@ export default function CardConvoi({
     setIsGeneralSettingsOpen(false);
   };
 
+  const getParticipantShareCode = (trip = shareTrip) =>
+    trip?.trip_user_code || trip?.trip_participant_code || "";
+
+  const hasShareCodes = () => Boolean(shareTrip?.trip_admin_code && getParticipantShareCode());
+
   const openShareModal = () => {
+    if (!hasShareCodes()) {
+      setIsShareModalOpen(false);
+      setPersistMessage("Erreur : sauvegarde le convoi pour générer les codes et QR codes.");
+      return;
+    }
+
+    setPersistMessage("");
     setIsShareModalOpen(true);
   };
 
@@ -991,7 +1003,7 @@ export default function CardConvoi({
 
   const renderShareModal = () => {
     if (!isShareModalOpen) return null;
-    const participantCode = shareTrip?.trip_user_code || shareTrip?.trip_participant_code || "";
+    const participantCode = getParticipantShareCode();
     const organizerUrl = shareTrip?.trip_admin_code
       ? `${BACKEND_BASE_URL}/api/trips/admin/${shareTrip.trip_admin_code}`
       : "";

@@ -1064,6 +1064,13 @@ input[type="number"] {
   font-weight: 600;
 }
 
+.persist-message {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #b14080;
+  font-weight: 700;
+}
+
 @media (max-width: 720px) {
   .share-grid {
     grid-template-columns: 1fr;
