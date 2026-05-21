@@ -157,10 +157,38 @@ function Carte() {
       try {
         const raw = localStorage.getItem(CONVOYS_STORAGE_KEY);
         const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
+        if (!Array.isArray(parsed)) return [];
+
+        const seenShareKeys = new Set();
+        return parsed.map((convoy) => {
+          const shareKey = convoy.backendTripId || convoy.shareTrip?.trip_id || convoy.shareTrip?.trip_user_code || null;
+          if (!shareKey) return convoy;
+
+          if (seenShareKeys.has(shareKey)) {
+            return {
+              ...convoy,
+              backendTripId: null,
+              shareTrip: null
+            };
+          }
+
+          seenShareKeys.add(shareKey);
+          return convoy;
+        });
       } catch {
         return [];
       }
+    };
+
+    const getShareTripFromBackendTrip = (trip) => {
+      if (!trip?.trip_user_code || !trip?.trip_admin_code) return null;
+
+      return {
+        trip_id: trip.trip_id,
+        trip_name: trip.trip_name,
+        trip_user_code: trip.trip_user_code,
+        trip_admin_code: trip.trip_admin_code
+      };
     };
 
     useEffect(() => {
@@ -225,10 +253,10 @@ function Carte() {
                   generalSettings,
                   updatedAt: nowIso
                 }
-              : convoy
+            : convoy
           )
         );
-        return true;
+        return currentConvoyId;
       }
 
       const id = `${Date.now()}`;
@@ -246,7 +274,26 @@ function Carte() {
       setCurrentConvoyId(id);
       setCurrentConvoyName(convoy.name);
       localStorage.setItem(LAST_CONVOY_STORAGE_KEY, id);
-      return true;
+      return id;
+    };
+
+    const handleTripPersisted = (trip, convoyId = currentConvoyId) => {
+      const shareTrip = getShareTripFromBackendTrip(trip);
+      if (!shareTrip || !convoyId) return;
+
+      const nowIso = new Date().toISOString();
+      setSavedConvoys((prev) =>
+        prev.map((convoy) =>
+          convoy.id === convoyId
+            ? {
+                ...convoy,
+                backendTripId: shareTrip.trip_id,
+                shareTrip,
+                updatedAt: nowIso
+              }
+            : convoy
+        )
+      );
     };
 
     const openConvoy = (convoy) => {
@@ -285,6 +332,9 @@ function Carte() {
 
     const lastConvoyId = localStorage.getItem(LAST_CONVOY_STORAGE_KEY);
     const lastConvoy = savedConvoys.find((c) => c.id === lastConvoyId) || savedConvoys[0] || null;
+    const currentSavedConvoy = currentConvoyId
+      ? savedConvoys.find((convoy) => convoy.id === currentConvoyId) || null
+      : null;
 
     const parseGpxText = (gpxText, sourceFileName = '') => {
       const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
@@ -450,23 +500,6 @@ function Carte() {
       return true;
     };
 
-    const handleUpdateWaypoint = (index, newName, newCoords = null) => {
-        if (newCoords) {
-            setWaypoints(prev => {
-                const updated = [...prev];
-                updated[index] = newCoords;
-                return updated;
-            });
-        }
-        
-        if (newName !== undefined) {
-            setWaypointNames(prev => {
-                const updated = [...prev];
-                updated[index] = newName;
-                return updated;
-            });
-        }
-    };
     const [isConvoyBelowSearch, setIsConvoyBelowSearch] = useState(false);
     const leftPanelRef = useRef(null);
     const searchLayerRef = useRef(null);
@@ -703,11 +736,11 @@ function Carte() {
               </div>
             )}
             <div className={`overlay-container ${showConvoySelector ? 'overlay-container--inactive' : ''}`}>
-                <div className="search-bar-layer">
+                <div className="search-bar-layer" ref={searchLayerRef}>
                 <ResearchBar 
                     value={searchQuery}
                     onChange={setSearchQuery}
-                    onSelect={(suggestion, index = null) => {
+                    onSelect={(suggestion) => {
                         const { lat, lon, display_name } = suggestion;
                         const position = {
                             lat: parseFloat(lat),
@@ -743,13 +776,17 @@ function Carte() {
                 />
                 </div>
                 {!showConvoySelector && (
-                  <div className="left-panel">
+                  <div
+                    ref={leftPanelRef}
+                    className={`left-panel ${isConvoyBelowSearch ? 'left-panel-below' : ''}`}
+                >
                   <ConvoyCard 
                       initialName={currentConvoyName}
                       waypoints={waypoints} 
                       waypointNames={waypointNames}
-                    initialStepConfigs={stepConfigs}
-                      routeDurationMinutes={routeDurationMinutes}
+                      initialStepConfigs={stepConfigs}
+                      initialBackendTripId={currentSavedConvoy?.backendTripId || currentSavedConvoy?.shareTrip?.trip_id || null}
+                    routeDurationMinutes={routeDurationMinutes}
                       generalSettings={generalSettings}
                     onUpdateWaypoint={(index, newName, newCoords = null, metadata = {}) => {
                         // Mise à jour du nom 
@@ -834,6 +871,8 @@ function Carte() {
                     canSaveConvoy={waypoints.length >= 2}
                     onSaveConvoy={saveCurrentConvoyLocal}
                     onBackToConvoySelector={openConvoySelector}
+                    shareTrip={currentSavedConvoy?.shareTrip || null}
+                    onTripPersisted={handleTripPersisted}
                     onConvoyNameChange={(newName) => {
                       setCurrentConvoyName(newName);
                       if (!currentConvoyId) return;
