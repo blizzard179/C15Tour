@@ -1088,8 +1088,9 @@ input[type="number"] {
 
 .convoy-selector-overlay {
   position: fixed;
-  top: 20px;
-  left: 20px;
+  top: var(--map-panel-top);
+  bottom: auto;
+  left: var(--map-panel-left);
   z-index: 2500;
   padding: 0;
 }
@@ -1243,6 +1244,8 @@ input[type="number"] {
   position: relative;
   width: 100%;
   height: 100vh;
+  --map-panel-left: 20px;
+  --map-panel-top: 88px;
 }
 
 /* Conteneur des éléments superposés */
@@ -1279,21 +1282,18 @@ input[type="number"] {
 /* Overlay layout */
 .left-panel {
   position: fixed;
-  top: max(20px, env(safe-area-inset-top));
-  left: 50px;
+  top: var(--map-panel-top);
+  bottom: auto;
+  left: var(--map-panel-left);
   z-index: 1200;
-}
-
-.left-panel.left-panel-below {
-  top: calc(max(20px, env(safe-area-inset-top)) + 60px);
-  left: 15px;
 }
 
 .search-bar-layer {
   position: fixed;
   top: max(20px, env(safe-area-inset-top));
-  left: auto;
-  right: calc(var(--map-right-ui-space) + env(safe-area-inset-right) + var(--search-right-offset));
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
   width: min(
     var(--search-max-width),
     calc(100vw - var(--map-left-ui-space) - var(--map-right-ui-space) - 32px)
@@ -1342,16 +1342,17 @@ input[type="number"] {
     width: clamp(220px, 36vw, 300px);
   }
 
-  .left-panel {
-    left: 44px;
-  }
-
   .ResearchBarInput {
     font-size: 15px;
   }
 }
 
 @media (max-width: 760px) {
+  .map-container {
+    --map-panel-left: 10px;
+    --map-panel-top: 66px;
+  }
+
   .overlay-container {
     --map-left-ui-space: 56px;
     --roads-tour-right-offset: 10px;
@@ -1360,16 +1361,24 @@ input[type="number"] {
 
   .search-bar-layer {
     top: max(10px, env(safe-area-inset-top));
+    left: 10px;
+    right: 10px;
+    transform: none;
+    width: auto;
   }
 
   .left-panel {
-    top: max(66px, calc(env(safe-area-inset-top) + 56px));
-    left: 10px;
     right: 10px;
   }
 
-  .left-panel.left-panel-below {
-    top: max(66px, calc(env(safe-area-inset-top) + 56px));
+  .convoy-selector-overlay {
+    right: 10px;
+  }
+
+  .convoy-selector-panel {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .convoyCard {
@@ -1395,12 +1404,12 @@ input[type="number"] {
 }
 
 @media (max-width: 420px) {
-  .overlay-container {
-    --map-left-ui-space: 52px;
+  .map-container {
+    --map-panel-top: 66px;
   }
 
-  .left-panel {
-    top: max(62px, calc(env(safe-area-inset-top) + 52px));
+  .overlay-container {
+    --map-left-ui-space: 52px;
   }
 
   .convoyHeader {

@@ -2,7 +2,7 @@ import './css/carte.css'
 import './css/leaflet.css';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useLayoutEffect, useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import RoutingMachine from './helper/RoutingMachine';
 import ClickHandler from './helper/ClickHandler';
 import FlyTo from './helper/FlyTo';
@@ -500,43 +500,12 @@ function Carte() {
       return true;
     };
 
-    const [isConvoyBelowSearch, setIsConvoyBelowSearch] = useState(false);
-    const leftPanelRef = useRef(null);
-    const searchLayerRef = useRef(null);
-
     const pinIcon = L.icon({
         iconUrl: Pin,
         iconSize: [32, 32],
         iconAnchor: [16, 32],
         popupAnchor: [0, -28]
     });
-
-    useLayoutEffect(() => {
-        const updateOverlayLayout = () => {
-            const leftPanel = leftPanelRef.current;
-            const searchLayer = searchLayerRef.current;
-            if (!leftPanel || !searchLayer) return;
-
-            const leftRect = leftPanel.getBoundingClientRect();
-            const searchRect = searchLayer.getBoundingClientRect();
-
-            const safetyGap = 40;
-            const mustStack = leftRect.right + safetyGap >= searchRect.left;
-            setIsConvoyBelowSearch((prev) => (prev === mustStack ? prev : mustStack));
-        };
-
-        updateOverlayLayout();
-        const observer = new ResizeObserver(updateOverlayLayout);
-
-        if (leftPanelRef.current) observer.observe(leftPanelRef.current);
-        if (searchLayerRef.current) observer.observe(searchLayerRef.current);
-        window.addEventListener('resize', updateOverlayLayout);
-
-        return () => {
-            observer.disconnect();
-            window.removeEventListener('resize', updateOverlayLayout);
-        };
-    }, []);
 
     useEffect(() => {
         // Ajout des styles
@@ -736,7 +705,8 @@ function Carte() {
               </div>
             )}
             <div className={`overlay-container ${showConvoySelector ? 'overlay-container--inactive' : ''}`}>
-                <div className="search-bar-layer" ref={searchLayerRef}>
+                <RoadsTour />
+                <div className="search-bar-layer">
                 <ResearchBar 
                     value={searchQuery}
                     onChange={setSearchQuery}
@@ -776,10 +746,7 @@ function Carte() {
                 />
                 </div>
                 {!showConvoySelector && (
-                  <div
-                    ref={leftPanelRef}
-                    className={`left-panel ${isConvoyBelowSearch ? 'left-panel-below' : ''}`}
-                >
+                  <div className="left-panel">
                   <ConvoyCard 
                       initialName={currentConvoyName}
                       waypoints={waypoints} 
