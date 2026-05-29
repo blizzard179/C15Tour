@@ -516,7 +516,7 @@ function Carte() {
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Backend error:', errorText);
-          alert(`Erreur lors de l'export PDF: ${response.status} ${response.statusText}`);
+          alert(`Erreur lors de l'export PDF: Trajet non sauvegardé en base de données ou erreur serveur`);
           return false;
         }
 

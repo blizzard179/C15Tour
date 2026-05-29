@@ -1,6 +1,8 @@
 import PDFDocument from 'pdfkit';
 import prisma from '../config/database.js';
 
+// TODO: avoir un screen de la map en plus des infos du trip pour le PDF
+
 // Utilitaires pour calculer les temps
 const calculateSegmentTravelTime = (trip, totalSegments) => {
   if (!trip.trip_speed || trip.trip_speed <= 0) {

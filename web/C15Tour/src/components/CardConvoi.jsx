@@ -526,16 +526,17 @@ export default function CardConvoi({
     onExportPdf?.();
   };
 
-  const handleSaveConvoyLocally = () => {
+  const handleSaveConvoyLocally = async () => {
     if (!waypoints || waypoints.length < 2) {
       setExportSaveMessage("Impossible d'enregistrer localement : au moins 2 étapes requises.");
       return;
     }
 
     const tripPayload = buildTripPayload();
+    const steps = await buildStepsPayload();
     const pendingPayload = {
       trip: tripPayload,
-      steps: buildStepsPayload()
+      steps
     };
 
     saveTripPayloadLocally(pendingPayload);
@@ -598,10 +599,51 @@ export default function CardConvoi({
     };
   };
 
-  const buildStepsPayload = () => {
+  const reverseGeocodeAddress = async (lat, lng) => {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=json`
+      );
+      if (!response.ok) {
+        return null;
+      }
+      const data = await response.json();
+      return data?.display_name || null;
+    } catch (error) {
+      console.warn('Reverse geocode failed', error);
+      return null;
+    }
+  };
+
+  const getStepAddress = async (waypoint, index) => {
+    if (waypoint.address) {
+      return waypoint.address;
+    }
+
+    const lat = Number(waypoint.lat);
+    const lng = Number(waypoint.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      const reversedAddress = await reverseGeocodeAddress(lat, lng);
+      if (reversedAddress) {
+        return reversedAddress;
+      }
+      return `${lat}, ${lng}`;
+    }
+
+    return waypoint.display_name || waypoint.name || waypointNames[index] || "";
+  };
+
+  const buildStepsPayload = async () => {
+    const stepAddresses = await Promise.all(
+      waypoints.map((waypoint, index) => getStepAddress(waypoint, index))
+    );
+
     return waypoints.map((waypoint, index) => {
-      const address =
-        waypoint.display_name || waypoint.address || waypoint.name || waypointNames[index] || `${waypoint.lat}, ${waypoint.lng}`;
+      const address = stepAddresses[index];
       const nameToUse = waypointNames[index] || address || `Etape ${index + 1}`;
       const stepConfig = stepsConfig[index] || getStepLoadConfig(index);
       const shouldStop = Boolean(stepConfig.hasBreak);
@@ -679,7 +721,7 @@ export default function CardConvoi({
   };
 
   const persistTripSteps = async (tripId) => {
-    const steps = buildStepsPayload();
+    const steps = await buildStepsPayload();
     for (const step of steps) {
       await createTripStep(tripId, step);
     }
@@ -687,7 +729,7 @@ export default function CardConvoi({
 
   const syncTripSteps = async (tripId) => {
     const existingSteps = await fetchExistingTripSteps(tripId);
-    const steps = buildStepsPayload();
+    const steps = await buildStepsPayload();
     const finalStepIds = [];
     const updateCount = Math.min(existingSteps.length, steps.length);
 
@@ -727,9 +769,10 @@ export default function CardConvoi({
     }
 
     const tripPayload = buildTripPayload();
+    const steps = await buildStepsPayload();
     const pendingPayload = {
       trip: tripPayload,
-      steps: buildStepsPayload(),
+      steps,
       backendTripId
     };
 
