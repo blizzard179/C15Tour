@@ -897,6 +897,7 @@ function Carte() {
                         setWaypoints(prev => moveItem(prev, fromIndex, toIndex));
                         setWaypointNames(prev => moveItem(prev, fromIndex, toIndex));
                         setStepConfigs(prev => {
+                           if (Object.keys(prev).length === 0) return prev;
                            const length = Object.keys(prev).length;
                            const order = Array.from({ length: Math.max(length, waypoints.length) }, (_, i) => i);
                            const [moved] = order.splice(fromIndex, 1);
@@ -1130,7 +1131,7 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteLegDurat
         // Fallback OSRM si Valhalla indisponible
         const osrmCoords = waypointCoords.map((p) => `${p.lon},${p.lat}`).join(';');
         const osrmResponse = await fetch(
-          `https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=full&geometries=polyline6&alternatives=false&steps=false`,
+          `https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=false&geometries=polyline6&alternatives=false&steps=true`,
           { signal: abortController.signal }
         );
 
@@ -1151,37 +1152,27 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteLegDurat
           }
           return null;
         });
-        const latLngs = decodePolyline6(route?.geometry || '');
+
+        // Build per-leg coordinates from steps geometry (exact waypoint boundaries)
+        const legLatLngs = osrmLegs.map((leg) => {
+          const steps = leg?.steps || [];
+          const coords = [];
+          steps.forEach((step, stepIdx) => {
+            const stepCoords = decodePolyline6(step?.geometry || '');
+            // Skip first point of each step (except first step) to avoid duplicates
+            const start = stepIdx > 0 ? 1 : 0;
+            for (let k = start; k < stepCoords.length; k++) {
+              coords.push(stepCoords[k]);
+            }
+          });
+          return coords;
+        }).filter((coords) => coords.length >= 2);
+
+        const latLngs = legLatLngs.flat();
 
         if (latLngs.length > 1) {
-          if (Array.isArray(osrmLegs) && osrmLegs.length > 0) {
-            const legLatLngs = [];
-            let cursor = 0;
-            const totalDuration = osrmLegs.reduce((acc, leg) => acc + (Number(leg?.duration) || 0), 0);
-
-            osrmLegs.forEach((leg, i) => {
-              const ratio = totalDuration > 0 ? (Number(leg?.duration) || 0) / totalDuration : 1 / osrmLegs.length;
-              const remaining = latLngs.length - cursor;
-              const estimatedLength = i === osrmLegs.length - 1 ? remaining : Math.max(2, Math.round(latLngs.length * ratio));
-              const end = Math.min(latLngs.length, cursor + estimatedLength);
-              const section = latLngs.slice(Math.max(0, cursor - (i > 0 ? 1 : 0)), end);
-              if (section.length >= 2) legLatLngs.push(section);
-              cursor = end;
-            });
-
-            if (legLatLngs.length > 0) {
-              drawColoredSections(legLatLngs);
-            } else {
-              const fallbackLayer = L.polyline(latLngs, {
-                color: '#4A6CF7',
-                weight: 4,
-                opacity: 0.8,
-                lineCap: 'butt',
-                lineJoin: 'round',
-                className: 'animate-route'
-              }).addTo(map);
-              routeLayers.push(fallbackLayer);
-            }
+          if (legLatLngs.length > 0) {
+            drawColoredSections(legLatLngs);
           } else {
             const fallbackLayer = L.polyline(latLngs, {
               color: '#4A6CF7',

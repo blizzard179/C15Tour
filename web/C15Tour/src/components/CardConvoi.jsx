@@ -124,14 +124,19 @@ export default function CardConvoi({
   };
 
   const updateEditDataItem = (index, updater) =>
-    setEditData((prev) => {
-      const next = [...prev];
-      next[index] = updater(prev[index] || createDefaultEditDataItem());
-      return next;
-    });
+    setEditData((prev) => ({
+      ...prev,
+      [index]: updater(prev[index] || createDefaultEditDataItem())
+    }));
 
   useEffect(() => {
-    setStepsConfig({ ...initialStepConfigs });
+    setStepsConfig(prev => {
+      const merged = { ...prev };
+      Object.entries(initialStepConfigs).forEach(([key, value]) => {
+        merged[key] = { ...(prev[key] || {}), ...value };
+      });
+      return merged;
+    });
   }, [initialStepConfigs]);
 
   const popupRef = useRef(null);
@@ -191,17 +196,83 @@ export default function CardConvoi({
     const currentCount = waypoints.length;
 
     if (pendingAddSegment && currentCount > previousCount && currentCount > 0) {
-      const expectedIndex = pendingAddSegment.expectedIndex;
-      const fallbackIndex = currentCount - 1;
-      const targetIndex = expectedIndex < currentCount ? expectedIndex : fallbackIndex;
+      const newWaypointIndex = currentCount - 1;
+      const targetRank = pendingAddSegment.rank;
 
-      setStepsConfig((prev) => ({
-        ...prev,
-        [targetIndex]: {
-          ...(prev[targetIndex] || {}),
-          segmentRank: pendingAddSegment.rank
+      let insertAfter = -1;
+      for (let i = 0; i < newWaypointIndex; i++) {
+        if (getStepSegmentRank(i) === targetRank) {
+          insertAfter = i;
         }
-      }));
+      }
+
+      const insertPosition = insertAfter + 1;
+      const needsReorder = insertAfter >= 0 && insertPosition < newWaypointIndex;
+
+      // Compute the final stepsConfig after reorder to emit segmentConfig atomically
+      const computeFinalConfigs = (prevStepsConfig) => {
+        const finalConfigs = {};
+        if (needsReorder) {
+          const order = Array.from({ length: currentCount }, (_, i) => i);
+          const [moved] = order.splice(newWaypointIndex, 1);
+          order.splice(insertPosition, 0, moved);
+          order.forEach((oldIndex, newIndex) => {
+            if (prevStepsConfig[oldIndex] !== undefined) {
+              finalConfigs[newIndex] = prevStepsConfig[oldIndex];
+            }
+          });
+          finalConfigs[insertPosition] = {
+            ...(finalConfigs[insertPosition] || {}),
+            segmentRank: targetRank
+          };
+        } else {
+          Object.assign(finalConfigs, prevStepsConfig);
+          finalConfigs[newWaypointIndex] = {
+            ...(prevStepsConfig[newWaypointIndex] || {}),
+            segmentRank: targetRank
+          };
+        }
+        return finalConfigs;
+      };
+
+      const finalConfigs = computeFinalConfigs(stepsConfig);
+
+      if (needsReorder) {
+        onReorderWaypoints?.(newWaypointIndex, insertPosition);
+        reorderStepsConfig(newWaypointIndex, insertPosition);
+        setStepsConfig((prev) => ({
+          ...prev,
+          [insertPosition]: {
+            ...(prev[insertPosition] || {}),
+            segmentRank: targetRank
+          }
+        }));
+      } else {
+        setStepsConfig((prev) => ({
+          ...prev,
+          [newWaypointIndex]: {
+            ...(prev[newWaypointIndex] || {}),
+            segmentRank: targetRank
+          }
+        }));
+      }
+
+      // Emit the correct segmentConfig in the same batch as the reorder
+      if (typeof onSegmentConfigChange === 'function') {
+        const finalSegmentConfig = Array.from({ length: currentCount }, (_, idx) => {
+          const cfg = finalConfigs[idx] || {};
+          const rawRank = Number.parseInt(cfg.segmentRank, 10);
+          const rank = Number.isFinite(rawRank) && rawRank >= 1 ? rawRank : 1;
+          const color = cfg.segmentColor || SEGMENT_COLOR_PALETTE[(rank - 1) % SEGMENT_COLOR_PALETTE.length];
+          return {
+            stepNoSections: Math.max(1, Number.parseInt(cfg.stepNoSections, 10) || 1),
+            segmentColor: color,
+            segmentRank: rank
+          };
+        });
+        onSegmentConfigChange(finalSegmentConfig);
+      }
+
       setPendingAddSegment(null);
     }
 
@@ -232,13 +303,14 @@ export default function CardConvoi({
 
   useEffect(() => {
     if (typeof onSegmentConfigChange !== "function") return;
+    if (pendingAddSegment) return;
     const config = Array.from({ length: waypoints.length }, (_, index) => ({
       stepNoSections: getStepSegmentSections(index),
       segmentColor: getStepSegmentColor(index),
       segmentRank: getStepSegmentRank(index)
     }));
     onSegmentConfigChange(config);
-  }, [waypoints.length, segmentCount, stepsConfig, onSegmentConfigChange]);
+  }, [waypoints.length, segmentCount, stepsConfig, onSegmentConfigChange, pendingAddSegment]);
   const stepsText = useMemo(() => {
     if (waypoints.length === 0) return "Aucune etape ajoutee";
     if (waypoints.length === 1) return "1 etape";
@@ -490,8 +562,12 @@ export default function CardConvoi({
     });
 
     setEditData((prev) => {
-      const next = [...prev];
-      next.splice(index, 1);
+      const next = {};
+      Object.keys(prev).forEach((key) => {
+        const k = Number(key);
+        if (k < index) next[k] = prev[k];
+        if (k > index) next[k - 1] = prev[k];
+      });
       return next;
     });
 
@@ -1420,29 +1496,100 @@ export default function CardConvoi({
               </div>
             ) : (
               <div className="steps-list">
-                {Array.from({ length: configuredSegmentsCount }, (_, i) => i + 1).map((rank) => {
-                  const indexes = waypoints
-                    .map((_, index) => index)
-                    .filter((index) => getStepSegmentRank(index) === rank);
-                  const segmentColor = indexes.length > 0
-                    ? getStepSegmentColor(indexes[0])
-                    : SEGMENT_COLOR_PALETTE[(rank - 1) % SEGMENT_COLOR_PALETTE.length];
+                {(() => {
+                  // Build consecutive runs of same-segment waypoints in route order
+                  const runs = [];
+                  waypoints.forEach((_, index) => {
+                    const rank = getStepSegmentRank(index);
+                    if (runs.length === 0 || runs[runs.length - 1].rank !== rank) {
+                      runs.push({ rank, indexes: [index] });
+                    } else {
+                      runs[runs.length - 1].indexes.push(index);
+                    }
+                  });
+                  // Add empty segments that have no waypoints yet
+                  for (let r = 1; r <= configuredSegmentsCount; r++) {
+                    if (!runs.some((run) => run.rank === r)) {
+                      runs.push({ rank: r, indexes: [] });
+                    }
+                  }
 
-                  return (
-                    <div
-                      key={`segment-${rank}`}
-                      className={`segment-block ${dragOverSegmentRank === rank ? "is-drop-target" : ""}`}
-                      onDragOver={(e) => handleSegmentDragOver(rank, e)}
-                      onDrop={(e) => handleDropOnSegment(rank, e)}
-                    >
-                      <div className="segment-heading">
-                        <span>Segment {rank}</span>
-                        <span className="segment-color-square" style={{ backgroundColor: segmentColor }} />
-                      </div>
-                      <div className="segment-rows">
-                        <div className="segment-vertical-bar" style={{ backgroundColor: segmentColor }} />
-                        <div className="segment-rows-list">
-                          {indexes.length === 0 && (
+                  return runs.map((run, runIdx) => {
+                    const { rank, indexes } = run;
+                    const segmentColor = indexes.length > 0
+                      ? getStepSegmentColor(indexes[0])
+                      : SEGMENT_COLOR_PALETTE[(rank - 1) % SEGMENT_COLOR_PALETTE.length];
+
+                    return (
+                      <div
+                        key={`run-${runIdx}`}
+                        className={`segment-block ${dragOverSegmentRank === rank ? "is-drop-target" : ""}`}
+                        onDragOver={(e) => handleSegmentDragOver(rank, e)}
+                        onDrop={(e) => handleDropOnSegment(rank, e)}
+                      >
+                        <div className="segment-heading">
+                          <span>Segment {rank}</span>
+                          <span className="segment-color-square" style={{ backgroundColor: segmentColor }} />
+                        </div>
+                        <div className="segment-rows">
+                          <div className="segment-vertical-bar" style={{ backgroundColor: segmentColor }} />
+                          <div className="segment-rows-list">
+                            {indexes.map((index) => {
+                              const isFirst = index === 0;
+                              const isLast = index === waypoints.length - 1;
+                              const label =
+                                waypointNames[index] ||
+                                (isFirst ? "Point de depart" : isLast ? "Point d'arrivee" : `Etape ${index}`);
+
+                              return (
+                                <div
+                                  key={index}
+                                  className={`step-item ${draggedIndex === index ? "is-dragging" : ""} ${dragOverIndex === index ? "is-drag-over" : ""}`}
+                                  onDragOver={(e) => handleDragOver(index, e)}
+                                  onDrop={(e) => handleDrop(index, e)}
+                                >
+                                  <button
+                                    className="step-drag-btn"
+                                    type="button"
+                                    aria-label={`Reordonner l'etape ${index + 1}`}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(index, e)}
+                                    onDragEnd={handleDragEnd}
+                                  >
+                                    <img src={MenuIcon} alt="Deplacer" />
+                                  </button>
+
+                                  <div className="step-content">
+                                    <div className="step-number">{index + 1}</div>
+                                    <div className="step-info">
+                                      <div className="step-name">{label}</div>
+                                      <div className="step-time">
+                                        {calculateWaypointTime(index)}
+                                        {stepsConfig[index]?.breakTime > 0 && ` - ${stepsConfig[index].breakTime} min`}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    className={`step-config-btn ${configPopup === index ? "active" : ""}`}
+                                    onClick={(e) => handleConfigClick(index, e)}
+                                  >
+                                    <img src={GearIcon} alt="Configurer" />
+                                  </button>
+
+                                  <button
+                                    className="step-delete-btn"
+                                    type="button"
+                                    aria-label={`Supprimer l'etape ${index + 1}`}
+                                    onClick={(e) => handleDeleteWaypointAtIndex(index, e)}
+                                  >
+                                    <img src={CloseIcon} alt="Supprimer" />
+                                  </button>
+
+                                  {renderWaypointConfig(index)}
+                                </div>
+                              );
+                            })}
                             <button
                               type="button"
                               className="segment-add-btn"
@@ -1451,69 +1598,12 @@ export default function CardConvoi({
                               <img alt="" className="plus-icon" src={PlusIcon} />
                               Ajouter une etape
                             </button>
-                          )}
-                          {indexes.map((index) => {
-                            const isFirst = index === 0;
-                            const isLast = index === waypoints.length - 1;
-                            const label =
-                              waypointNames[index] ||
-                              (isFirst ? "Point de depart" : isLast ? "Point d'arrivee" : `Etape ${index}`);
-
-                            return (
-                              <div
-                                key={index}
-                                className={`step-item ${draggedIndex === index ? "is-dragging" : ""} ${dragOverIndex === index ? "is-drag-over" : ""}`}
-                                onDragOver={(e) => handleDragOver(index, e)}
-                                onDrop={(e) => handleDrop(index, e)}
-                              >
-                                <button
-                                  className="step-drag-btn"
-                                  type="button"
-                                  aria-label={`Reordonner l'etape ${index + 1}`}
-                                  draggable
-                                  onDragStart={(e) => handleDragStart(index, e)}
-                                  onDragEnd={handleDragEnd}
-                                >
-                                  <img src={MenuIcon} alt="Deplacer" />
-                                </button>
-
-                                <div className="step-content">
-                                  <div className="step-number">{index + 1}</div>
-                                  <div className="step-info">
-                                    <div className="step-name">{label}</div>
-                                      <div className="step-time">
-                                        {calculateWaypointTime(index)}
-                                        {stepsConfig[index]?.breakTime > 0 && ` - ${stepsConfig[index].breakTime} min`}
-                                      
-                                      </div>
-                                  </div>
-                                </div>
-
-                                <button
-                                  className={`step-config-btn ${configPopup === index ? "active" : ""}`}
-                                  onClick={(e) => handleConfigClick(index, e)}
-                                >
-                                  <img src={GearIcon} alt="Configurer" />
-                                </button>
-
-                                <button
-                                  className="step-delete-btn"
-                                  type="button"
-                                  aria-label={`Supprimer l'etape ${index + 1}`}
-                                  onClick={(e) => handleDeleteWaypointAtIndex(index, e)}
-                                >
-                                  <img src={CloseIcon} alt="Supprimer" />
-                                </button>
-
-                                {renderWaypointConfig(index)}
-                              </div>
-                            );
-                          })}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
