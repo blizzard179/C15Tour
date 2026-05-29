@@ -61,6 +61,7 @@ const mapHtmlContent = `
             title: 'Ma position'
         }).addTo(map);
         let leaderMarker = null;
+        let leaderAnimationFrame = null;
 
         const updateLeaderMarker = (latitude, longitude) => {
             if (!leaderMarker) {
@@ -71,7 +72,30 @@ const mapHtmlContent = `
                 return;
             }
 
-            leaderMarker.setLatLng([latitude, longitude]);
+            if (leaderAnimationFrame) {
+                cancelAnimationFrame(leaderAnimationFrame);
+            }
+
+            const start = leaderMarker.getLatLng();
+            const end = L.latLng(latitude, longitude);
+            const startTime = performance.now();
+            const duration = 900;
+
+            const animate = (now) => {
+                const progress = Math.min((now - startTime) / duration, 1);
+                const nextLat = start.lat + (end.lat - start.lat) * progress;
+                const nextLng = start.lng + (end.lng - start.lng) * progress;
+
+                leaderMarker.setLatLng([nextLat, nextLng]);
+
+                if (progress < 1) {
+                    leaderAnimationFrame = requestAnimationFrame(animate);
+                } else {
+                    leaderAnimationFrame = null;
+                }
+            };
+
+            leaderAnimationFrame = requestAnimationFrame(animate);
         };
 
         const handleNativeMessage = (event) => {
@@ -180,7 +204,12 @@ export default function ExploreScreen() {
   useEffect(() => {
     if (role !== 'participant' || !tripId) return;
 
+    let isFetchingLeaderPosition = false;
+
     const fetchLeaderPosition = async () => {
+      if (isFetchingLeaderPosition) return;
+      isFetchingLeaderPosition = true;
+
       try {
         const response = await fetch(`${API_BASE_URL}/api/trips/${tripId}/telemetry/latest`);
         if (response.status === 404) return;
@@ -200,6 +229,8 @@ export default function ExploreScreen() {
         );
       } catch (error) {
         console.error('Erreur lors de la récupération de la position leader:', error);
+      } finally {
+        isFetchingLeaderPosition = false;
       }
     };
 
