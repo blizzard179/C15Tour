@@ -28,7 +28,14 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Erreur par défaut
+  if (err.code === 'P1001') {
+    return res.status(503).json({
+      status: 503,
+      error: 'Database Unavailable',
+      message: 'La base de donnees est inaccessible. Verifie DATABASE_URL puis redemarre le backend.'
+    });
+  }
+
   res.status(500).json({
     status: 500,
     error: 'Internal Server Error',

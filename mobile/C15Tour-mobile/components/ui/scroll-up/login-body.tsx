@@ -1,14 +1,20 @@
 import { ThemedText } from "@/components/themed-text";
-import { Button } from "@react-navigation/elements";
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import { API_BASE_URL } from "@/constants/api";
-
+import { useAuth } from "@/context/auth";
+import { useAppTheme } from "@/context/theme";
+import { useRouter } from "expo-router";
 
 function LoginBody() {
     const [active, setActive] = useState<'participant' | 'leader' | ''>('');
     const [participantCode, setParticipantCode] = useState('');
     const [leaderCode, setLeaderCode] = useState('');
+    const [loading, setLoading] = useState(false);
+    const { login } = useAuth();
+    const router = useRouter();
+    const { colorScheme } = useAppTheme();
+    const isDark = colorScheme === 'dark';
 
     const handleLogin = async () => {
         if (!active) {
@@ -26,6 +32,7 @@ function LoginBody() {
             ? `${API_BASE_URL}/api/trips/code/${code.trim()}`
             : `${API_BASE_URL}/api/trips/admin/${code.trim()}`;
 
+        setLoading(true);
         try {
             const response = await fetch(endpoint, { method: 'GET' });
             const data = await response.json();
@@ -35,11 +42,24 @@ function LoginBody() {
                 return;
             }
 
-            console.log('Trip data:', data);
+            login(data, active);
+            router.replace('/(tabs)/explore');
 
         } catch (err) {
             Alert.alert('Erreur', 'Erreur réseau. Vérifiez votre connexion.');
+        } finally {
+            setLoading(false);
         }
+    };
+
+    const colors = {
+        accent: '#BB487C',
+        inputBorder: '#BB487C',
+        inputBg: isDark ? '#2c2c2e' : '#fff',
+        inputText: isDark ? '#ECEDEE' : '#11181C',
+        inputDisabledBg: isDark ? '#3a3a3c' : '#eee',
+        inputDisabledText: isDark ? '#6c6c6e' : '#999',
+        separatorText: '#BB487C',
     };
 
     return (
@@ -50,18 +70,20 @@ function LoginBody() {
                 style={styles.row}
                 onPress={() => setActive('participant')}
             >
-                <View style={styles.outer}>
-                    {active === 'participant' && <View style={styles.inner} />}
+                <View style={[styles.outer, { borderColor: colors.accent }]}>
+                    {active === 'participant' && <View style={[styles.inner, { backgroundColor: colors.accent }]} />}
                 </View>
-                <ThemedText style={styles.label}>Participant</ThemedText>
+                <ThemedText style={[styles.label, { color: colors.accent }]}>Participant</ThemedText>
             </TouchableOpacity>
 
             {/* Input Participant */}
             <TextInput
                 style={[
                     styles.input,
-                    active === 'leader' && styles.inputDisabled,
+                    { borderColor: colors.inputBorder, backgroundColor: colors.inputBg, color: colors.inputText },
+                    active === 'leader' && { backgroundColor: colors.inputDisabledBg, color: colors.inputDisabledText },
                 ]}
+                placeholderTextColor={isDark ? '#8e8e93' : '#aaa'}
                 editable={active !== 'leader'}
                 placeholder="Code participant (6 caractères)"
                 value={participantCode}
@@ -72,9 +94,9 @@ function LoginBody() {
 
             {/* Separator */}
             <View style={styles.separatorContainer}>
-                <View style={styles.line} />
-                <Text style={styles.text}>OU</Text>
-                <View style={styles.line} />
+                <View style={[styles.line, { backgroundColor: colors.accent }]} />
+                <Text style={[styles.text, { color: colors.separatorText }]}>OU</Text>
+                <View style={[styles.line, { backgroundColor: colors.accent }]} />
             </View>
 
             {/* Button Leader */}
@@ -82,18 +104,20 @@ function LoginBody() {
                 style={styles.row}
                 onPress={() => setActive('leader')}
             >
-                <View style={styles.outer}>
-                    {active === 'leader' && <View style={styles.inner} />}
+                <View style={[styles.outer, { borderColor: colors.accent }]}>
+                    {active === 'leader' && <View style={[styles.inner, { backgroundColor: colors.accent }]} />}
                 </View>
-                <Text style={styles.label}>Leader</Text>
+                <Text style={[styles.label, { color: colors.accent }]}>Leader</Text>
             </TouchableOpacity>
 
             {/* Input Leader */}
             <TextInput
                 style={[
                     styles.input,
-                    active === 'participant' && styles.inputDisabled,
+                    { borderColor: colors.inputBorder, backgroundColor: colors.inputBg, color: colors.inputText },
+                    active === 'participant' && { backgroundColor: colors.inputDisabledBg, color: colors.inputDisabledText },
                 ]}
+                placeholderTextColor={isDark ? '#8e8e93' : '#aaa'}
                 editable={active !== 'participant'}
                 placeholder="Code leader (8 caractères)"
                 value={leaderCode}
@@ -103,9 +127,12 @@ function LoginBody() {
             />
 
             {/* Submit Button */}
-            <Button style={styles.button} onPress={handleLogin} color="#fff">
-                EN ROUTE !
-            </Button>
+            <TouchableOpacity style={[styles.button, { backgroundColor: colors.accent }]} onPress={handleLogin} disabled={loading}>
+                {loading
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.buttonText}>EN ROUTE !</Text>
+                }
+            </TouchableOpacity>
 
         </View>
     );
@@ -126,7 +153,6 @@ const styles = StyleSheet.create({
         height: 20,
         borderRadius: 10,
         borderWidth: 2,
-        borderColor: '#BB487C',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -134,24 +160,16 @@ const styles = StyleSheet.create({
         width: 10,
         height: 10,
         borderRadius: 5,
-        backgroundColor: '#BB487C',
     },
     label: {
         marginLeft: 10,
         fontSize: 16,
-        color: '#BB487C',
     },
     input: {
         borderWidth: 1,
-        borderColor: '#BB487C',
         padding: 12,
         borderRadius: 6,
     },
-    inputDisabled: {
-        backgroundColor: '#eee',
-        color: '#999',
-    },
-
     separatorContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -160,25 +178,21 @@ const styles = StyleSheet.create({
     line: {
         flex: 1,
         height: 1,
-        backgroundColor: '#BB487C',
     },
     text: {
         marginHorizontal: 12,
-        color: '#BB487C',
         fontSize: 14,
     },
-
     button: {
         marginTop: 80,
-        backgroundColor: '#BB487C',
         padding: 12,
         alignItems: 'center',
+        borderRadius: 6,
     },
-
-    content: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
+    buttonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
     },
 });
 

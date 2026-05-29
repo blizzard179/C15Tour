@@ -1,51 +1,136 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { useAppTheme } from '@/context/theme';
 import HomeButton from '@/components/ui/HomeButton';
 import MicButton from '@/components/ui/MicButton';
 import ConvoyName from '@/components/ui/ConvoyName';
 import MicIcon from '../../../../shared/global_assets/pictos/Mic.svg';
 import MicMutedIcon from '../../../../shared/global_assets/pictos/MicMuted.svg';
-import CursorVehicule from '../../../../shared/global_assets/pictos/CursorVehicule.svg';
 import CursorVehiculeLeader from '../../../../shared/global_assets/pictos/CursorVehiculeLeader.svg';
-import checkAudioPermission from '../services/permissions/microphonePermissionService';
-import checkLocationPermission from '../services/permissions/locationPermissionService';
+import { getLocation, startTracking, stopTracking } from '../services/locations/locationService';
 
-const urlOpenStreetView =
-  'https://www.openstreetmap.org/export/embed.html?bbox=-1.595%2C47.196%2C-1.505%2C47.237&layer=mapnik';
+
 const MIC_STATUS_COLORS = {
   idle: '#CCCCCC',
   live: '#1DAD63',
   muted: '#D64545',
 } as const;
 
+const mapHtmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"><\/script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body, #map { width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        const map = L.map('map').setView([47.2165, -1.550], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Créer une icône personnalisée avec le SVG du CursorVehicule
+        const vehicleIcon = L.icon({
+            iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTIiIGhlaWdodD0iNDciIHZpZXdCb3g9IjAgMCA1MiA0NyIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMjUuNTI4MyAyLjE3Mjg1QzM4LjYxMyAyLjE3Mjk0IDQ4Ljg4MzcgMTEuODM0NCA0OC44ODM4IDIzLjM1NTVDNDguODgzOCAzNC44NzY2IDM4LjYxMzEgNDQuNTM4IDI1LjUyODMgNDQuNTM4MUMxMi40NDM1IDQ0LjUzODEgMi4xNzI4NSAzNC44NzY2IDIuMTcyODUgMjMuMzU1NUMyLjE3MjkgMTEuODM0MyAxMi40NDM1IDIuMTcyODUgMjUuNTI4MyAyLjE3Mjg1WiIgZmlsbD0iI0JCNDg3QyIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI0LjM0NTIxIi8+PHBhdGggZD0iTTIzLjE5ODUgOS43NTA1OUMyMy45Njk0IDguMDQ5MzggMjYuMzg1NSA4LjA0OTM4IDI3LjE1NjQgOS43NTA1OUwzNy4wODY4IDMxLjY2NkMzOC4wMzU1IDMzLjc1OTcgMzUuNTA3OCAzNS43MDAyIDMzLjczMDMgMzQuMjQyOEwyNS44NjYyIDI3Ljc5NDhDMjUuNDY1NyAyNy40NjY1IDI0Ljg4OTEgMjcuNDY2NSAyNC40ODg3IDI3Ljc5NDhMMTYuNjI0NSAzNC4yNDI4QzE0Ljg0NyAzNS43MDAyIDEyLjMxOTQgMzMuNzU5NyAxMy4yNjgxIDMxLjY2NkwyMy4xOTg1IDkuNzUwNTlaIiBmaWxsPSJ3aGl0ZSIvPjwvc3ZnPg==',
+            iconSize: [32, 28],
+            iconAnchor: [16, 28],
+            popupAnchor: [0, -28]
+        });
+        
+        const userMarker = L.marker([47.2165, -1.550], {
+            icon: vehicleIcon,
+            title: 'Ma position'
+        }).addTo(map);
+
+        window.addEventListener('message', (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'SET_LOCATION') {
+                    const { latitude, longitude } = data;
+                    userMarker.setLatLng([latitude, longitude]);
+                    map.setView([latitude, longitude], 13);
+                    console.log('Map updated:', latitude, longitude);
+                }
+            } catch(e) {}
+        });
+    <\/script>
+</body>
+</html>
+`;
+
+
 type CallStatus = 'idle' | 'live' | 'muted';
 
 export default function ExploreScreen() {
   const [isMicActive, setIsMicActive] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
+  const webViewRef = useRef<WebView>(null);
 
-  // Demander la permission de localisation au chargement de la page
+  // Récupérer la position actuelle au chargement
   useEffect(() => {
-    checkLocationPermission();
+    const initializePosition = async () => {
+      try {
+        // Attendre 1.5 secondes pour laisser le GPS se stabiliser
+        console.log('⏳ Stabilisation du GPS en cours...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        const location = await getLocation();
+        if (location && webViewRef.current) {
+          console.log(`📍 Position GPS stable: lat=${location.coords.latitude}, lon=${location.coords.longitude}`);
+          
+          // Envoyer la position à la carte Leaflet
+          webViewRef.current.postMessage(
+            JSON.stringify({
+              type: 'SET_LOCATION',
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            })
+          );
+        }
+
+        // Démarrer le suivi continu pour mettre à jour la position en temps réel
+        await startTracking((latitude, longitude) => {
+          if (webViewRef.current) {
+            webViewRef.current.postMessage(
+              JSON.stringify({
+                type: 'SET_LOCATION',
+                latitude,
+                longitude,
+              })
+            );
+          }
+        });
+      } catch (error) {
+        console.error('Erreur lors du positionnement du curseur:', error);
+      }
+    };
+
+    initializePosition();
+
+    // Nettoyage au déchargement
+    return () => {
+      stopTracking();
+    };
   }, []);
 
-  const handleMicPress = async () => {
-    const nextStatus = !isMicActive;
-
-    // Si on veut activer le micro, vérifier la permission
-    if (nextStatus) {
-      const hasPermission = await checkAudioPermission();
-      if (!hasPermission) {
-        return;
+  const handleMicPress = () => {
+    setIsMicActive((prev: boolean) => {
+      const next = !prev;
+      if (!next) {
+        setCallStatus('idle');
       }
-    }
-
-    setIsMicActive(nextStatus);
-
-    if (!nextStatus) {
-      setCallStatus('idle');
-    }
+      return next;
+    });
   };
 
   const handleCallToggle = () => {
@@ -82,11 +167,14 @@ export default function ExploreScreen() {
 
   return (
     <View style={styles.container}>
-      <WebView source={{ uri: urlOpenStreetView }} style={styles.webview} />
+      <WebView
+        ref={webViewRef}
+        source={{ html: mapHtmlContent }}
+        style={styles.webview}
+        javaScriptEnabled
+        domStorageEnabled
+      />
 
-      <View style={styles.cursorVehicule}>
-        <CursorVehicule width={40} height={40} />
-      </View>
       <View style={styles.cursorVehiculeLeader}>
         <CursorVehiculeLeader width={40} height={40} />
       </View>
@@ -106,7 +194,7 @@ export default function ExploreScreen() {
       </View>
 
       {isMicActive && (
-        <View style={styles.micPanel}>
+        <View style={[styles.micPanel, { backgroundColor: isDark ? 'rgba(28,28,30,0.96)' : 'rgba(255,255,255,0.96)' }]}>
           <View
             style={[
               styles.roundMicButtonOuter,
@@ -181,7 +269,6 @@ const styles = StyleSheet.create({
     left: 15,
     right: 15,
     zIndex: 9,
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
     borderRadius: 16,
     borderWidth: 2,
     borderColor: '#BB487C',
