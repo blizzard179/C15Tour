@@ -709,7 +709,7 @@ export default function CardConvoi({
   const handlePersistConvoy = async () => {
     setPersistMessage("");
     if (!waypoints || waypoints.length < 2) {
-      setPersistMessage("Un convoi doit contenir au moins deux étapes pour être enregistre.");
+      setPersistMessage("Un convoi doit contenir au moins deux étapes pour être enregistré.");
       return;
     }
 
@@ -790,7 +790,7 @@ export default function CardConvoi({
       clearPendingTripPayload();
       setShareTrip(createdTrip);
       onTripPersisted?.(createdTrip, savedLocally);
-      setPersistMessage("Convoi enregistre avec succes.");
+      setPersistMessage("Convoi enregistré avec succès.");
     } catch (error) {
       console.error("Failed to persist convoy", error);
       setPersistMessage(
@@ -806,22 +806,22 @@ export default function CardConvoi({
     return (
       <div className="waypoint-config-overlay">
         <div className="waypoint-config-popup" ref={popupRef}>
-          <h3>Configuration de l'etape</h3>
+          <h3>Configuration de l'étape</h3>
 
           <div className="form-group">
-            <label htmlFor="step-name">Nom de l'etape</label>
+            <label htmlFor="step-name">Nom de l'étape</label>
             <input
               id="step-name"
               type="text"
               value={currentEditData.name}
               onChange={(e) => updateEditDataItem(index, (prev) => ({ ...prev, name: e.target.value }))}
               className="config-input"
-              placeholder="Nom de l'etape"
+              placeholder="Nom de l'étape"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="arrival-time">Heure d'arrivee</label>
+            <label htmlFor="arrival-time">Heure d'arrivée</label>
             <input
               id="arrival-time"
               type="time"
@@ -884,7 +884,7 @@ export default function CardConvoi({
       // parameters generaux
       <div className="general-settings-overlay" onClick={closeGeneralSettings}>
         <div className="general-settings-popup" onClick={(e) => e.stopPropagation()}>
-          <h3>PARAMETRES GENERAUX</h3>
+          <h3>PARAMÈTRES GÉNÉRAUX</h3>
 
           <div className="settings-section">
             <div className="settings-section-title">Type de route</div>
@@ -932,7 +932,7 @@ export default function CardConvoi({
           <div className="settings-section">
             <div className="settings-section-title">Vitesse</div>
             <div className="settings-row">
-              <span>Vitesse generale</span>
+              <span>Vitesse générale</span>
               <div className="settings-inline">
                 <input
                   type="number"
@@ -955,7 +955,7 @@ export default function CardConvoi({
             </div>
 
             <label className="settings-row">
-              <span>Reduction automatique</span>
+              <span>Réduction automatique</span>
               <input
                 type="checkbox"
                 checked={generalSettingsDraft.speed.autoReductionEnabled}
@@ -994,7 +994,7 @@ export default function CardConvoi({
             )}
           </div>
 
-          <div className="general-settings-actions">
+          <div className="general-settings-actions general-settings-actions--settings">
             <button className="delete-btn" onClick={closeGeneralSettings}>ANNULER</button>
             <button className="validate-btn" onClick={saveGeneralSettings}>VALIDER</button>
           </div>
@@ -1067,7 +1067,7 @@ export default function CardConvoi({
           </div>
 
           <div className="general-settings-actions">
-            <button className="delete-btn" onClick={closeShareModal}>FERMER</button>
+            <button className="validate-btn" onClick={closeShareModal}>✗ FERMER</button>
           </div>
         </div>
       </div>
@@ -1088,7 +1088,7 @@ export default function CardConvoi({
             <div className="settings-row export-row">
               <span>PDF</span>
               <button className="export-link-btn" type="button" disabled>
-                Telecharger
+                Télécharger
               </button>
             </div>
 
@@ -1100,7 +1100,7 @@ export default function CardConvoi({
                 onClick={handleExportGpx}
                 disabled={!canExportGpx}
               >
-                Telecharger
+                Télécharger
               </button>
             </div>
 
@@ -1119,7 +1119,9 @@ export default function CardConvoi({
           </div>
 
           <div className="general-settings-actions">
-            <button className="delete-btn" onClick={closeExportModal}>RETOUR</button>
+            <button className="validate-btn export-back-btn" onClick={closeExportModal}>
+              RETOUR
+            </button>
           </div>
         </div>
       </div>
@@ -1174,8 +1176,8 @@ export default function CardConvoi({
         <div className="convoyBody">
           <div className="convoySection">
             <div className="convoySectionLeft">
-              <img src={FlagIcon} alt="Depart" className="flagIcon" />
-              <span className="label">DEPART</span>
+              <img src={FlagIcon} alt="Départ" className="flagIcon" />
+              <span className="label">DÉPART</span>
             </div>
 
             <div className="timeEdit">
@@ -1231,7 +1233,7 @@ export default function CardConvoi({
                   const isLast = index === waypoints.length - 1;
                   const label =
                     waypointNames[index] ||
-                    (isFirst ? "Point de depart" : isLast ? "Point d'arrivee" : `Etape ${index}`);
+                    (isFirst ? "Point de départ" : isLast ? "Point d'arrivée" : `Etape ${index}`);
 
                   return (
                     <div
@@ -1289,7 +1291,7 @@ export default function CardConvoi({
           <div className="convoySection bottom">
             <div className="convoySectionLeft">
               <img src={FlagIcon} alt="Arrivee" className="flagIcon" />
-              <span className="label">ARRIVEE</span>
+              <span className="label">ARRIVÉE</span>
             </div>
             <div className="arriveeTime">{calculateArrivalTime()}</div>
           </div>
