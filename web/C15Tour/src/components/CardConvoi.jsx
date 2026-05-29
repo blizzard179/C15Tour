@@ -1,5 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import PenIcon from "@shared/global_assets/pictos/Pen.svg";
+import BackIcon from "@shared/global_assets/pictos/Back.svg";
 import CheckIcon from "@shared/global_assets/pictos/Check.svg";
 import FlagIcon from "@shared/global_assets/pictos/Flag.svg";
 import GearIcon from "@shared/global_assets/pictos/Gear.svg";
@@ -44,6 +46,8 @@ export default function CardConvoi({
   initialStartTime = "00:00",
   waypoints = [],
   waypointNames = [],
+  initialStepConfigs = {},
+  initialBackendTripId = null,
   routeDurationMinutes = null,
   routeLegDurationsMinutes = [],
   generalSettings = DEFAULT_GENERAL_SETTINGS,
@@ -80,10 +84,52 @@ export default function CardConvoi({
   const [dragOverSegmentRank, setDragOverSegmentRank] = useState(null);
   const [pendingAddSegment, setPendingAddSegment] = useState(null);
   const [isGeneralSettingsOpen, setIsGeneralSettingsOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [exportSaveMessage, setExportSaveMessage] = useState("");
   const [persistMessage, setPersistMessage] = useState("");
+  const [backendTripId, setBackendTripId] = useState(initialBackendTripId);
+  const [shareTrip, setShareTrip] = useState(savedShareTrip);
   const [generalSettingsDraft, setGeneralSettingsDraft] = useState(mergeGeneralSettings(generalSettings));
+  const [isNameButtonLocked, setIsNameButtonLocked] = useState(false);
+
+  const createDefaultEditDataItem = () => ({
+    name: "",
+    arrivalTime: "00:00",
+    breakTime: 0,
+    hasBreak: false
+  });
+
+  const getEditDataItem = (index) => editData[index] || createDefaultEditDataItem();
+
+  const getStepLoadConfig = (index) => {
+    const waypoint = waypoints[index] || {};
+    const hasStop = waypoint.step_is_stop ?? waypoint.isStop ?? false;
+    const stopDuration = waypoint.step_stop_duration ?? waypoint.stopDuration;
+    return {
+      hasBreak: Boolean(hasStop),
+      breakTime: hasStop ? (Number.isFinite(stopDuration) ? stopDuration : 0) : 0
+    };
+  };
+
+  const getStepBreakTime = (index) => {
+    const configured = stepsConfig[index];
+    if (configured && Number.isFinite(configured.breakTime)) {
+      return configured.breakTime;
+    }
+    return getStepLoadConfig(index).breakTime;
+  };
+
+  const updateEditDataItem = (index, updater) =>
+    setEditData((prev) => {
+      const next = [...prev];
+      next[index] = updater(prev[index] || createDefaultEditDataItem());
+      return next;
+    });
+
+  useEffect(() => {
+    setStepsConfig({ ...initialStepConfigs });
+  }, [initialStepConfigs]);
 
   const popupRef = useRef(null);
   const inputRef = useRef(null);
@@ -98,6 +144,20 @@ export default function CardConvoi({
   useEffect(() => {
     setName(initialName);
   }, [initialName]);
+
+  useEffect(() => {
+    setBackendTripId(initialBackendTripId ?? null);
+  }, [initialBackendTripId]);
+
+  useEffect(() => {
+    setShareTrip(savedShareTrip);
+  }, [savedShareTrip]);
+
+  useEffect(() => {
+    if (waypoints.length > 0) {
+      setIsEdited(true);
+    }
+  }, [waypoints.length]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -253,11 +313,9 @@ export default function CardConvoi({
     let totalMinutes = startHours * 60 + startMinutes;
     totalMinutes += getTotalTravelTime();
 
-    Object.values(stepsConfig).forEach((config) => {
-      if (config.breakTime) {
-        totalMinutes += config.breakTime;
-      }
-    });
+    for (let i = 0; i < waypoints.length; i += 1) {
+      totalMinutes += getStepBreakTime(i);
+    }
 
     const arrivalHours = Math.floor(totalMinutes / 60) % 24;
     const arrivalMinutes = totalMinutes % 60;
@@ -277,9 +335,7 @@ export default function CardConvoi({
     }
 
     for (let i = 0; i < index; i += 1) {
-      if (stepsConfig[i]?.breakTime) {
-        totalMinutes += stepsConfig[i].breakTime;
-      }
+      totalMinutes += getStepBreakTime(i);
     }
 
     const waypointHours = Math.floor(totalMinutes / 60) % 24;
@@ -295,6 +351,29 @@ export default function CardConvoi({
       setIsEditing(false);
       setIsEdited(true);
     }
+  };
+
+  const lockNameButtonTemporarily = () => {
+    setIsNameButtonLocked(true);
+    if (nameButtonLockTimeoutRef.current) {
+      clearTimeout(nameButtonLockTimeoutRef.current);
+    }
+    nameButtonLockTimeoutRef.current = setTimeout(() => {
+      setIsNameButtonLocked(false);
+      nameButtonLockTimeoutRef.current = null;
+    }, 1500);
+  };
+
+  const handleNameButtonClick = () => {
+    if (isNameButtonLocked) return;
+
+    if (isEditing) {
+      handleNameSubmit();
+    } else {
+      setIsEditing(true);
+    }
+
+    lockNameButtonTemporarily();
   };
 
   const startTimeEdit = () => {
@@ -318,6 +397,18 @@ export default function CardConvoi({
     setIsEditingTime(false);
   };
 
+  const openTimePicker = () => {
+    const input = timeInputRef.current;
+    if (!input) return;
+
+    input.focus();
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+    input.click();
+  };
+
   const handleAddWaypointClick = () => {
     const searchInput = document.querySelector(".ResearchBarInput");
     if (searchInput) {
@@ -330,6 +421,7 @@ export default function CardConvoi({
     e.stopPropagation();
     const currentConfig = stepsConfig[index] || {};
     const currentName = waypointNames[index] || "";
+    const loadedConfig = getStepLoadConfig(index);
 
     setConfigPopup(configPopup === index ? null : index);
     setEditData({
@@ -355,8 +447,9 @@ export default function CardConvoi({
     e.stopPropagation();
     if (configPopup === null) return;
 
+    const currentEditData = editData[configPopup] || createDefaultEditDataItem();
     const nameToSave =
-      editData.name !== undefined ? editData.name.trim() : `Point ${configPopup + 1}`;
+      currentEditData.name !== undefined ? currentEditData.name.trim() : `Point ${configPopup + 1}`;
 
     const config = {
       name: nameToSave,
@@ -372,7 +465,10 @@ export default function CardConvoi({
       [configPopup]: config
     }));
 
-    onUpdateWaypoint?.(configPopup, nameToSave);
+    onUpdateWaypoint?.(configPopup, nameToSave, null, {
+      step_is_stop: config.breakTime > 0,
+      step_stop_duration: config.breakTime || 0
+    });
     setConfigPopup(null);
   };
 
@@ -387,6 +483,12 @@ export default function CardConvoi({
         if (k < index) next[k] = prev[k];
         if (k > index) next[k - 1] = prev[k];
       });
+      return next;
+    });
+
+    setEditData((prev) => {
+      const next = [...prev];
+      next.splice(index, 1);
       return next;
     });
 
@@ -501,6 +603,26 @@ export default function CardConvoi({
     setIsGeneralSettingsOpen(false);
   };
 
+  const getParticipantShareCode = (trip = shareTrip) =>
+    trip?.trip_user_code || trip?.trip_participant_code || "";
+
+  const hasShareCodes = () => Boolean(shareTrip?.trip_admin_code && getParticipantShareCode());
+
+  const openShareModal = () => {
+    if (!hasShareCodes()) {
+      setIsShareModalOpen(false);
+      setPersistMessage("Erreur : sauvegarde le convoi pour générer les codes et QR codes.");
+      return;
+    }
+
+    setPersistMessage("");
+    setIsShareModalOpen(true);
+  };
+
+  const closeShareModal = () => {
+    setIsShareModalOpen(false);
+  };
+
   const openExportModal = () => {
     setExportSaveMessage("");
     setIsExportOpen(true);
@@ -591,6 +713,9 @@ export default function CardConvoi({
       const address =
         waypoint.display_name || waypoint.address || waypoint.name || waypointNames[index] || `${waypoint.lat}, ${waypoint.lng}`;
       const nameToUse = waypointNames[index] || address || `Etape ${index + 1}`;
+      const stepConfig = stepsConfig[index] || getStepLoadConfig(index);
+      const shouldStop = Boolean(stepConfig.hasBreak);
+      const stopDuration = Number.isFinite(stepConfig.breakTime) ? stepConfig.breakTime : 0;
 
       return {
         step_name: nameToUse,
@@ -605,19 +730,97 @@ export default function CardConvoi({
     });
   };
 
+  const fetchExistingTripSteps = async (tripId) => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps`);
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+    return response.json();
+  };
+
+  const createTripStep = async (tripId, stepPayload) => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(stepPayload)
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+    return response.json();
+  };
+
+  const updateTripStep = async (stepId, stepPayload) => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/steps/${stepId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(stepPayload)
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+    return response.json();
+  };
+
+  const deleteTripStep = async (stepId) => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/steps/${stepId}`, {
+      method: "DELETE"
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+  };
+
+  const reorderTripSteps = async (tripId, stepIds) => {
+    if (!Array.isArray(stepIds) || stepIds.length === 0) return;
+    const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps/reorder`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stepIds })
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+    return response.json();
+  };
+
   const persistTripSteps = async (tripId) => {
     const steps = buildStepsPayload();
     for (const step of steps) {
-      const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(step)
-      });
+      await createTripStep(tripId, step);
+    }
+  };
 
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => null);
-        throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
-      }
+  const syncTripSteps = async (tripId) => {
+    const existingSteps = await fetchExistingTripSteps(tripId);
+    const steps = buildStepsPayload();
+    const finalStepIds = [];
+    const updateCount = Math.min(existingSteps.length, steps.length);
+
+    for (let i = 0; i < updateCount; i += 1) {
+      const existingStep = existingSteps[i];
+      const payload = { ...steps[i] };
+      delete payload.step_order;
+      await updateTripStep(existingStep.step_id, payload);
+      finalStepIds.push(existingStep.step_id);
+    }
+
+    for (let i = updateCount; i < steps.length; i += 1) {
+      const createdStep = await createTripStep(tripId, steps[i]);
+      finalStepIds.push(createdStep.step_id);
+    }
+
+    for (let i = steps.length; i < existingSteps.length; i += 1) {
+      await deleteTripStep(existingSteps[i].step_id);
+    }
+
+    if (finalStepIds.length > 0) {
+      await reorderTripSteps(tripId, finalStepIds);
     }
   };
 
@@ -637,26 +840,38 @@ export default function CardConvoi({
     const tripPayload = buildTripPayload();
     const pendingPayload = {
       trip: tripPayload,
-      steps: buildStepsPayload()
+      steps: buildStepsPayload(),
+      backendTripId
     };
 
     saveTripPayloadLocally(pendingPayload);
 
     try {
-      const tripResponse = await fetch(`${BACKEND_BASE_URL}/api/trips`, {
-        method: "POST",
+      const method = backendTripId ? "PUT" : "POST";
+      const tripUrl = backendTripId
+        ? `${BACKEND_BASE_URL}/api/trips/${backendTripId}`
+        : `${BACKEND_BASE_URL}/api/trips`;
+
+      const tripResponse = await fetch(tripUrl, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(tripPayload)
       });
 
-      if (!tripResponse.ok) {
+    if (!tripResponse.ok) {
         const errorBody = await tripResponse.json().catch(() => null);
         throw new Error(errorBody?.error || tripResponse.statusText || `HTTP ${tripResponse.status}`);
-      }
+    }
 
       const createdTrip = await tripResponse.json();
+      const tripId = createdTrip.trip_id;
+      setBackendTripId(tripId);
       try {
-        await persistTripSteps(createdTrip.trip_id);
+        if (backendTripId) {
+          await syncTripSteps(tripId);
+        } else {
+          await persistTripSteps(tripId);
+        }
       } catch (stepsError) {
         console.error("Failed to persist steps", stepsError);
 
@@ -671,24 +886,13 @@ export default function CardConvoi({
             console.warn("No steps were persisted for the trip before failure, deleting created trip");
             deleteTrip = true;
           }
-        })
-          .catch((fetchStepsError) => {
-            console.error("Failed to fetch steps after persistence failure", fetchStepsError);
-            deleteTrip = true;
-          });
-
-        if (deleteTrip) {
-          // Suppression du trip créé pour éviter d'avoir un trip sans étapes
-          await fetch(`${BACKEND_BASE_URL}/api/trips/${createdTrip.trip_id}`, {
-            method: "DELETE"
-          }).catch((deleteError) => {
-            console.error("Failed to delete trip after steps persistence failure", deleteError);
-          });
         }
 
         throw new Error("Une erreur est survenue lors de l'enregistrement des étapes. Veuillez réessayer.");
       }
       clearPendingTripPayload();
+      setShareTrip(createdTrip);
+      onTripPersisted?.(createdTrip, savedLocally);
       setPersistMessage("Convoi enregistre avec succes.");
     } catch (error) {
       console.error("Failed to persist convoy", error);
@@ -700,6 +904,7 @@ export default function CardConvoi({
 
   const renderWaypointConfig = (index) => {
     if (configPopup !== index) return null;
+    const currentEditData = getEditDataItem(index);
 
     return (
       <div className="waypoint-config-overlay">
@@ -711,8 +916,8 @@ export default function CardConvoi({
             <input
               id="step-name"
               type="text"
-              value={editData.name}
-              onChange={(e) => setEditData((prev) => ({ ...prev, name: e.target.value }))}
+              value={currentEditData.name}
+              onChange={(e) => updateEditDataItem(index, (prev) => ({ ...prev, name: e.target.value }))}
               className="config-input"
               placeholder="Nom de l'etape"
             />
@@ -723,8 +928,8 @@ export default function CardConvoi({
             <input
               id="arrival-time"
               type="time"
-              value={editData.arrivalTime || "00:00"}
-              onChange={(e) => setEditData((prev) => ({ ...prev, arrivalTime: e.target.value }))}
+              value={currentEditData.arrivalTime || "00:00"}
+              onChange={(e) => updateEditDataItem(index, (prev) => ({ ...prev, arrivalTime: e.target.value }))}
               className="config-input"
             />
           </div>
@@ -788,21 +993,23 @@ export default function CardConvoi({
               <input
                 type="checkbox"
                 id="has-break"
-                checked={editData.hasBreak}
-                onChange={(e) => setEditData((prev) => ({ ...prev, hasBreak: e.target.checked }))}
+                checked={currentEditData.hasBreak}
+                onChange={(e) => updateEditDataItem(index, (prev) => ({ ...prev, hasBreak: e.target.checked }))}
                 className="config-checkbox"
               />
-              <label htmlFor="has-break">Ajouter un temps de pause</label>
+              <label htmlFor="has-break" value="currentEditData.hasBreak">
+                Ajouter un temps de pause
+              </label>
             </div>
-            {editData.hasBreak && (
+            {currentEditData.hasBreak && (
               <div className="break-time-container">
                 <input
                   id="break-time"
                   type="number"
                   min="0"
-                  value={editData.breakTime}
+                  value={currentEditData.breakTime}
                   onChange={(e) =>
-                    setEditData((prev) => ({
+                    updateEditDataItem(index, (prev) => ({
                       ...prev,
                       breakTime: parseInt(e.target.value, 10) || 0
                     }))
@@ -975,6 +1182,77 @@ export default function CardConvoi({
     );
   };
 
+  const renderShareModal = () => {
+    if (!isShareModalOpen) return null;
+    const participantCode = getParticipantShareCode();
+    const organizerUrl = shareTrip?.trip_admin_code
+      ? `${BACKEND_BASE_URL}/api/trips/admin/${shareTrip.trip_admin_code}`
+      : "";
+    const participantUrl = participantCode
+      ? `${BACKEND_BASE_URL}/api/trips/code/${participantCode}`
+      : "";
+
+    return (
+      <div className="general-settings-overlay" onClick={closeShareModal}>
+        <div className="general-settings-popup share-popup" onClick={(e) => e.stopPropagation()}>
+          <h3>PARTAGER LE CONVOI</h3>
+
+          <div style={{ display: "flex", flexDirection: "row", gap: "20px" }}>
+            <div style={{ flex: 1 }}>
+              <h4>Organisateur</h4>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", alignItems: "baseline" }}>
+                <h5>Code</h5>
+                <div>
+                  {shareTrip?.trip_admin_code}
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", marginTop: "14px" }}>
+                <h5>QR Code</h5>
+                <div className="share-qr">
+                  {organizerUrl ? (
+                    <QRCodeSVG
+                      value={organizerUrl}
+                      size={"auto"}
+                      fgColor="#8f2f66"
+                      includeMargin
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <h4>Participant</h4>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", alignItems: "baseline" }}>
+                <h5>Code</h5>
+                <div>
+                  {participantCode}
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", marginTop: "14px" }}>
+                <h5>QR Code</h5>
+                <div className="share-qr">
+                  {participantUrl ? (
+                    <QRCodeSVG
+                      value={participantUrl}
+                      size={"auto"}
+                      fgColor="#8f2f66"
+                      includeMargin
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="general-settings-actions">
+            <button className="delete-btn" onClick={closeShareModal}>FERMER</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderExportModal = () => {
     if (!isExportOpen) return null;
 
@@ -1031,6 +1309,16 @@ export default function CardConvoi({
     <div className="convoyCard">
       <div className="convoyHeader">
         <div className="convoyNameRow">
+          {onBackToConvoySelector && (
+            <button
+              className="iconBtn convoyBackBtn"
+              type="button"
+              aria-label="Retour a la selection des convois"
+              onClick={onBackToConvoySelector}
+            >
+              <img src={BackIcon} alt="Retour" />
+            </button>
+          )}
           {isEditing ? (
             <input
               ref={inputRef}
@@ -1053,7 +1341,8 @@ export default function CardConvoi({
             className="iconBtn"
             type="button"
             aria-label={isEditing ? "Valider" : "Editer le nom"}
-            onClick={isEditing ? handleNameSubmit : () => setIsEditing(true)}
+            onClick={handleNameButtonClick}
+            disabled={isNameButtonLocked}
           >
             <img src={isEditing ? CheckIcon : PenIcon} alt={isEditing ? "Valider" : "Editer le nom"} />
           </button>
@@ -1071,7 +1360,11 @@ export default function CardConvoi({
             <div className="timeEdit">
               {isEditingTime ? (
                 <>
-                  <div className="timeInputWrapper">
+                  <div
+                    className="timeInputWrapper"
+                    onClick={openTimePicker}
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
                     <input
                       ref={timeInputRef}
                       type="time"
@@ -1222,7 +1515,7 @@ export default function CardConvoi({
             <button className="iconBtn" type="button" aria-label="Parametres" onClick={openGeneralSettings}>
               <img src={GearIcon} alt="Parametres" />
             </button>
-            <button className="iconBtn" type="button" aria-label="Partager">
+            <button className="iconBtn" type="button" aria-label="Partager" onClick={openShareModal}>
               <img src={ShareIcon} alt="Partager" />
             </button>
             <button className="iconBtn" type="button" aria-label="Enregistrer" onClick={handlePersistConvoy}>
@@ -1237,6 +1530,7 @@ export default function CardConvoi({
       )}
 
       {renderGeneralSettings()}
+      {renderShareModal()}
       {renderExportModal()}
     </div>
   );

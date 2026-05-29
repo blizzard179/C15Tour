@@ -127,6 +127,7 @@ function Carte() {
 
     const [waypoints, setWaypoints] = useState([]);
     const [waypointNames, setWaypointNames] = useState([]);
+    const [stepConfigs, setStepConfigs] = useState({});
     const [searchQuery, setSearchQuery] = useState('');
     const mapRef = useRef();
     const importInputRef = useRef();
@@ -135,6 +136,7 @@ function Carte() {
     const [routeLegDurationsMinutes, setRouteLegDurationsMinutes] = useState([]);
     const [routeCoordinates, setRouteCoordinates] = useState([]);
     const [showConvoySelector, setShowConvoySelector] = useState(true);
+    const [isConvoySelectorOpen, setIsConvoySelectorOpen] = useState(false);
     const [savedConvoys, setSavedConvoys] = useState([]);
     const [currentConvoyId, setCurrentConvoyId] = useState(null);
     const [currentConvoyName, setCurrentConvoyName] = useState('Nom du convoi');
@@ -232,10 +234,38 @@ function Carte() {
       try {
         const raw = localStorage.getItem(CONVOYS_STORAGE_KEY);
         const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
+        if (!Array.isArray(parsed)) return [];
+
+        const seenShareKeys = new Set();
+        return parsed.map((convoy) => {
+          const shareKey = convoy.backendTripId || convoy.shareTrip?.trip_id || convoy.shareTrip?.trip_user_code || null;
+          if (!shareKey) return convoy;
+
+          if (seenShareKeys.has(shareKey)) {
+            return {
+              ...convoy,
+              backendTripId: null,
+              shareTrip: null
+            };
+          }
+
+          seenShareKeys.add(shareKey);
+          return convoy;
+        });
       } catch {
         return [];
       }
+    };
+
+    const getShareTripFromBackendTrip = (trip) => {
+      if (!trip?.trip_user_code || !trip?.trip_admin_code) return null;
+
+      return {
+        trip_id: trip.trip_id,
+        trip_name: trip.trip_name,
+        trip_user_code: trip.trip_user_code,
+        trip_admin_code: trip.trip_admin_code
+      };
     };
 
     useEffect(() => {
@@ -259,10 +289,11 @@ function Carte() {
       // Si un convoi est chargÃ©, on ferme le panneau de sÃ©lection
       // pour rÃ©activer immÃ©diatement l'overlay principal.
       if (!showConvoySelector) return;
+      if (isConvoySelectorOpen) return;
       if (currentConvoyId || waypoints.length > 0) {
         setShowConvoySelector(false);
       }
-    }, [showConvoySelector, currentConvoyId, waypoints.length]);
+    }, [showConvoySelector, isConvoySelectorOpen, currentConvoyId, waypoints.length]);
 
     useEffect(() => {
       if (!currentConvoyId) return;
@@ -271,6 +302,7 @@ function Carte() {
 
     const createNewConvoy = () => {
       const now = new Date();
+      setIsConvoySelectorOpen(false);
       setCurrentConvoyId(null);
       setCurrentConvoyName(`Convoi ${now.toLocaleString('fr-FR')}`);
       setWaypoints([]);
@@ -294,13 +326,14 @@ function Carte() {
                   name: currentConvoyName || convoy.name,
                   waypoints,
                   waypointNames,
+                  stepConfigs,
                   generalSettings,
                   updatedAt: nowIso
                 }
-              : convoy
+            : convoy
           )
         );
-        return true;
+        return currentConvoyId;
       }
 
       const id = `${Date.now()}`;
@@ -309,6 +342,7 @@ function Carte() {
         name: currentConvoyName || `Convoi ${new Date().toLocaleString('fr-FR')}`,
         waypoints,
         waypointNames,
+        stepConfigs,
         generalSettings,
         updatedAt: nowIso
       };
@@ -317,14 +351,35 @@ function Carte() {
       setCurrentConvoyId(id);
       setCurrentConvoyName(convoy.name);
       localStorage.setItem(LAST_CONVOY_STORAGE_KEY, id);
-      return true;
+      return id;
+    };
+
+    const handleTripPersisted = (trip, convoyId = currentConvoyId) => {
+      const shareTrip = getShareTripFromBackendTrip(trip);
+      if (!shareTrip || !convoyId) return;
+
+      const nowIso = new Date().toISOString();
+      setSavedConvoys((prev) =>
+        prev.map((convoy) =>
+          convoy.id === convoyId
+            ? {
+                ...convoy,
+                backendTripId: shareTrip.trip_id,
+                shareTrip,
+                updatedAt: nowIso
+              }
+            : convoy
+        )
+      );
     };
 
     const openConvoy = (convoy) => {
+      setIsConvoySelectorOpen(false);
       setCurrentConvoyId(convoy.id);
       setCurrentConvoyName(convoy.name || 'Nom du convoi');
       setWaypoints(Array.isArray(convoy.waypoints) ? convoy.waypoints : []);
       setWaypointNames(Array.isArray(convoy.waypointNames) ? convoy.waypointNames : []);
+      setStepConfigs(convoy.stepConfigs && typeof convoy.stepConfigs === 'object' ? convoy.stepConfigs : {});
       setGeneralSettings(convoy.generalSettings || generalSettings);
       localStorage.setItem(LAST_CONVOY_STORAGE_KEY, convoy.id);
       setShowConvoySelector(false);
@@ -338,8 +393,25 @@ function Carte() {
       }
     };
 
+    const openConvoySelector = () => {
+      setIsConvoySelectorOpen(true);
+      setShowConvoySelector(true);
+      setCurrentConvoyId(null);
+      setCurrentConvoyName('Nom du convoi');
+      setWaypoints([]);
+      setWaypointNames([]);
+      setStepConfigs({});
+      setRouteCoordinates([]);
+      setRouteDurationMinutes(null);
+      setEditingWaypointIndex(null);
+      setSearchQuery('');
+    };
+
     const lastConvoyId = localStorage.getItem(LAST_CONVOY_STORAGE_KEY);
     const lastConvoy = savedConvoys.find((c) => c.id === lastConvoyId) || savedConvoys[0] || null;
+    const currentSavedConvoy = currentConvoyId
+      ? savedConvoys.find((convoy) => convoy.id === currentConvoyId) || null
+      : null;
 
     const parseGpxText = (gpxText, sourceFileName = '') => {
       const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
@@ -506,60 +578,12 @@ function Carte() {
       return true;
     };
 
-    const handleUpdateWaypoint = (index, newName, newCoords = null) => {
-        if (newCoords) {
-            setWaypoints(prev => {
-                const updated = [...prev];
-                updated[index] = newCoords;
-                return updated;
-            });
-        }
-        
-        if (newName !== undefined) {
-            setWaypointNames(prev => {
-                const updated = [...prev];
-                updated[index] = newName;
-                return updated;
-            });
-        }
-    };
-    const [isConvoyBelowSearch, setIsConvoyBelowSearch] = useState(false);
-    const leftPanelRef = useRef(null);
-    const searchLayerRef = useRef(null);
-
     const pinIcon = L.icon({
         iconUrl: Pin,
         iconSize: [32, 32],
         iconAnchor: [16, 32],
         popupAnchor: [0, -28]
     });
-
-    useLayoutEffect(() => {
-        const updateOverlayLayout = () => {
-            const leftPanel = leftPanelRef.current;
-            const searchLayer = searchLayerRef.current;
-            if (!leftPanel || !searchLayer) return;
-
-            const leftRect = leftPanel.getBoundingClientRect();
-            const searchRect = searchLayer.getBoundingClientRect();
-
-            const safetyGap = 40;
-            const mustStack = leftRect.right + safetyGap >= searchRect.left;
-            setIsConvoyBelowSearch((prev) => (prev === mustStack ? prev : mustStack));
-        };
-
-        updateOverlayLayout();
-        const observer = new ResizeObserver(updateOverlayLayout);
-
-        if (leftPanelRef.current) observer.observe(leftPanelRef.current);
-        if (searchLayerRef.current) observer.observe(searchLayerRef.current);
-        window.addEventListener('resize', updateOverlayLayout);
-
-        return () => {
-            observer.disconnect();
-            window.removeEventListener('resize', updateOverlayLayout);
-        };
-    }, []);
 
     useEffect(() => {
         // Ajout des styles
@@ -763,11 +787,12 @@ function Carte() {
               </div>
             )}
             <div className={`overlay-container ${showConvoySelector ? 'overlay-container--inactive' : ''}`}>
+                <RoadsTour />
                 <div className="search-bar-layer">
                 <ResearchBar 
                     value={searchQuery}
                     onChange={setSearchQuery}
-                    onSelect={(suggestion, index = null) => {
+                    onSelect={(suggestion) => {
                         const { lat, lon, display_name } = suggestion;
                         const position = {
                             lat: parseFloat(lat),
@@ -806,11 +831,14 @@ function Carte() {
                     }}
                 />
                 </div>
-                <div className="left-panel">
-                <ConvoyCard 
-                    initialName={currentConvoyName}
-                    waypoints={waypoints} 
-                    waypointNames={waypointNames}
+                {!showConvoySelector && (
+                  <div className="left-panel">
+                  <ConvoyCard 
+                      initialName={currentConvoyName}
+                      waypoints={waypoints} 
+                      waypointNames={waypointNames}
+                      initialStepConfigs={stepConfigs}
+                      initialBackendTripId={currentSavedConvoy?.backendTripId || currentSavedConvoy?.shareTrip?.trip_id || null}
                     routeDurationMinutes={routeDurationMinutes}
                     routeLegDurationsMinutes={routeLegDurationsMinutes}
                     generalSettings={generalSettings}
@@ -830,6 +858,19 @@ function Carte() {
                                 return updated;
                             });
                         }
+                        if (metadata && typeof metadata === 'object') {
+                          setStepConfigs(prev => {
+                            const next = { ...prev };
+                            if (metadata.step_is_stop !== undefined || metadata.step_stop_duration !== undefined) {
+                              next[index] = {
+                                ...next[index],
+                                hasBreak: Boolean(metadata.step_is_stop),
+                                breakTime: metadata.step_is_stop ? Number(metadata.step_stop_duration || 0) : 0
+                              };
+                            }
+                            return next;
+                          });
+                        }
                     }}
                     onDeleteWaypoint={(index) => {
                         setWaypoints(prev => {
@@ -842,10 +883,30 @@ function Carte() {
                             updated.splice(index, 1);
                             return updated;
                         });
+                        setStepConfigs(prev => {
+                          const next = {};
+                          Object.keys(prev).forEach((key) => {
+                            const k = Number(key);
+                            if (k < index) next[k] = prev[k];
+                            if (k > index) next[k - 1] = prev[k];
+                          });
+                          return next;
+                        });
                     }}
                     onReorderWaypoints={(fromIndex, toIndex) => {
                         setWaypoints(prev => moveItem(prev, fromIndex, toIndex));
                         setWaypointNames(prev => moveItem(prev, fromIndex, toIndex));
+                        setStepConfigs(prev => {
+                           const length = Object.keys(prev).length;
+                           const order = Array.from({ length: Math.max(length, waypoints.length) }, (_, i) => i);
+                           const [moved] = order.splice(fromIndex, 1);
+                           order.splice(toIndex, 0, moved);
+                           const next = {};
+                           order.forEach((oldIndex, newIndex) => {
+                             if (prev[oldIndex] !== undefined) next[newIndex] = prev[oldIndex];
+                           });
+                           return next;
+                        });
                         if (editingWaypointIndex !== null) {
                             if (editingWaypointIndex === fromIndex) {
                                 setEditingWaypointIndex(toIndex);
@@ -863,6 +924,9 @@ function Carte() {
                     onExportGpx={exportCurrentRouteAsGpx}
                     canSaveConvoy={waypoints.length >= 2}
                     onSaveConvoy={saveCurrentConvoyLocal}
+                    onBackToConvoySelector={openConvoySelector}
+                    shareTrip={currentSavedConvoy?.shareTrip || null}
+                    onTripPersisted={handleTripPersisted}
                     onConvoyNameChange={(newName) => {
                       setCurrentConvoyName(newName);
                       if (!currentConvoyId) return;
@@ -881,8 +945,9 @@ function Carte() {
                         setSearchQuery(waypointNames[index] || '');
                         document.querySelector('.ResearchBarInput')?.focus();
                     }}
-                />
-                </div>
+                  />
+                  </div>
+                )}
             </div>
             {!showConvoySelector && (
               <div className="route-total-card">
