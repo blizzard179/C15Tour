@@ -38,8 +38,8 @@ const popupStyles = `
   }
   .popup-title {
     font-weight: 600;
-    color: #333;
-    font-size: 14px;
+    color: #BB487C;
+    font-size: 16px;
   }
   .popup-actions {
     display: flex;
@@ -54,14 +54,14 @@ const popupStyles = `
     border: 1px solid #e0e0e0;
     border-radius: 6px;
     padding: 6px 10px;
-    font-size: 12px;
-    color: #4A6CF7;
+    font-size: 16px;
+    color: #BB487C;
     cursor: pointer;
     transition: all 0.2s;
   }
   .popup-action-btn:hover {
     background: #f8f9fa;
-    border-color: #4A6CF7;
+    border-color: #BB487C;
   }
   .popup-config-btn {
     background: none;
@@ -356,7 +356,7 @@ function Carte() {
           {
             lat: Number(trkptNodes[0].getAttribute('lat')),
             lng: Number(trkptNodes[0].getAttribute('lon')),
-            display_name: 'Depart'
+            display_name: 'Départ'
           },
           {
             lat: Number(trkptNodes[trkptNodes.length - 1].getAttribute('lat')),
@@ -750,14 +750,14 @@ function Carte() {
                             if (convoy) openConvoy(convoy);
                           }}
                         >
-                          SELECTIONNER
+                          SÉLECTIONNER
                         </button>
                       </div>
 
                       <div className="selector-or">OU</div>
                       <div className="create-convoy-row">
                         <button className="convoy-selector-btn primary" type="button" onClick={createNewConvoy}>
-                          + CREER UN CONVOI
+                          + CRÉER UN CONVOI
                         </button>
                         <button
                           className="convoy-selector-btn"
