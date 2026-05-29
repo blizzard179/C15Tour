@@ -246,6 +246,10 @@ function Carte() {
       return true;
     };
 
+    const handlePersistConvoyOnServer = (tripId) => {
+      setCurrentConvoyId(tripId);
+    };
+
     const openConvoy = (convoy) => {
       setCurrentConvoyId(convoy.id);
       setCurrentConvoyName(convoy.name || 'Nom du convoi');
@@ -430,6 +434,56 @@ function Carte() {
       a.remove();
       URL.revokeObjectURL(url);
       return true;
+    };
+
+    const exportCurrentRouteAsPdf = async () => {
+      if (!currentConvoyId) {
+        alert('Le convoi doit être sauvegardé avant d\'exporter en PDF');
+        return false;
+      }
+
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${currentConvoyId}/exports/pdf`);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Backend error:', errorText);
+          alert(`Erreur lors de l'export PDF: ${response.status} ${response.statusText}`);
+          return false;
+        }
+
+        const blob = await response.blob();
+
+        // Vérifier que c'est vraiment un PDF
+        if (blob.type !== 'application/pdf') {
+          console.error('Invalid content type:', blob.type);
+          alert('Le serveur n\'a pas retourné un PDF valide');
+          return false;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const nowIso = new Date().toISOString();
+        const timestamp = nowIso.replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '_');
+        const convoyNameForExport = (currentConvoyName || waypointNames[0] || 'Trajet C15Tour').trim();
+        const sanitizedBaseName = convoyNameForExport
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .replace(/[^a-zA-Z0-9_-]+/g, '_')
+          .replace(/^_+|_+$/g, '')
+          .replace(/_+/g, '_');
+        a.href = url;
+        a.download = `${sanitizedBaseName || `trajet_${timestamp}`}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        return true;
+      } catch (error) {
+        console.error('Error exporting PDF:', error);
+        alert(`Erreur lors de l'export PDF: ${error.message}`);
+        return false;
+      }
     };
 
     const handleUpdateWaypoint = (index, newName, newCoords = null) => {
@@ -812,8 +866,11 @@ function Carte() {
                     }}
                     canExportGpx={routeCoordinates.length >= 2}
                     onExportGpx={exportCurrentRouteAsGpx}
+                    canExportPdf={Boolean(currentConvoyId)}
+                    onExportPdf={exportCurrentRouteAsPdf}
                     canSaveConvoy={waypoints.length >= 2}
                     onSaveConvoy={saveCurrentConvoyLocal}
+                    onPersistConvoy={handlePersistConvoyOnServer}
                     onConvoyNameChange={(newName) => {
                       setCurrentConvoyName(newName);
                       if (!currentConvoyId) return;

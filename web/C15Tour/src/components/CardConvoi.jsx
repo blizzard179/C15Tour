@@ -50,8 +50,11 @@ export default function CardConvoi({
   onGeneralSettingsChange,
   canExportGpx = false,
   onExportGpx,
+  canExportPdf = false,
+  onExportPdf,
   canSaveConvoy = false,
   onSaveConvoy,
+  onPersistConvoy,
   onConvoyNameChange
 }) {
   const [name, setName] = useState(initialName);
@@ -482,6 +485,10 @@ export default function CardConvoi({
     onExportGpx?.();
   };
 
+  const handleExportPdf = () => {
+    onExportPdf?.();
+  };
+
   const handleSaveConvoyLocally = () => {
     if (!waypoints || waypoints.length < 2) {
       setExportSaveMessage("Impossible d'enregistrer localement : au moins 2 étapes requises.");
@@ -660,6 +667,7 @@ export default function CardConvoi({
       }
       clearPendingTripPayload();
       setPersistMessage("Convoi enregistre avec succes.");
+      onPersistConvoy?.(createdTrip.trip_id);
     } catch (error) {
       console.error("Failed to persist convoy", error);
       setPersistMessage(
@@ -885,7 +893,12 @@ export default function CardConvoi({
 
             <div className="settings-row export-row">
               <span>PDF</span>
-              <button className="export-link-btn" type="button" disabled>
+              <button
+                className="export-link-btn"
+                type="button"
+                onClick={handleExportPdf}
+                disabled={!canExportPdf}
+              >
                 Telecharger
               </button>
             </div>
