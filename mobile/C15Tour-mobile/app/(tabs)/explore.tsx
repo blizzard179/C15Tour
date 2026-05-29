@@ -9,7 +9,7 @@ import { API_BASE_URL } from '@/constants/api';
 import { useAuth } from '@/context/auth';
 import MicIcon from '../../../../shared/global_assets/pictos/Mic.svg';
 import MicMutedIcon from '../../../../shared/global_assets/pictos/MicMuted.svg';
-import { getLocation, startTracking, stopTracking } from '../services/locations/locationService';
+import { getLocation, startHeadingTracking, startTracking, stopTracking } from '../services/locations/locationService';
 
 
 const MIC_STATUS_COLORS = {
@@ -31,10 +31,36 @@ const mapHtmlContent = `
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body, #map { width: 100%; height: 100%; }
+        .leader-leaflet-icon {
+            background: transparent;
+            border: none;
+        }
+        .leader-icon-img {
+            width: 32px;
+            height: 28px;
+            transform-origin: center;
+            filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.35));
+        }
+        #leader-edge-indicator {
+            position: absolute;
+            z-index: 1000;
+            width: 36px;
+            height: 32px;
+            display: none;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+        }
+        #leader-edge-indicator img {
+            width: 100%;
+            height: 100%;
+            transform-origin: center;
+            filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.35));
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+    <div id="leader-edge-indicator"><img src="${LEADER_ICON_URL}" alt="" /></div>
     <script>
         const map = L.map('map').setView([47.2165, -1.550], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -49,8 +75,9 @@ const mapHtmlContent = `
             iconAnchor: [16, 28],
             popupAnchor: [0, -28]
         });
-        const leaderIcon = L.icon({
-            iconUrl: '${LEADER_ICON_URL}',
+        const leaderIcon = L.divIcon({
+            html: '<img class="leader-icon-img" src="${LEADER_ICON_URL}" alt="" />',
+            className: 'leader-leaflet-icon',
             iconSize: [32, 28],
             iconAnchor: [16, 28],
             popupAnchor: [0, -28]
@@ -62,19 +89,68 @@ const mapHtmlContent = `
         }).addTo(map);
         let leaderMarker = null;
         let leaderAnimationFrame = null;
+        let leaderLatLng = null;
+        let leaderHeading = null;
+        const leaderEdgeIndicator = document.getElementById('leader-edge-indicator');
+        const leaderEdgeIcon = leaderEdgeIndicator.querySelector('img');
 
-        const updateLeaderMarker = (latitude, longitude) => {
+        const normalizeHeading = (heading) => {
+            if (heading === null || heading === undefined || heading === '') return null;
+            const numericHeading = Number(heading);
+            if (!Number.isFinite(numericHeading)) return null;
+            return ((numericHeading % 360) + 360) % 360;
+        };
+
+        const getLeaderIconElement = () => leaderMarker?.getElement()?.querySelector('.leader-icon-img');
+
+        const applyLeaderHeading = () => {
+            const rotation = normalizeHeading(leaderHeading) ?? 0;
+            const markerIcon = getLeaderIconElement();
+            if (markerIcon) markerIcon.style.transform = 'rotate(' + rotation + 'deg)';
+            leaderEdgeIcon.style.transform = 'rotate(' + rotation + 'deg)';
+        };
+
+        const updateLeaderEdgeIndicator = () => {
+            if (!leaderLatLng) return;
+
+            const bounds = map.getBounds();
+            if (bounds.contains(leaderLatLng)) {
+                leaderEdgeIndicator.style.display = 'none';
+                return;
+            }
+
+            const size = map.getSize();
+            const point = map.latLngToContainerPoint(leaderLatLng);
+            const edgePadding = 20;
+            const x = Math.min(Math.max(point.x, edgePadding), size.x - edgePadding);
+            const y = Math.min(Math.max(point.y, edgePadding), size.y - edgePadding);
+
+            leaderEdgeIndicator.style.display = 'block';
+            leaderEdgeIndicator.style.left = x + 'px';
+            leaderEdgeIndicator.style.top = y + 'px';
+            applyLeaderHeading();
+        };
+
+        const updateLeaderMarker = (latitude, longitude, heading) => {
+            leaderLatLng = L.latLng(latitude, longitude);
+            leaderHeading = normalizeHeading(heading) ?? leaderHeading;
+
             if (!leaderMarker) {
-                leaderMarker = L.marker([latitude, longitude], {
+                leaderMarker = L.marker(leaderLatLng, {
                     icon: leaderIcon,
                     title: 'Véhicule de tête'
                 }).addTo(map);
+                applyLeaderHeading();
+                updateLeaderEdgeIndicator();
                 return;
             }
 
             if (leaderAnimationFrame) {
                 cancelAnimationFrame(leaderAnimationFrame);
             }
+
+            applyLeaderHeading();
+            updateLeaderEdgeIndicator();
 
             const start = leaderMarker.getLatLng();
             const end = L.latLng(latitude, longitude);
@@ -92,6 +168,7 @@ const mapHtmlContent = `
                     leaderAnimationFrame = requestAnimationFrame(animate);
                 } else {
                     leaderAnimationFrame = null;
+                    updateLeaderEdgeIndicator();
                 }
             };
 
@@ -108,15 +185,17 @@ const mapHtmlContent = `
                     console.log('Map updated:', latitude, longitude);
                 }
                 if (data.type === 'SET_LEADER_LOCATION') {
-                    const { latitude, longitude } = data;
-                    updateLeaderMarker(latitude, longitude);
-                    console.log('Leader updated:', latitude, longitude);
+                    const { latitude, longitude, heading } = data;
+                    updateLeaderMarker(latitude, longitude, heading);
+                    console.log('Leader updated:', latitude, longitude, heading);
                 }
             } catch(e) {}
         };
 
         window.addEventListener('message', handleNativeMessage);
+        window.addEventListener('resize', updateLeaderEdgeIndicator);
         document.addEventListener('message', handleNativeMessage);
+        map.on('move zoom resize', updateLeaderEdgeIndicator);
     <\/script>
 </body>
 </html>
@@ -136,16 +215,25 @@ export default function ExploreScreen() {
 
   // Récupérer la position actuelle au chargement
   useEffect(() => {
-    const sendLeaderTelemetry = async (latitude: number, longitude: number) => {
+    let latestLeaderPosition: { latitude: number; longitude: number } | null = null;
+    let lastHeadingSentAt = 0;
+
+    const sendLeaderTelemetry = async (latitude: number, longitude: number, heading?: number | null) => {
       if (role !== 'leader' || !tripId) return;
 
       try {
+        const normalizedHeading =
+          typeof heading === 'number' && Number.isFinite(heading) && heading >= 0
+            ? heading % 360
+            : undefined;
+
         await fetch(`${API_BASE_URL}/api/trips/${tripId}/telemetry`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             latitude,
             longitude,
+            heading: normalizedHeading,
             timestamp: new Date().toISOString(),
           }),
         });
@@ -162,6 +250,10 @@ export default function ExploreScreen() {
         
         const location = await getLocation();
         if (location && webViewRef.current) {
+          latestLeaderPosition = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
           console.log(`📍 Position GPS stable: lat=${location.coords.latitude}, lon=${location.coords.longitude}`);
           
           // Envoyer la position à la carte Leaflet
@@ -172,11 +264,13 @@ export default function ExploreScreen() {
               longitude: location.coords.longitude,
             })
           );
-          await sendLeaderTelemetry(location.coords.latitude, location.coords.longitude);
+          await sendLeaderTelemetry(location.coords.latitude, location.coords.longitude, location.coords.heading);
         }
 
         // Démarrer le suivi continu pour mettre à jour la position en temps réel
-        await startTracking((latitude, longitude) => {
+        await startTracking((latitude, longitude, heading) => {
+          latestLeaderPosition = { latitude, longitude };
+
           if (webViewRef.current) {
             webViewRef.current.postMessage(
               JSON.stringify({
@@ -186,8 +280,24 @@ export default function ExploreScreen() {
               })
             );
           }
-          sendLeaderTelemetry(latitude, longitude);
+          sendLeaderTelemetry(latitude, longitude, heading);
         });
+
+        if (role === 'leader' && tripId) {
+          await startHeadingTracking((heading) => {
+            if (!latestLeaderPosition) return;
+
+            const now = Date.now();
+            if (now - lastHeadingSentAt < 1000) return;
+            lastHeadingSentAt = now;
+
+            sendLeaderTelemetry(
+              latestLeaderPosition.latitude,
+              latestLeaderPosition.longitude,
+              heading
+            );
+          });
+        }
       } catch (error) {
         console.error('Erreur lors du positionnement du curseur:', error);
       }

@@ -42,9 +42,10 @@ export async function getLocation() {
 
 
 let subscription: Location.LocationSubscription | null = null;
-let locationCallback: ((latitude: number, longitude: number) => void) | null = null;
+let headingSubscription: Location.LocationSubscription | null = null;
+let locationCallback: ((latitude: number, longitude: number, heading?: number | null) => void) | null = null;
 
-export async function startTracking(onLocationUpdate?: (latitude: number, longitude: number) => void) {
+export async function startTracking(onLocationUpdate?: (latitude: number, longitude: number, heading?: number | null) => void) {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
         Alert.alert(
@@ -65,18 +66,37 @@ export async function startTracking(onLocationUpdate?: (latitude: number, longit
         (location) => {
             const lat = location.coords.latitude;
             const lon = location.coords.longitude;
+            const heading = location.coords.heading;
             console.log('📍 Nouvelle position:', lat.toFixed(6), lon.toFixed(6), 'Précision:', location.coords.accuracy?.toFixed(0), 'm');
             
             if (locationCallback) {
-                locationCallback(lat, lon);
+                locationCallback(lat, lon, heading);
             }
         }
     );
 }
 
+export async function startHeadingTracking(onHeadingUpdate?: (heading?: number | null) => void) {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+        Alert.alert(
+            'Autorisation refusÃ©e',
+            'Cette application a besoin de votre permission pour accÃ©der Ã  votre localisation'
+        );
+        throw new Error('Permission de localisation refusÃ©e');
+    }
+
+    headingSubscription = await Location.watchHeadingAsync((headingData) => {
+        const heading = headingData.trueHeading >= 0 ? headingData.trueHeading : headingData.magHeading;
+        onHeadingUpdate?.(Number.isFinite(heading) && heading >= 0 ? heading : null);
+    });
+}
+
 export function stopTracking() {
     subscription?.remove();
+    headingSubscription?.remove();
     subscription = null;
+    headingSubscription = null;
     locationCallback = null;
     console.log('🛑 Suivi de localisation arrêté');
 }
