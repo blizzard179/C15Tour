@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useAppTheme } from '@/context/theme';
 import { useAuth } from '@/context/auth';
-import { API_BASE_URL } from '@/constants/api';
 import HomeButton from '@/components/ui/HomeButton';
 import MicButton from '@/components/ui/MicButton';
 import ConvoyName from '@/components/ui/ConvoyName';
@@ -11,6 +10,19 @@ import MicIcon from '../../../../shared/global_assets/pictos/Mic.svg';
 import MicMutedIcon from '../../../../shared/global_assets/pictos/MicMuted.svg';
 import CursorVehiculeLeader from '../../../../shared/global_assets/pictos/CursorVehiculeLeader.svg';
 import { getLocation, startTracking, stopTracking } from '../services/locations/locationService';
+import ScrollUpItinerary from '@/components/ui/scroll-up-itinerary';
+import {
+  computeDistanceToStart,
+  computeGuidance,
+  computeTripRoute,
+  Coordinates,
+  fetchTripSteps,
+  GuidanceResult,
+  reverseGeocodeStreetName,
+  RouteGeometry,
+  RouteSummary,
+  TripStep
+} from '../services/itinerary/ItineraryService';
 
 
 const MIC_STATUS_COLORS = {
@@ -129,23 +141,21 @@ const mapHtmlContent = `
 
 type CallStatus = 'idle' | 'live' | 'muted';
 
-type TripStep = {
-  step_latitude: number;
-  step_longitude: number;
-  step_name?: string | null;
-};
-
-type RouteGeometry = {
-  coordinates: number[][];
-};
-
 export default function ExploreScreen() {
   const [isMicActive, setIsMicActive] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
   const webViewRef = useRef<WebView>(null);
   const [tripSteps, setTripSteps] = useState<TripStep[]>([]);
   const [routeGeometry, setRouteGeometry] = useState<RouteGeometry | null>(null);
+  const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
+  const [distanceToStartKm, setDistanceToStartKm] = useState<number | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [guidance, setGuidance] = useState<GuidanceResult | null>(null);
+  const [userStreetName, setUserStreetName] = useState<string | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
+  const lastGeocodeLocationRef = useRef<Coordinates | null>(null);
+  const geocodeMinMoveMeters = 50;
   const { trip } = useAuth();
   const { colorScheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
@@ -159,19 +169,8 @@ export default function ExploreScreen() {
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/trips/${trip.trip_id}/steps`);
-        if (!response.ok) {
-          console.error('Erreur lors de la recuperation des etapes:', response.status);
-          setTripSteps([]);
-          return;
-        }
-
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setTripSteps(data);
-        } else {
-          setTripSteps([]);
-        }
+        const data = await fetchTripSteps(trip.trip_id);
+        setTripSteps(data);
       } catch (error) {
         console.error('Erreur reseau lors de la recuperation des etapes:', error);
         setTripSteps([]);
@@ -185,29 +184,18 @@ export default function ExploreScreen() {
     const fetchRoute = async () => {
       if (!trip?.trip_id) {
         setRouteGeometry(null);
+        setRouteSummary(null);
         return;
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/trips/${trip.trip_id}/compute`, {
-          method: 'POST'
-        });
-
-        if (!response.ok) {
-          console.error('Erreur lors du calcul de l\'itineraire:', response.status);
-          setRouteGeometry(null);
-          return;
-        }
-
-        const data = await response.json();
-        if (data?.geometry?.coordinates) {
-          setRouteGeometry({ coordinates: data.geometry.coordinates });
-        } else {
-          setRouteGeometry(null);
-        }
+        const result = await computeTripRoute(trip.trip_id);
+        setRouteGeometry(result.geometry);
+        setRouteSummary(result.summary);
       } catch (error) {
         console.error('Erreur reseau lors du calcul de l\'itineraire:', error);
         setRouteGeometry(null);
+        setRouteSummary(null);
       }
     };
 
@@ -244,18 +232,118 @@ export default function ExploreScreen() {
     );
   }, [routeGeometry, isMapReady]);
 
+  useEffect(() => {
+    if (tripSteps.length === 0) {
+      setCurrentStepIndex(0);
+    } else if (currentStepIndex >= tripSteps.length) {
+      setCurrentStepIndex(tripSteps.length - 1);
+    }
+  }, [tripSteps, currentStepIndex]);
+
+  useEffect(() => {
+    const fetchStreetName = async () => {
+      if (!currentLocation) {
+        setUserStreetName(null);
+        return;
+      }
+
+      const lastGeocodeLocation = lastGeocodeLocationRef.current;
+      if (lastGeocodeLocation) {
+        const toRadians = (value: number) => (value * Math.PI) / 180;
+        const lat1 = toRadians(lastGeocodeLocation.latitude);
+        const lat2 = toRadians(currentLocation.latitude);
+        const deltaLat = toRadians(currentLocation.latitude - lastGeocodeLocation.latitude);
+        const deltaLon = toRadians(currentLocation.longitude - lastGeocodeLocation.longitude);
+        const a = Math.sin(deltaLat / 2) ** 2
+          + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const meters = 6371000 * c;
+        if (meters < geocodeMinMoveMeters) {
+          return;
+        }
+      }
+
+      try {
+        const street = await reverseGeocodeStreetName(currentLocation);
+        setUserStreetName(street);
+        lastGeocodeLocationRef.current = currentLocation;
+      } catch (error) {
+        console.error('Erreur reseau reverse geocode:', error);
+        setUserStreetName(null);
+      }
+    };
+
+    fetchStreetName();
+  }, [currentLocation]);
+
+  useEffect(() => {
+    const fetchDistanceToStart = async () => {
+      try {
+        const distance = await computeDistanceToStart(currentLocation, tripSteps);
+        setDistanceToStartKm(distance);
+      } catch (error) {
+        console.error('Erreur reseau OSRM distance:', error);
+        setDistanceToStartKm(null);
+      }
+    };
+
+    fetchDistanceToStart();
+  }, [currentLocation, tripSteps]);
+
+  useEffect(() => {
+    const updateGuidance = async () => {
+      if (!currentLocation || tripSteps.length === 0) {
+        setGuidance(null);
+        return;
+      }
+
+      const targetIndex = Math.min(currentStepIndex + 1, tripSteps.length - 1);
+      const target = tripSteps[targetIndex];
+      if (!target) {
+        setGuidance(null);
+        return;
+      }
+
+      const targetCoords = {
+        latitude: Number(target.step_latitude),
+        longitude: Number(target.step_longitude)
+      };
+
+      if (!Number.isFinite(targetCoords.latitude) || !Number.isFinite(targetCoords.longitude)) {
+        setGuidance(null);
+        return;
+      }
+
+      try {
+        const result = await computeGuidance(currentLocation, targetCoords);
+        setGuidance(result);
+
+        if (typeof result.distanceToTargetMeters === 'number' && result.distanceToTargetMeters <= 50) {
+          setCurrentStepIndex((prev) => Math.min(prev + 1, tripSteps.length - 1));
+        }
+      } catch (error) {
+        console.error('Erreur reseau OSRM guidance:', error);
+        setGuidance(null);
+      }
+    };
+
+    updateGuidance();
+  }, [currentLocation, tripSteps, currentStepIndex]);
+
   // Récupérer la position actuelle au chargement
   useEffect(() => {
     const initializePosition = async () => {
       try {
         // Attendre 1.5 secondes pour laisser le GPS se stabiliser
-        console.log('⏳ Stabilisation du GPS en cours...');
         await new Promise(resolve => setTimeout(resolve, 1500));
         
         const location = await getLocation();
         if (location && webViewRef.current) {
-          console.log(`📍 Position GPS stable: lat=${location.coords.latitude}, lon=${location.coords.longitude}`);
-          
+          setCurrentLocation({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+
           // Envoyer la position à la carte Leaflet
           webViewRef.current.postMessage(
             JSON.stringify({
@@ -268,6 +356,7 @@ export default function ExploreScreen() {
 
         // Démarrer le suivi continu pour mettre à jour la position en temps réel
         await startTracking((latitude, longitude) => {
+          setCurrentLocation({ latitude, longitude });
           if (webViewRef.current) {
             webViewRef.current.postMessage(
               JSON.stringify({
@@ -361,6 +450,18 @@ export default function ExploreScreen() {
           <MicButton isActive={isMicActive} onPress={handleMicPress} />
         </View>
       </View>
+
+      <ScrollUpItinerary
+        speedKmh={trip?.trip_speed}
+        distanceKm={routeSummary?.distanceKm}
+        durationSeconds={routeSummary?.durationSeconds}
+        distanceToStartKm={distanceToStartKm}
+        distanceToNextTargetMeters={guidance?.distanceToTargetMeters ?? null}
+        distanceToNextManeuverMeters={guidance?.distanceToNextManeuverMeters ?? null}
+        nextInstruction={guidance?.instruction ?? null}
+        streetName={userStreetName}
+      />
+
 
       {isMicActive && (
         <View style={[styles.micPanel, { backgroundColor: isDark ? 'rgba(28,28,30,0.96)' : 'rgba(255,255,255,0.96)' }]}>
