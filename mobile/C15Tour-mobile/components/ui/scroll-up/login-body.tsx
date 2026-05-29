@@ -7,7 +7,7 @@ import { useAppTheme } from "@/context/theme";
 import { useRouter } from "expo-router";
 
 function LoginBody() {
-    const [active, setActive] = useState<'participant' | 'leader' | ''>('');
+    const [active, setActive] = useState<'participant' | 'leader' | ''>('participant');
     const [participantCode, setParticipantCode] = useState('');
     const [leaderCode, setLeaderCode] = useState('');
     const [loading, setLoading] = useState(false);
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     button: {
-        marginTop: 80,
+        marginTop: 50,
         padding: 12,
         alignItems: 'center',
         borderRadius: 6,
