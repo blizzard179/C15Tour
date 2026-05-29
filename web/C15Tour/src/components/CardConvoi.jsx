@@ -1,5 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import PenIcon from "@shared/global_assets/pictos/Pen.svg";
+import BackIcon from "@shared/global_assets/pictos/Back.svg";
 import CheckIcon from "@shared/global_assets/pictos/Check.svg";
 import FlagIcon from "@shared/global_assets/pictos/Flag.svg";
 import GearIcon from "@shared/global_assets/pictos/Gear.svg";
@@ -11,6 +13,7 @@ import CloseIcon from "@shared/global_assets/pictos/Close.svg";
 import MenuIcon from "@shared/global_assets/pictos/Menu.svg";
 
 const DEFAULT_GENERAL_SETTINGS = {
+  segmentsCount: 1,
   routeType: {
     avoidMotorway: true,
     avoidFastRoad: true,
@@ -24,6 +27,7 @@ const DEFAULT_GENERAL_SETTINGS = {
 };
 
 const mergeGeneralSettings = (input) => ({
+  segmentsCount: Math.max(1, Number.parseInt(input?.segmentsCount, 10) || 1),
   routeType: {
     ...DEFAULT_GENERAL_SETTINGS.routeType,
     ...(input?.routeType || {})
@@ -35,14 +39,19 @@ const mergeGeneralSettings = (input) => ({
 });
 
 const BACKEND_BASE_URL = "http://localhost:3000";
+const SEGMENT_COLOR_PALETTE = ["#4A6CF7", "#2AA876", "#FF9F1C", "#E63946", "#7B61FF", "#0096C7"];
 
 export default function CardConvoi({
   initialName = "Nom du convoi",
   initialStartTime = "00:00",
   waypoints = [],
   waypointNames = [],
+  initialStepConfigs = {},
+  initialBackendTripId = null,
   routeDurationMinutes = null,
+  routeLegDurationsMinutes = [],
   generalSettings = DEFAULT_GENERAL_SETTINGS,
+  shareTrip: savedShareTrip = null,
   onUpdateWaypoint,
   onDeleteWaypoint,
   onReorderWaypoints,
@@ -51,7 +60,10 @@ export default function CardConvoi({
   onExportGpx,
   canSaveConvoy = false,
   onSaveConvoy,
-  onConvoyNameChange
+  onBackToConvoySelector,
+  onConvoyNameChange,
+  onSegmentConfigChange,
+  onTripPersisted
 }) {
   const [name, setName] = useState(initialName);
   const [startTime, setStartTime] = useState(initialStartTime);
@@ -61,7 +73,10 @@ export default function CardConvoi({
     name: "",
     arrivalTime: "00:00",
     breakTime: 5,
-    hasBreak: true
+    hasBreak: true,
+    segmentSections: 1,
+    segmentColor: SEGMENT_COLOR_PALETTE[0],
+    segmentRank: 1
   });
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingTime, setIsEditingTime] = useState(false);
@@ -69,15 +84,60 @@ export default function CardConvoi({
   const [tempTime, setTempTime] = useState(initialStartTime);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [dragOverSegmentRank, setDragOverSegmentRank] = useState(null);
+  const [pendingAddSegment, setPendingAddSegment] = useState(null);
   const [isGeneralSettingsOpen, setIsGeneralSettingsOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [exportSaveMessage, setExportSaveMessage] = useState("");
   const [persistMessage, setPersistMessage] = useState("");
+  const [backendTripId, setBackendTripId] = useState(initialBackendTripId);
+  const [shareTrip, setShareTrip] = useState(savedShareTrip);
   const [generalSettingsDraft, setGeneralSettingsDraft] = useState(mergeGeneralSettings(generalSettings));
+  const [isNameButtonLocked, setIsNameButtonLocked] = useState(false);
+
+  const createDefaultEditDataItem = () => ({
+    name: "",
+    arrivalTime: "00:00",
+    breakTime: 0,
+    hasBreak: false
+  });
+
+  const getEditDataItem = (index) => editData[index] || createDefaultEditDataItem();
+
+  const getStepLoadConfig = (index) => {
+    const waypoint = waypoints[index] || {};
+    const hasStop = waypoint.step_is_stop ?? waypoint.isStop ?? false;
+    const stopDuration = waypoint.step_stop_duration ?? waypoint.stopDuration;
+    return {
+      hasBreak: Boolean(hasStop),
+      breakTime: hasStop ? (Number.isFinite(stopDuration) ? stopDuration : 0) : 0
+    };
+  };
+
+  const getStepBreakTime = (index) => {
+    const configured = stepsConfig[index];
+    if (configured && Number.isFinite(configured.breakTime)) {
+      return configured.breakTime;
+    }
+    return getStepLoadConfig(index).breakTime;
+  };
+
+  const updateEditDataItem = (index, updater) =>
+    setEditData((prev) => {
+      const next = [...prev];
+      next[index] = updater(prev[index] || createDefaultEditDataItem());
+      return next;
+    });
+
+  useEffect(() => {
+    setStepsConfig({ ...initialStepConfigs });
+  }, [initialStepConfigs]);
 
   const popupRef = useRef(null);
   const inputRef = useRef(null);
   const timeInputRef = useRef(null);
+  const previousWaypointCountRef = useRef(waypoints.length);
 
   const resolvedGeneralSettings = useMemo(
     () => mergeGeneralSettings(generalSettings),
@@ -87,6 +147,20 @@ export default function CardConvoi({
   useEffect(() => {
     setName(initialName);
   }, [initialName]);
+
+  useEffect(() => {
+    setBackendTripId(initialBackendTripId ?? null);
+  }, [initialBackendTripId]);
+
+  useEffect(() => {
+    setShareTrip(savedShareTrip);
+  }, [savedShareTrip]);
+
+  useEffect(() => {
+    if (waypoints.length > 0) {
+      setIsEdited(true);
+    }
+  }, [waypoints.length]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -112,7 +186,59 @@ export default function CardConvoi({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const previousCount = previousWaypointCountRef.current;
+    const currentCount = waypoints.length;
+
+    if (pendingAddSegment && currentCount > previousCount && currentCount > 0) {
+      const expectedIndex = pendingAddSegment.expectedIndex;
+      const fallbackIndex = currentCount - 1;
+      const targetIndex = expectedIndex < currentCount ? expectedIndex : fallbackIndex;
+
+      setStepsConfig((prev) => ({
+        ...prev,
+        [targetIndex]: {
+          ...(prev[targetIndex] || {}),
+          segmentRank: pendingAddSegment.rank
+        }
+      }));
+      setPendingAddSegment(null);
+    }
+
+    previousWaypointCountRef.current = currentCount;
+  }, [waypoints.length, pendingAddSegment]);
+
   const hasWaypoints = waypoints.length > 0;
+  const segmentCount = useMemo(() => Math.max(0, waypoints.length - 1), [waypoints.length]);
+  const configuredSegmentsCount = useMemo(
+    () => Math.max(1, Number.parseInt(resolvedGeneralSettings.segmentsCount, 10) || 1),
+    [resolvedGeneralSettings.segmentsCount]
+  );
+
+  const getStepSegmentSections = (index) => {
+    const rawValue = stepsConfig[index]?.stepNoSections;
+    const parsed = Number.parseInt(rawValue, 10);
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+  };
+
+  const getStepSegmentColor = (index) => {
+    return stepsConfig[index]?.segmentColor || SEGMENT_COLOR_PALETTE[index % SEGMENT_COLOR_PALETTE.length];
+  };
+  const getStepSegmentRank = (index) => {
+    const rawValue = stepsConfig[index]?.segmentRank;
+    const parsed = Number.parseInt(rawValue, 10);
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+  };
+
+  useEffect(() => {
+    if (typeof onSegmentConfigChange !== "function") return;
+    const config = Array.from({ length: waypoints.length }, (_, index) => ({
+      stepNoSections: getStepSegmentSections(index),
+      segmentColor: getStepSegmentColor(index),
+      segmentRank: getStepSegmentRank(index)
+    }));
+    onSegmentConfigChange(config);
+  }, [waypoints.length, segmentCount, stepsConfig, onSegmentConfigChange]);
   const stepsText = useMemo(() => {
     if (waypoints.length === 0) return "Aucune etape ajoutee";
     if (waypoints.length === 1) return "1 etape";
@@ -136,12 +262,23 @@ export default function CardConvoi({
   };
 
   const getSegmentTravelTime = (index) => {
+    const routeLegDuration = routeLegDurationsMinutes[index];
+    if (Number.isFinite(routeLegDuration) && routeLegDuration >= 0) {
+      const speed = Number(resolvedGeneralSettings.speed.generalSpeedKmH);
+      const speedFactor = speed > 0 ? 50 / speed : 1;
+      let adjustedLeg = routeLegDuration * speedFactor;
+      if (resolvedGeneralSettings.speed.autoReductionEnabled) {
+        const reduction = Math.max(0, Number(resolvedGeneralSettings.speed.reductionPercent) || 0);
+        adjustedLeg *= 1 + reduction / 100;
+      }
+      return Math.max(0, Math.round(adjustedLeg));
+    }
+
     const configuredTravelTime = stepsConfig[index]?.travelTime;
     if (Number.isFinite(configuredTravelTime)) {
       return Math.max(0, configuredTravelTime);
     }
 
-    const segmentCount = Math.max(0, waypoints.length - 1);
     const adjustedRouteDurationMinutes = getAdjustedRouteDurationMinutes();
 
     if (Number.isFinite(adjustedRouteDurationMinutes) && adjustedRouteDurationMinutes >= 0) {
@@ -153,7 +290,6 @@ export default function CardConvoi({
   };
 
   const getTotalTravelTime = () => {
-    const segmentCount = Math.max(0, waypoints.length - 1);
     if (segmentCount === 0) return 0;
 
     const hasConfiguredSegmentTimes = Array.from({ length: segmentCount }).some((_, i) =>
@@ -180,11 +316,9 @@ export default function CardConvoi({
     let totalMinutes = startHours * 60 + startMinutes;
     totalMinutes += getTotalTravelTime();
 
-    Object.values(stepsConfig).forEach((config) => {
-      if (config.breakTime) {
-        totalMinutes += config.breakTime;
-      }
-    });
+    for (let i = 0; i < waypoints.length; i += 1) {
+      totalMinutes += getStepBreakTime(i);
+    }
 
     const arrivalHours = Math.floor(totalMinutes / 60) % 24;
     const arrivalMinutes = totalMinutes % 60;
@@ -204,9 +338,7 @@ export default function CardConvoi({
     }
 
     for (let i = 0; i < index; i += 1) {
-      if (stepsConfig[i]?.breakTime) {
-        totalMinutes += stepsConfig[i].breakTime;
-      }
+      totalMinutes += getStepBreakTime(i);
     }
 
     const waypointHours = Math.floor(totalMinutes / 60) % 24;
@@ -222,6 +354,29 @@ export default function CardConvoi({
       setIsEditing(false);
       setIsEdited(true);
     }
+  };
+
+  const lockNameButtonTemporarily = () => {
+    setIsNameButtonLocked(true);
+    if (nameButtonLockTimeoutRef.current) {
+      clearTimeout(nameButtonLockTimeoutRef.current);
+    }
+    nameButtonLockTimeoutRef.current = setTimeout(() => {
+      setIsNameButtonLocked(false);
+      nameButtonLockTimeoutRef.current = null;
+    }, 1500);
+  };
+
+  const handleNameButtonClick = () => {
+    if (isNameButtonLocked) return;
+
+    if (isEditing) {
+      handleNameSubmit();
+    } else {
+      setIsEditing(true);
+    }
+
+    lockNameButtonTemporarily();
   };
 
   const startTimeEdit = () => {
@@ -245,6 +400,18 @@ export default function CardConvoi({
     setIsEditingTime(false);
   };
 
+  const openTimePicker = () => {
+    const input = timeInputRef.current;
+    if (!input) return;
+
+    input.focus();
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+    input.click();
+  };
+
   const handleAddWaypointClick = () => {
     const searchInput = document.querySelector(".ResearchBarInput");
     if (searchInput) {
@@ -257,27 +424,43 @@ export default function CardConvoi({
     e.stopPropagation();
     const currentConfig = stepsConfig[index] || {};
     const currentName = waypointNames[index] || "";
+    const loadedConfig = getStepLoadConfig(index);
 
     setConfigPopup(configPopup === index ? null : index);
     setEditData({
       name: currentConfig.name !== undefined ? currentConfig.name : currentName,
       arrivalTime: currentConfig.arrivalTime || "00:00",
       breakTime: currentConfig.breakTime || 5,
-      hasBreak: currentConfig.breakTime !== undefined ? currentConfig.breakTime > 0 : true
+      hasBreak: currentConfig.breakTime !== undefined ? currentConfig.breakTime > 0 : true,
+      segmentSections: getStepSegmentSections(index),
+      segmentColor: getStepSegmentColor(index),
+      segmentRank: getStepSegmentRank(index)
     });
+  };
+
+  const handleAddWaypointToSegment = (rank) => {
+    setPendingAddSegment({
+      rank,
+      expectedIndex: waypoints.length
+    });
+    handleAddWaypointClick();
   };
 
   const handleSaveConfig = (e) => {
     e.stopPropagation();
     if (configPopup === null) return;
 
+    const currentEditData = editData[configPopup] || createDefaultEditDataItem();
     const nameToSave =
-      editData.name !== undefined ? editData.name.trim() : `Point ${configPopup + 1}`;
+      currentEditData.name !== undefined ? currentEditData.name.trim() : `Point ${configPopup + 1}`;
 
     const config = {
       name: nameToSave,
       arrivalTime: editData.arrivalTime || "00:00",
-      breakTime: editData.hasBreak ? parseInt(editData.breakTime, 10) || 0 : 0
+      breakTime: editData.hasBreak ? parseInt(editData.breakTime, 10) || 0 : 0,
+      stepNoSections: Math.max(1, parseInt(editData.segmentSections, 10) || 1),
+      segmentColor: editData.segmentColor || SEGMENT_COLOR_PALETTE[0],
+      segmentRank: Math.max(1, parseInt(editData.segmentRank, 10) || 1)
     };
 
     setStepsConfig((prev) => ({
@@ -285,7 +468,10 @@ export default function CardConvoi({
       [configPopup]: config
     }));
 
-    onUpdateWaypoint?.(configPopup, nameToSave);
+    onUpdateWaypoint?.(configPopup, nameToSave, null, {
+      step_is_stop: config.breakTime > 0,
+      step_stop_duration: config.breakTime || 0
+    });
     setConfigPopup(null);
   };
 
@@ -300,6 +486,12 @@ export default function CardConvoi({
         if (k < index) next[k] = prev[k];
         if (k > index) next[k - 1] = prev[k];
       });
+      return next;
+    });
+
+    setEditData((prev) => {
+      const next = [...prev];
+      next.splice(index, 1);
       return next;
     });
 
@@ -344,6 +536,7 @@ export default function CardConvoi({
     const sourceIndex = draggedIndex;
     setDragOverIndex(null);
     setDraggedIndex(null);
+    setDragOverSegmentRank(null);
 
     if (sourceIndex === null || sourceIndex === undefined || sourceIndex === targetIndex) return;
 
@@ -354,6 +547,32 @@ export default function CardConvoi({
   const handleDragEnd = () => {
     setDraggedIndex(null);
     setDragOverIndex(null);
+    setDragOverSegmentRank(null);
+  };
+
+  const handleSegmentDragOver = (rank, e) => {
+    e.preventDefault();
+    if (dragOverSegmentRank !== rank) {
+      setDragOverSegmentRank(rank);
+    }
+  };
+
+  const handleDropOnSegment = (rank, e) => {
+    e.preventDefault();
+    const sourceIndex = draggedIndex;
+    setDragOverSegmentRank(null);
+    setDragOverIndex(null);
+    setDraggedIndex(null);
+
+    if (sourceIndex === null || sourceIndex === undefined) return;
+
+    setStepsConfig((prev) => ({
+      ...prev,
+      [sourceIndex]: {
+        ...(prev[sourceIndex] || {}),
+        segmentRank: rank
+      }
+    }));
   };
 
   const openGeneralSettings = () => {
@@ -366,8 +585,45 @@ export default function CardConvoi({
   };
 
   const saveGeneralSettings = () => {
-    onGeneralSettingsChange?.(generalSettingsDraft);
+    const normalizedSegmentsCount = Math.max(1, Number.parseInt(generalSettingsDraft.segmentsCount, 10) || 1);
+    setStepsConfig((prev) => {
+      const next = {};
+      Object.keys(prev).forEach((key) => {
+        const k = Number(key);
+        const current = prev[k] || {};
+        const currentRank = Number.parseInt(current.segmentRank, 10) || 1;
+        next[k] = {
+          ...current,
+          segmentRank: Math.min(Math.max(1, currentRank), normalizedSegmentsCount)
+        };
+      });
+      return next;
+    });
+    onGeneralSettingsChange?.({
+      ...generalSettingsDraft,
+      segmentsCount: normalizedSegmentsCount
+    });
     setIsGeneralSettingsOpen(false);
+  };
+
+  const getParticipantShareCode = (trip = shareTrip) =>
+    trip?.trip_user_code || trip?.trip_participant_code || "";
+
+  const hasShareCodes = () => Boolean(shareTrip?.trip_admin_code && getParticipantShareCode());
+
+  const openShareModal = () => {
+    if (!hasShareCodes()) {
+      setIsShareModalOpen(false);
+      setPersistMessage("Erreur : sauvegarde le convoi pour générer les codes et QR codes.");
+      return;
+    }
+
+    setPersistMessage("");
+    setIsShareModalOpen(true);
+  };
+
+  const closeShareModal = () => {
+    setIsShareModalOpen(false);
   };
 
   const openExportModal = () => {
@@ -460,6 +716,9 @@ export default function CardConvoi({
       const address =
         waypoint.display_name || waypoint.address || waypoint.name || waypointNames[index] || `${waypoint.lat}, ${waypoint.lng}`;
       const nameToUse = waypointNames[index] || address || `Etape ${index + 1}`;
+      const stepConfig = stepsConfig[index] || getStepLoadConfig(index);
+      const shouldStop = Boolean(stepConfig.hasBreak);
+      const stopDuration = Number.isFinite(stepConfig.breakTime) ? stepConfig.breakTime : 0;
 
       return {
         step_name: nameToUse,
@@ -468,24 +727,103 @@ export default function CardConvoi({
         step_longitude: Number(waypoint.lng),
         step_is_stop: false,
         step_stop_duration: null,
-        step_order: index + 1
+        step_order: index + 1,
+        step_no_sections: index < segmentCount ? getStepSegmentSections(index) : 1
       };
     });
+  };
+
+  const fetchExistingTripSteps = async (tripId) => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps`);
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+    return response.json();
+  };
+
+  const createTripStep = async (tripId, stepPayload) => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(stepPayload)
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+    return response.json();
+  };
+
+  const updateTripStep = async (stepId, stepPayload) => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/steps/${stepId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(stepPayload)
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+    return response.json();
+  };
+
+  const deleteTripStep = async (stepId) => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/steps/${stepId}`, {
+      method: "DELETE"
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+  };
+
+  const reorderTripSteps = async (tripId, stepIds) => {
+    if (!Array.isArray(stepIds) || stepIds.length === 0) return;
+    const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps/reorder`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stepIds })
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
+    }
+    return response.json();
   };
 
   const persistTripSteps = async (tripId) => {
     const steps = buildStepsPayload();
     for (const step of steps) {
-      const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(step)
-      });
+      await createTripStep(tripId, step);
+    }
+  };
 
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => null);
-        throw new Error(errorBody?.error || response.statusText || `HTTP ${response.status}`);
-      }
+  const syncTripSteps = async (tripId) => {
+    const existingSteps = await fetchExistingTripSteps(tripId);
+    const steps = buildStepsPayload();
+    const finalStepIds = [];
+    const updateCount = Math.min(existingSteps.length, steps.length);
+
+    for (let i = 0; i < updateCount; i += 1) {
+      const existingStep = existingSteps[i];
+      const payload = { ...steps[i] };
+      delete payload.step_order;
+      await updateTripStep(existingStep.step_id, payload);
+      finalStepIds.push(existingStep.step_id);
+    }
+
+    for (let i = updateCount; i < steps.length; i += 1) {
+      const createdStep = await createTripStep(tripId, steps[i]);
+      finalStepIds.push(createdStep.step_id);
+    }
+
+    for (let i = steps.length; i < existingSteps.length; i += 1) {
+      await deleteTripStep(existingSteps[i].step_id);
+    }
+
+    if (finalStepIds.length > 0) {
+      await reorderTripSteps(tripId, finalStepIds);
     }
   };
 
@@ -505,30 +843,42 @@ export default function CardConvoi({
     const tripPayload = buildTripPayload();
     const pendingPayload = {
       trip: tripPayload,
-      steps: buildStepsPayload()
+      steps: buildStepsPayload(),
+      backendTripId
     };
 
     saveTripPayloadLocally(pendingPayload);
 
     try {
-      const tripResponse = await fetch(`${BACKEND_BASE_URL}/api/trips`, {
-        method: "POST",
+      const method = backendTripId ? "PUT" : "POST";
+      const tripUrl = backendTripId
+        ? `${BACKEND_BASE_URL}/api/trips/${backendTripId}`
+        : `${BACKEND_BASE_URL}/api/trips`;
+
+      const tripResponse = await fetch(tripUrl, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(tripPayload)
       });
 
-      if (!tripResponse.ok) {
+    if (!tripResponse.ok) {
         const errorBody = await tripResponse.json().catch(() => null);
         throw new Error(errorBody?.error || tripResponse.statusText || `HTTP ${tripResponse.status}`);
-      }
+    }
 
       const createdTrip = await tripResponse.json();
+      const tripId = createdTrip.trip_id;
+      setBackendTripId(tripId);
       try {
-        await persistTripSteps(createdTrip.trip_id);
+        if (backendTripId) {
+          await syncTripSteps(tripId);
+        } else {
+          await persistTripSteps(tripId);
+        }
       } catch (stepsError) {
         console.error("Failed to persist steps", stepsError);
 
-        const deleteTrip = false;
+        let deleteTrip = false;
 
         // on regarde si des étapes ont été créées malgré l'erreur, pour éviter de laisser un trip sans étapes en cas de problème de persistance
         await fetch(`${BACKEND_BASE_URL}/api/trips/${createdTrip.trip_id}/steps`, {
@@ -539,11 +889,10 @@ export default function CardConvoi({
             console.warn("No steps were persisted for the trip before failure, deleting created trip");
             deleteTrip = true;
           }
-        })
-          .catch((fetchStepsError) => {
-            console.error("Failed to fetch steps after persistence failure", fetchStepsError);
-            deleteTrip = true;
-          });
+        }).catch((fetchStepsError) => {
+          console.error("Failed to fetch steps after persistence failure", fetchStepsError);
+          deleteTrip = true;
+        });
 
         if (deleteTrip) {
           // Suppression du trip créé pour éviter d'avoir un trip sans étapes
@@ -557,6 +906,8 @@ export default function CardConvoi({
         throw new Error("Une erreur est survenue lors de l'enregistrement des étapes. Veuillez réessayer.");
       }
       clearPendingTripPayload();
+      setShareTrip(createdTrip);
+      onTripPersisted?.(createdTrip, savedLocally);
       setPersistMessage("Convoi enregistre avec succes.");
     } catch (error) {
       console.error("Failed to persist convoy", error);
@@ -568,6 +919,7 @@ export default function CardConvoi({
 
   const renderWaypointConfig = (index) => {
     if (configPopup !== index) return null;
+    const currentEditData = getEditDataItem(index);
 
     return (
       <div className="waypoint-config-overlay">
@@ -579,8 +931,8 @@ export default function CardConvoi({
             <input
               id="step-name"
               type="text"
-              value={editData.name}
-              onChange={(e) => setEditData((prev) => ({ ...prev, name: e.target.value }))}
+              value={currentEditData.name}
+              onChange={(e) => updateEditDataItem(index, (prev) => ({ ...prev, name: e.target.value }))}
               className="config-input"
               placeholder="Nom de l'etape"
             />
@@ -591,10 +943,64 @@ export default function CardConvoi({
             <input
               id="arrival-time"
               type="time"
-              value={editData.arrivalTime || "00:00"}
-              onChange={(e) => setEditData((prev) => ({ ...prev, arrivalTime: e.target.value }))}
+              value={currentEditData.arrivalTime || "00:00"}
+              onChange={(e) => updateEditDataItem(index, (prev) => ({ ...prev, arrivalTime: e.target.value }))}
               className="config-input"
             />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="segment-sections">Nombre de segments</label>
+            <input
+              id="segment-sections"
+              type="range"
+              min="1"
+              max="6"
+              value={editData.segmentSections}
+              onChange={(e) =>
+                setEditData((prev) => ({ ...prev, segmentSections: parseInt(e.target.value, 10) || 1 }))
+              }
+              className="config-input"
+            />
+            <div>Rang actif: {editData.segmentSections}</div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="segment-rank">Rang du segment</label>
+            <input
+              id="segment-rank"
+              type="range"
+              min="1"
+              max="6"
+              value={editData.segmentRank}
+              onChange={(e) =>
+                setEditData((prev) => ({ ...prev, segmentRank: parseInt(e.target.value, 10) || 1 }))
+              }
+              className="config-input"
+            />
+            <div>Segment {editData.segmentRank}</div>
+          </div>
+
+          <div className="form-group">
+            <label>Couleur du segment</label>
+            <div className="settings-inline">
+              {SEGMENT_COLOR_PALETTE.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  aria-label={`Choisir la couleur ${color}`}
+                  onClick={() => setEditData((prev) => ({ ...prev, segmentColor: color }))}
+                  style={{
+                    width: "22px",
+                    height: "22px",
+                    borderRadius: "50%",
+                    border: editData.segmentColor === color ? "2px solid #111" : "1px solid #ccc",
+                    backgroundColor: color,
+                    cursor: "pointer"
+                  }}
+                />
+              ))}
+            </div>
           </div>
 
           <div className="form-group">
@@ -602,21 +1008,23 @@ export default function CardConvoi({
               <input
                 type="checkbox"
                 id="has-break"
-                checked={editData.hasBreak}
-                onChange={(e) => setEditData((prev) => ({ ...prev, hasBreak: e.target.checked }))}
+                checked={currentEditData.hasBreak}
+                onChange={(e) => updateEditDataItem(index, (prev) => ({ ...prev, hasBreak: e.target.checked }))}
                 className="config-checkbox"
               />
-              <label htmlFor="has-break">Ajouter un temps de pause</label>
+              <label htmlFor="has-break" value="currentEditData.hasBreak">
+                Ajouter un temps de pause
+              </label>
             </div>
-            {editData.hasBreak && (
+            {currentEditData.hasBreak && (
               <div className="break-time-container">
                 <input
                   id="break-time"
                   type="number"
                   min="0"
-                  value={editData.breakTime}
+                  value={currentEditData.breakTime}
                   onChange={(e) =>
-                    setEditData((prev) => ({
+                    updateEditDataItem(index, (prev) => ({
                       ...prev,
                       breakTime: parseInt(e.target.value, 10) || 0
                     }))
@@ -649,6 +1057,28 @@ export default function CardConvoi({
       <div className="general-settings-overlay" onClick={closeGeneralSettings}>
         <div className="general-settings-popup" onClick={(e) => e.stopPropagation()}>
           <h3>PARAMETRES GENERAUX</h3>
+
+          <div className="settings-section">
+            <div className="settings-section-title">Segments</div>
+            <div className="settings-row">
+              <span>Nombre de segments</span>
+              <div className="settings-inline">
+                <input
+                  type="number"
+                  min="1"
+                  max="12"
+                  className="settings-number-input"
+                  value={generalSettingsDraft.segmentsCount}
+                  onChange={(e) =>
+                    setGeneralSettingsDraft((prev) => ({
+                      ...prev,
+                      segmentsCount: Math.max(1, parseInt(e.target.value, 10) || 1)
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
 
           <div className="settings-section">
             <div className="settings-section-title">Type de route</div>
@@ -767,6 +1197,77 @@ export default function CardConvoi({
     );
   };
 
+  const renderShareModal = () => {
+    if (!isShareModalOpen) return null;
+    const participantCode = getParticipantShareCode();
+    const organizerUrl = shareTrip?.trip_admin_code
+      ? `${BACKEND_BASE_URL}/api/trips/admin/${shareTrip.trip_admin_code}`
+      : "";
+    const participantUrl = participantCode
+      ? `${BACKEND_BASE_URL}/api/trips/code/${participantCode}`
+      : "";
+
+    return (
+      <div className="general-settings-overlay" onClick={closeShareModal}>
+        <div className="general-settings-popup share-popup" onClick={(e) => e.stopPropagation()}>
+          <h3>PARTAGER LE CONVOI</h3>
+
+          <div style={{ display: "flex", flexDirection: "row", gap: "20px" }}>
+            <div style={{ flex: 1 }}>
+              <h4>Organisateur</h4>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", alignItems: "baseline" }}>
+                <h5>Code</h5>
+                <div>
+                  {shareTrip?.trip_admin_code}
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", marginTop: "14px" }}>
+                <h5>QR Code</h5>
+                <div className="share-qr">
+                  {organizerUrl ? (
+                    <QRCodeSVG
+                      value={organizerUrl}
+                      size={"auto"}
+                      fgColor="#8f2f66"
+                      includeMargin
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <h4>Participant</h4>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", alignItems: "baseline" }}>
+                <h5>Code</h5>
+                <div>
+                  {participantCode}
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "row", gap: "10px", marginTop: "14px" }}>
+                <h5>QR Code</h5>
+                <div className="share-qr">
+                  {participantUrl ? (
+                    <QRCodeSVG
+                      value={participantUrl}
+                      size={"auto"}
+                      fgColor="#8f2f66"
+                      includeMargin
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="general-settings-actions">
+            <button className="delete-btn" onClick={closeShareModal}>FERMER</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderExportModal = () => {
     if (!isExportOpen) return null;
 
@@ -823,6 +1324,16 @@ export default function CardConvoi({
     <div className="convoyCard">
       <div className="convoyHeader">
         <div className="convoyNameRow">
+          {onBackToConvoySelector && (
+            <button
+              className="iconBtn convoyBackBtn"
+              type="button"
+              aria-label="Retour a la selection des convois"
+              onClick={onBackToConvoySelector}
+            >
+              <img src={BackIcon} alt="Retour" />
+            </button>
+          )}
           {isEditing ? (
             <input
               ref={inputRef}
@@ -845,7 +1356,8 @@ export default function CardConvoi({
             className="iconBtn"
             type="button"
             aria-label={isEditing ? "Valider" : "Editer le nom"}
-            onClick={isEditing ? handleNameSubmit : () => setIsEditing(true)}
+            onClick={handleNameButtonClick}
+            disabled={isNameButtonLocked}
           >
             <img src={isEditing ? CheckIcon : PenIcon} alt={isEditing ? "Valider" : "Editer le nom"} />
           </button>
@@ -863,7 +1375,11 @@ export default function CardConvoi({
             <div className="timeEdit">
               {isEditingTime ? (
                 <>
-                  <div className="timeInputWrapper">
+                  <div
+                    className="timeInputWrapper"
+                    onClick={openTimePicker}
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
                     <input
                       ref={timeInputRef}
                       type="time"
@@ -904,59 +1420,97 @@ export default function CardConvoi({
               </div>
             ) : (
               <div className="steps-list">
-                {waypoints.map((_, index) => {
-                  const isFirst = index === 0;
-                  const isLast = index === waypoints.length - 1;
-                  const label =
-                    waypointNames[index] ||
-                    (isFirst ? "Point de depart" : isLast ? "Point d'arrivee" : `Etape ${index}`);
+                {Array.from({ length: configuredSegmentsCount }, (_, i) => i + 1).map((rank) => {
+                  const indexes = waypoints
+                    .map((_, index) => index)
+                    .filter((index) => getStepSegmentRank(index) === rank);
+                  const segmentColor = indexes.length > 0
+                    ? getStepSegmentColor(indexes[0])
+                    : SEGMENT_COLOR_PALETTE[(rank - 1) % SEGMENT_COLOR_PALETTE.length];
 
                   return (
                     <div
-                      key={index}
-                      className={`step-item ${draggedIndex === index ? "is-dragging" : ""} ${dragOverIndex === index ? "is-drag-over" : ""}`}
-                      onDragOver={(e) => handleDragOver(index, e)}
-                      onDrop={(e) => handleDrop(index, e)}
+                      key={`segment-${rank}`}
+                      className={`segment-block ${dragOverSegmentRank === rank ? "is-drop-target" : ""}`}
+                      onDragOver={(e) => handleSegmentDragOver(rank, e)}
+                      onDrop={(e) => handleDropOnSegment(rank, e)}
                     >
-                      <button
-                        className="step-drag-btn"
-                        type="button"
-                        aria-label={`Reordonner l'etape ${index + 1}`}
-                        draggable
-                        onDragStart={(e) => handleDragStart(index, e)}
-                        onDragEnd={handleDragEnd}
-                      >
-                        <img src={MenuIcon} alt="Deplacer" />
-                      </button>
+                      <div className="segment-heading">
+                        <span>Segment {rank}</span>
+                        <span className="segment-color-square" style={{ backgroundColor: segmentColor }} />
+                      </div>
+                      <div className="segment-rows">
+                        <div className="segment-vertical-bar" style={{ backgroundColor: segmentColor }} />
+                        <div className="segment-rows-list">
+                          {indexes.length === 0 && (
+                            <button
+                              type="button"
+                              className="segment-add-btn"
+                              onClick={() => handleAddWaypointToSegment(rank)}
+                            >
+                              <img alt="" className="plus-icon" src={PlusIcon} />
+                              Ajouter une etape
+                            </button>
+                          )}
+                          {indexes.map((index) => {
+                            const isFirst = index === 0;
+                            const isLast = index === waypoints.length - 1;
+                            const label =
+                              waypointNames[index] ||
+                              (isFirst ? "Point de depart" : isLast ? "Point d'arrivee" : `Etape ${index}`);
 
-                      <div className="step-content">
-                        <div className="step-number">{index + 1}</div>
-                        <div className="step-info">
-                          <div className="step-name">{label}</div>
-                          <div className="step-time">
-                            {calculateWaypointTime(index)}
-                            {stepsConfig[index]?.breakTime > 0 && ` - ${stepsConfig[index].breakTime} min`}
-                          </div>
+                            return (
+                              <div
+                                key={index}
+                                className={`step-item ${draggedIndex === index ? "is-dragging" : ""} ${dragOverIndex === index ? "is-drag-over" : ""}`}
+                                onDragOver={(e) => handleDragOver(index, e)}
+                                onDrop={(e) => handleDrop(index, e)}
+                              >
+                                <button
+                                  className="step-drag-btn"
+                                  type="button"
+                                  aria-label={`Reordonner l'etape ${index + 1}`}
+                                  draggable
+                                  onDragStart={(e) => handleDragStart(index, e)}
+                                  onDragEnd={handleDragEnd}
+                                >
+                                  <img src={MenuIcon} alt="Deplacer" />
+                                </button>
+
+                                <div className="step-content">
+                                  <div className="step-number">{index + 1}</div>
+                                  <div className="step-info">
+                                    <div className="step-name">{label}</div>
+                                      <div className="step-time">
+                                        {calculateWaypointTime(index)}
+                                        {stepsConfig[index]?.breakTime > 0 && ` - ${stepsConfig[index].breakTime} min`}
+                                      
+                                      </div>
+                                  </div>
+                                </div>
+
+                                <button
+                                  className={`step-config-btn ${configPopup === index ? "active" : ""}`}
+                                  onClick={(e) => handleConfigClick(index, e)}
+                                >
+                                  <img src={GearIcon} alt="Configurer" />
+                                </button>
+
+                                <button
+                                  className="step-delete-btn"
+                                  type="button"
+                                  aria-label={`Supprimer l'etape ${index + 1}`}
+                                  onClick={(e) => handleDeleteWaypointAtIndex(index, e)}
+                                >
+                                  <img src={CloseIcon} alt="Supprimer" />
+                                </button>
+
+                                {renderWaypointConfig(index)}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-
-                      <button
-                        className={`step-config-btn ${configPopup === index ? "active" : ""}`}
-                        onClick={(e) => handleConfigClick(index, e)}
-                      >
-                        <img src={GearIcon} alt="Configurer" />
-                      </button>
-
-                      <button
-                        className="step-delete-btn"
-                        type="button"
-                        aria-label={`Supprimer l'etape ${index + 1}`}
-                        onClick={(e) => handleDeleteWaypointAtIndex(index, e)}
-                      >
-                        <img src={CloseIcon} alt="Supprimer" />
-                      </button>
-
-                      {renderWaypointConfig(index)}
                     </div>
                   );
                 })}
@@ -976,7 +1530,7 @@ export default function CardConvoi({
             <button className="iconBtn" type="button" aria-label="Parametres" onClick={openGeneralSettings}>
               <img src={GearIcon} alt="Parametres" />
             </button>
-            <button className="iconBtn" type="button" aria-label="Partager">
+            <button className="iconBtn" type="button" aria-label="Partager" onClick={openShareModal}>
               <img src={ShareIcon} alt="Partager" />
             </button>
             <button className="iconBtn" type="button" aria-label="Enregistrer" onClick={handlePersistConvoy}>
@@ -991,6 +1545,7 @@ export default function CardConvoi({
       )}
 
       {renderGeneralSettings()}
+      {renderShareModal()}
       {renderExportModal()}
     </div>
   );

@@ -45,7 +45,12 @@ const stepSchema = Joi.object({
   step_stop_duration: Joi.number().min(0).allow(null).messages({
     'number.min': 'La durée de pause doit être positive ou nulle'
   }),
-  step_order: Joi.number().positive().allow(null)
+  step_order: Joi.number().positive().allow(null),
+  step_no_sections: Joi.number().integer().min(1).default(1).messages({
+    'number.base': 'Le nombre de segments doit etre un nombre',
+    'number.integer': 'Le nombre de segments doit etre un entier',
+    'number.min': 'Le nombre de segments doit etre superieur ou egal a 1'
+  })
 });
 
 // Validation pour modifier un Step (tout est optionnel)
@@ -68,7 +73,12 @@ const stepUpdateSchema = Joi.object({
   step_stop_duration: Joi.number().min(0).allow(null).optional().messages({
     'number.min': 'La durée de pause doit être positive ou nulle'
   }),
-  step_order: Joi.number().positive().allow(null).optional()
+  step_order: Joi.number().positive().allow(null).optional(),
+  step_no_sections: Joi.number().integer().min(1).optional().messages({
+    'number.base': 'Le nombre de segments doit etre un nombre',
+    'number.integer': 'Le nombre de segments doit etre un entier',
+    'number.min': 'Le nombre de segments doit etre superieur ou egal a 1'
+  })
 });
 
 // Validation pour réorganiser les étapes
@@ -97,7 +107,12 @@ const telemetrySchema = Joi.object({
     'number.min': 'Le cap doit être entre 0 et 360',
     'number.max': 'Le cap doit être entre 0 et 360'
   }),
-  timestamp: Joi.date().iso().allow(null)
+  timestamp: Joi.date().iso().allow(null),
+  step_no_sections: Joi.number().integer().min(1).default(1).messages({
+    'number.base': 'Le nombre de segments doit etre un nombre',
+    'number.integer': 'Le nombre de segments doit etre un entier',
+    'number.min': 'Le nombre de segments doit etre superieur ou egal a 1'
+  })
 });
 
 // Middleware de validation
