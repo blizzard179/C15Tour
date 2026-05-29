@@ -18,6 +18,7 @@ model Trip {
   trip_voie_rapide Boolean   @default(true)
   trip_chemin      Boolean   @default(true)
   trip_is_reduced  Boolean   @default(false)
+  trip_nb_sections Int       @default(1)
   trip_reduction   Int?
   trip_created_at  DateTime  @default(now())
   trip_updated_at   DateTime  @default(now()) @updatedAt
@@ -38,6 +39,7 @@ model Step {
   step_stop_duration Int?
   step_order         Int?
   step_trip_id       Int
+  step_no_sections   Int?      
   step_created_at    DateTime @default(now())
   step_updated_at    DateTime @default(now()) @updatedAt
 
@@ -53,8 +55,10 @@ model Telemetry {
   telemetry_longitude  Decimal  @db.Decimal(9, 6)
   telemetry_speed      Float?
   telemetry_heading    Float?
+  telemetry_nb_sections Int     @default(1)
   telemetry_timestamp  DateTime @default(now())
   telemetry_created_at DateTime @default(now())
+
 
   trip Trip @relation(fields: [telemetry_trip_id], references: [trip_id], onDelete: Cascade)
 
