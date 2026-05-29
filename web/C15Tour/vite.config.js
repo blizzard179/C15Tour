@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/valhalla': {
-        target: 'https://valhalla1.openstreetmap.de',
+        target: 'https://valhalla.github.io/valhalla/api/',
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path.replace(/^\/api\/valhalla/, '')

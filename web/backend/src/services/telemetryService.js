@@ -18,7 +18,6 @@ const createTelemetry = async (tripId, data) => {
       telemetry_longitude: data.longitude,
       telemetry_speed: data.speed || null,
       telemetry_heading: data.heading || null,
-      telemetry_nb_sections: data.step_nb_sections ?? 1,
       telemetry_timestamp: data.timestamp ? new Date(data.timestamp) : new Date()
     }
   });

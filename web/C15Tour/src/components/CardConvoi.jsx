@@ -51,6 +51,7 @@ export default function CardConvoi({
   routeDurationMinutes = null,
   routeLegDurationsMinutes = [],
   generalSettings = DEFAULT_GENERAL_SETTINGS,
+  shareTrip: savedShareTrip = null,
   onUpdateWaypoint,
   onDeleteWaypoint,
   onReorderWaypoints,
@@ -59,8 +60,10 @@ export default function CardConvoi({
   onExportGpx,
   canSaveConvoy = false,
   onSaveConvoy,
+  onBackToConvoySelector,
   onConvoyNameChange,
-  onSegmentConfigChange
+  onSegmentConfigChange,
+  onTripPersisted
 }) {
   const [name, setName] = useState(initialName);
   const [startTime, setStartTime] = useState(initialStartTime);
@@ -213,7 +216,7 @@ export default function CardConvoi({
   );
 
   const getStepSegmentSections = (index) => {
-    const rawValue = stepsConfig[index]?.stepNbSections;
+    const rawValue = stepsConfig[index]?.stepNoSections;
     const parsed = Number.parseInt(rawValue, 10);
     return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
   };
@@ -230,7 +233,7 @@ export default function CardConvoi({
   useEffect(() => {
     if (typeof onSegmentConfigChange !== "function") return;
     const config = Array.from({ length: waypoints.length }, (_, index) => ({
-      stepNbSections: getStepSegmentSections(index),
+      stepNoSections: getStepSegmentSections(index),
       segmentColor: getStepSegmentColor(index),
       segmentRank: getStepSegmentRank(index)
     }));
@@ -455,7 +458,7 @@ export default function CardConvoi({
       name: nameToSave,
       arrivalTime: editData.arrivalTime || "00:00",
       breakTime: editData.hasBreak ? parseInt(editData.breakTime, 10) || 0 : 0,
-      stepNbSections: Math.max(1, parseInt(editData.segmentSections, 10) || 1),
+      stepNoSections: Math.max(1, parseInt(editData.segmentSections, 10) || 1),
       segmentColor: editData.segmentColor || SEGMENT_COLOR_PALETTE[0],
       segmentRank: Math.max(1, parseInt(editData.segmentRank, 10) || 1)
     };
@@ -725,7 +728,7 @@ export default function CardConvoi({
         step_is_stop: false,
         step_stop_duration: null,
         step_order: index + 1,
-        step_nb_sections: index < segmentCount ? getStepSegmentSections(index) : 1
+        step_no_sections: index < segmentCount ? getStepSegmentSections(index) : 1
       };
     });
   };
@@ -886,6 +889,18 @@ export default function CardConvoi({
             console.warn("No steps were persisted for the trip before failure, deleting created trip");
             deleteTrip = true;
           }
+        }).catch((fetchStepsError) => {
+          console.error("Failed to fetch steps after persistence failure", fetchStepsError);
+          deleteTrip = true;
+        });
+
+        if (deleteTrip) {
+          // Suppression du trip créé pour éviter d'avoir un trip sans étapes
+          await fetch(`${BACKEND_BASE_URL}/api/trips/${createdTrip.trip_id}`, {
+            method: "DELETE"
+          }).catch((deleteError) => {
+            console.error("Failed to delete trip after steps persistence failure", deleteError);
+          });
         }
 
         throw new Error("Une erreur est survenue lors de l'enregistrement des étapes. Veuillez réessayer.");

@@ -55,7 +55,6 @@ model Telemetry {
   telemetry_longitude  Decimal  @db.Decimal(9, 6)
   telemetry_speed      Float?
   telemetry_heading    Float?
-  telemetry_nb_sections Int     @default(1)
   telemetry_timestamp  DateTime @default(now())
   telemetry_created_at DateTime @default(now())
 

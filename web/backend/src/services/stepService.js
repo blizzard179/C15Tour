@@ -92,7 +92,7 @@ const createStep = async (tripId, data) => {
       step_is_stop: isStop,
       step_stop_duration: stopDuration,
       step_order: stepOrder,
-      step_nb_sections: data.step_nb_sections ?? 1,
+      step_no_sections: data.step_no_sections ?? 1,
       step_trip_id: parseInt(tripId)
     }
   });
@@ -109,7 +109,7 @@ const updateStep = async (id, data) => {
   if (data.step_latitude !== undefined) updateData.step_latitude = data.step_latitude;
   if (data.step_longitude !== undefined) updateData.step_longitude = data.step_longitude;
   if (data.step_order !== undefined) updateData.step_order = data.step_order;
-  if (data.step_nb_sections !== undefined) updateData.step_nb_sections = data.step_nb_sections;
+  if (data.step_no_sections !== undefined) updateData.step_no_sections = data.step_no_sections;
 
   // Vérifier unicité de l'order si modifié
   if (data.step_order !== undefined) {

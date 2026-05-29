@@ -46,7 +46,7 @@ const stepSchema = Joi.object({
     'number.min': 'La durée de pause doit être positive ou nulle'
   }),
   step_order: Joi.number().positive().allow(null),
-  step_nb_sections: Joi.number().integer().min(1).default(1).messages({
+  step_no_sections: Joi.number().integer().min(1).default(1).messages({
     'number.base': 'Le nombre de segments doit etre un nombre',
     'number.integer': 'Le nombre de segments doit etre un entier',
     'number.min': 'Le nombre de segments doit etre superieur ou egal a 1'
@@ -74,7 +74,7 @@ const stepUpdateSchema = Joi.object({
     'number.min': 'La durée de pause doit être positive ou nulle'
   }),
   step_order: Joi.number().positive().allow(null).optional(),
-  step_nb_sections: Joi.number().integer().min(1).optional().messages({
+  step_no_sections: Joi.number().integer().min(1).optional().messages({
     'number.base': 'Le nombre de segments doit etre un nombre',
     'number.integer': 'Le nombre de segments doit etre un entier',
     'number.min': 'Le nombre de segments doit etre superieur ou egal a 1'
@@ -108,7 +108,7 @@ const telemetrySchema = Joi.object({
     'number.max': 'Le cap doit être entre 0 et 360'
   }),
   timestamp: Joi.date().iso().allow(null),
-  step_nb_sections: Joi.number().integer().min(1).default(1).messages({
+  step_no_sections: Joi.number().integer().min(1).default(1).messages({
     'number.base': 'Le nombre de segments doit etre un nombre',
     'number.integer': 'Le nombre de segments doit etre un entier',
     'number.min': 'Le nombre de segments doit etre superieur ou egal a 1'
