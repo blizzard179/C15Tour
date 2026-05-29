@@ -2,10 +2,18 @@ import { Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 
 import HomeIcon from '../../../../shared/global_assets/pictos/Home.svg';
+import { useAuth } from '@/context/auth';
 
 export default function HomeButton() {
+  const { logout } = useAuth();
+
+  const handlePress = () => {
+    logout();
+    router.replace('/login');
+  };
+
   return (
-    <Pressable onPress={() => router.replace('/')} style={styles.button}>
+    <Pressable onPress={handlePress} style={styles.button}>
       <HomeIcon width={24} height={44} />
     </Pressable>
   );
