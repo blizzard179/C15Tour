@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useAppTheme } from '@/context/theme';
 import HomeButton from '@/components/ui/HomeButton';
 import MicButton from '@/components/ui/MicButton';
@@ -179,9 +180,11 @@ const mapHtmlContent = `
             try {
                 const data = JSON.parse(event.data);
                 if (data.type === 'SET_LOCATION') {
-                    const { latitude, longitude } = data;
+                    const { latitude, longitude, center = true } = data;
                     userMarker.setLatLng([latitude, longitude]);
-                    map.setView([latitude, longitude], 13);
+                    if (center) {
+                        map.setView([latitude, longitude], 13);
+                    }
                     console.log('Map updated:', latitude, longitude);
                 }
                 if (data.type === 'SET_LEADER_LOCATION') {
@@ -208,6 +211,7 @@ export default function ExploreScreen() {
   const [isMicActive, setIsMicActive] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
   const webViewRef = useRef<WebView>(null);
+  const latestUserPositionRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const { colorScheme } = useAppTheme();
   const { trip, role } = useAuth();
   const isDark = colorScheme === 'dark';
@@ -250,6 +254,10 @@ export default function ExploreScreen() {
         
         const location = await getLocation();
         if (location && webViewRef.current) {
+          latestUserPositionRef.current = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
           latestLeaderPosition = {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
@@ -262,6 +270,7 @@ export default function ExploreScreen() {
               type: 'SET_LOCATION',
               latitude: location.coords.latitude,
               longitude: location.coords.longitude,
+              center: true,
             })
           );
           await sendLeaderTelemetry(location.coords.latitude, location.coords.longitude, location.coords.heading);
@@ -269,6 +278,7 @@ export default function ExploreScreen() {
 
         // Démarrer le suivi continu pour mettre à jour la position en temps réel
         await startTracking((latitude, longitude, heading) => {
+          latestUserPositionRef.current = { latitude, longitude };
           latestLeaderPosition = { latitude, longitude };
 
           if (webViewRef.current) {
@@ -277,6 +287,7 @@ export default function ExploreScreen() {
                 type: 'SET_LOCATION',
                 latitude,
                 longitude,
+                center: false,
               })
             );
           }
@@ -374,6 +385,28 @@ export default function ExploreScreen() {
     });
   };
 
+  const handleRecenterPosition = async () => {
+    let position = latestUserPositionRef.current;
+
+    if (!position) {
+      const location = await getLocation();
+      position = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+      latestUserPositionRef.current = position;
+    }
+
+    webViewRef.current?.postMessage(
+      JSON.stringify({
+        type: 'SET_LOCATION',
+        latitude: position.latitude,
+        longitude: position.longitude,
+        center: true,
+      })
+    );
+  };
+
   const statusContent = {
     idle: {
       status: 'MICRO INACTIF',
@@ -415,6 +448,18 @@ export default function ExploreScreen() {
           <MicButton isActive={isMicActive} onPress={handleMicPress} />
         </View>
       </View>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Recentrer ma position"
+        style={({ pressed }) => [
+          styles.recenterButton,
+          isMicActive && styles.recenterButtonWithMicPanel,
+          pressed && styles.recenterButtonPressed,
+        ]}
+        onPress={handleRecenterPosition}>
+        <MaterialIcons name="my-location" size={24} color="#BB487C" />
+      </Pressable>
 
       {isMicActive && (
         <View style={[styles.micPanel, { backgroundColor: isDark ? 'rgba(28,28,30,0.96)' : 'rgba(255,255,255,0.96)' }]}>
@@ -479,6 +524,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
+  },
+  recenterButton: {
+    position: 'absolute',
+    right: 18,
+    bottom: 30,
+    zIndex: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderWidth: 2,
+    borderColor: '#BB487C',
+    elevation: 4,
+  },
+  recenterButtonWithMicPanel: {
+    bottom: 220,
+  },
+  recenterButtonPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.96 }],
   },
   micPanel: {
     position: 'absolute',
