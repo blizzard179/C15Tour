@@ -140,7 +140,7 @@ function LoginBody() {
 
 const styles = StyleSheet.create({
     container: {
-        padding: 20,
+        paddingHorizontal: 20,
     },
     row: {
         flexDirection: 'row',
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     button: {
-        marginTop: 50,
+        marginTop: 30,
         padding: 12,
         alignItems: 'center',
         borderRadius: 6,

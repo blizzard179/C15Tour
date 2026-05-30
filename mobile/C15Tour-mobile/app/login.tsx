@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { StyleSheet, ImageBackground, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
@@ -18,6 +18,7 @@ const LOGO_PADDING = 16;    // min gap between logo edge and screen top / sheet 
 
 export default function LoginScreen() {
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const [sheetIndex, setSheetIndex] = useState(0);
   const { colorScheme, toggleTheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
 
@@ -48,7 +49,7 @@ export default function LoginScreen() {
     paddingTop: interpolate(
       animatedPosition.value,
       [expandedSheetPosition, collapsedSheetPosition],
-      [48, 0],
+      [48, 10],
       Extrapolation.CLAMP
     ),
   }));
@@ -76,14 +77,22 @@ export default function LoginScreen() {
         <BottomSheet
           ref={bottomSheetRef}
           index={0}
-          snapPoints={['15%', '75%']}
+          snapPoints={['15%', '65%']}
+          enableDynamicSizing={false}
+          enableOverDrag={false}
+          onChange={setSheetIndex}
           animatedPosition={animatedPosition}
           backgroundStyle={{ backgroundColor: isDark ? '#1c1c1e' : '#fff' }}
           handleIndicatorStyle={{ backgroundColor: isDark ? '#555' : '#ccc' }}
         >
           <BottomSheetView style={styles.contentContainer}>
             <Animated.View style={contentPaddingStyle}>
-              <ScrollUp />
+              <ScrollUp
+                collapsed={sheetIndex === 0}
+                animatedPosition={animatedPosition}
+                expandedSheetPosition={expandedSheetPosition}
+                collapsedSheetPosition={collapsedSheetPosition}
+              />
             </Animated.View>
           </BottomSheetView>
         </BottomSheet>
