@@ -1,6 +1,7 @@
 import { ThemedText } from "@/components/themed-text";
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { API_BASE_URL } from "@/constants/api";
 import { useAuth } from "@/context/auth";
 import { useAppTheme } from "@/context/theme";
@@ -43,9 +44,9 @@ function LoginBody() {
             }
 
             login(data, active);
-            router.replace('/(tabs)/explore');
+            router.replace('/(tabs)/loader');
 
-        } catch (err) {
+        } catch {
             Alert.alert('Erreur', 'Erreur réseau. Vérifiez votre connexion.');
         } finally {
             setLoading(false);
@@ -77,7 +78,7 @@ function LoginBody() {
             </TouchableOpacity>
 
             {/* Input Participant */}
-            <TextInput
+            <BottomSheetTextInput
                 style={[
                     styles.input,
                     { borderColor: colors.inputBorder, backgroundColor: colors.inputBg, color: colors.inputText },
@@ -111,7 +112,7 @@ function LoginBody() {
             </TouchableOpacity>
 
             {/* Input Leader */}
-            <TextInput
+            <BottomSheetTextInput
                 style={[
                     styles.input,
                     { borderColor: colors.inputBorder, backgroundColor: colors.inputBg, color: colors.inputText },

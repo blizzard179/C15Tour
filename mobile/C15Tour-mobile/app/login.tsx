@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { StyleSheet, ImageBackground, TouchableOpacity, useWindowDimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Keyboard, StyleSheet, ImageBackground, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import Animated, {
@@ -18,6 +18,8 @@ const LOGO_PADDING = 16;    // min gap between logo edge and screen top / sheet 
 
 export default function LoginScreen() {
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const previousSheetIndexRef = useRef(1);
+  const isKeyboardOpenRef = useRef(false);
   const [sheetIndex, setSheetIndex] = useState(0);
   const { colorScheme, toggleTheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
@@ -34,10 +36,10 @@ export default function LoginScreen() {
     // Maximum size that fits with padding on both sides
     const maxSize = Math.max(0, available - LOGO_PADDING * 2);
     const scale = maxSize < BASE_LOGO_SIZE ? maxSize / BASE_LOGO_SIZE : 1;
-    const effectiveSize = BASE_LOGO_SIZE * scale;
 
-    // Vertically center the logo in the available space
-    const top = TOP_SAFE_AREA + (available - effectiveSize) / 2;
+    // The scale transform keeps the image layout box centered on itself, so
+    // place the unscaled box center between the status bar and the sheet.
+    const top = TOP_SAFE_AREA + available / 2 - BASE_LOGO_SIZE / 2;
 
     return {
       top,
@@ -53,6 +55,24 @@ export default function LoginScreen() {
       Extrapolation.CLAMP
     ),
   }));
+
+  useEffect(() => {
+    const keyboardShowSubscription = Keyboard.addListener('keyboardDidShow', () => {
+      isKeyboardOpenRef.current = true;
+      previousSheetIndexRef.current = sheetIndex;
+      bottomSheetRef.current?.snapToPosition('100%');
+    });
+
+    const keyboardHideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      isKeyboardOpenRef.current = false;
+      bottomSheetRef.current?.snapToIndex(previousSheetIndexRef.current);
+    });
+
+    return () => {
+      keyboardShowSubscription.remove();
+      keyboardHideSubscription.remove();
+    };
+  }, [sheetIndex]);
 
   return (
     <ImageBackground
@@ -80,7 +100,14 @@ export default function LoginScreen() {
           snapPoints={['15%', '65%']}
           enableDynamicSizing={false}
           enableOverDrag={false}
-          onChange={setSheetIndex}
+          keyboardBehavior="fillParent"
+          keyboardBlurBehavior="none"
+          android_keyboardInputMode="adjustResize"
+          onChange={(index) => {
+            if (!isKeyboardOpenRef.current) {
+              setSheetIndex(index);
+            }
+          }}
           animatedPosition={animatedPosition}
           backgroundStyle={{ backgroundColor: isDark ? '#1c1c1e' : '#fff' }}
           handleIndicatorStyle={{ backgroundColor: isDark ? '#555' : '#ccc' }}
