@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -32,8 +32,22 @@ const mapHtmlContent = `
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"><\/script>
     <style>
+        :root {
+            --leaflet-control-right: 18px;
+            --leaflet-control-bottom: 86px;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body, #map { width: 100%; height: 100%; }
+        .leaflet-control-container .leaflet-top.leaflet-left {
+            top: auto;
+            left: auto;
+            right: var(--leaflet-control-right);
+            bottom: var(--leaflet-control-bottom);
+        }
+        .leaflet-control-container .leaflet-top.leaflet-left .leaflet-control {
+            margin-top: 0;
+            margin-left: 0;
+        }
         .leader-leaflet-icon {
             background: transparent;
             border: none;
@@ -194,6 +208,10 @@ const mapHtmlContent = `
                     updateLeaderMarker(latitude, longitude, heading);
                     console.log('Leader updated:', latitude, longitude, heading);
                 }
+                if (data.type === 'SET_CONTROL_POSITION') {
+                    document.documentElement.style.setProperty('--leaflet-control-right', data.right + 'px');
+                    document.documentElement.style.setProperty('--leaflet-control-bottom', data.bottom + 'px');
+                }
             } catch(e) {}
         };
 
@@ -220,16 +238,29 @@ export default function ExploreScreen() {
   const { trip, role } = useAuth();
   const isDark = colorScheme === 'dark';
   const tripId = trip?.trip_id;
+  const isOrganizer = role === 'leader';
   const isLandscape = width > height;
   const topBarTop = isLandscape ? Math.max(16, insets.top + 8) : Math.max(40, insets.top + 8);
   const bottomSafeOffset = isLandscape ? Math.max(16, insets.bottom + 12) : Math.max(30, insets.bottom + 16);
   const horizontalSafeOffset = isLandscape ? Math.max(16, insets.right + 16) : 18;
+  const topBarHorizontalOffset = 15;
   const panelHorizontalOffset = isLandscape
     ? Math.max(15, Math.max(insets.left, insets.right) + 16)
     : 15;
   const recenterBottomOffset = isMicActive
     ? bottomSafeOffset + (isLandscape ? 120 : 190)
     : bottomSafeOffset;
+  const leafletControlBottomOffset = recenterBottomOffset + 56;
+
+  const syncLeafletControlPosition = useCallback(() => {
+    webViewRef.current?.postMessage(
+      JSON.stringify({
+        type: 'SET_CONTROL_POSITION',
+        right: horizontalSafeOffset,
+        bottom: leafletControlBottomOffset,
+      })
+    );
+  }, [horizontalSafeOffset, leafletControlBottomOffset]);
 
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.ALL);
@@ -238,6 +269,17 @@ export default function ExploreScreen() {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
     };
   }, []);
+
+  useEffect(() => {
+    syncLeafletControlPosition();
+  }, [syncLeafletControlPosition]);
+
+  useEffect(() => {
+    if (!isOrganizer) {
+      setIsMicActive(false);
+      setCallStatus('idle');
+    }
+  }, [isOrganizer]);
 
   // Récupérer la position actuelle au chargement
   useEffect(() => {
@@ -455,6 +497,7 @@ export default function ExploreScreen() {
         style={styles.webview}
         javaScriptEnabled
         domStorageEnabled
+        onLoadEnd={syncLeafletControlPosition}
       />
 
       <View
@@ -462,8 +505,8 @@ export default function ExploreScreen() {
           styles.topBar,
           {
             top: topBarTop,
-            left: panelHorizontalOffset,
-            right: panelHorizontalOffset,
+            left: topBarHorizontalOffset,
+            right: topBarHorizontalOffset,
           },
         ]}>
         <View style={styles.topBarSide}>
@@ -475,7 +518,7 @@ export default function ExploreScreen() {
         </View>
 
         <View style={styles.topBarSide}>
-          <MicButton isActive={isMicActive} onPress={handleMicPress} />
+          {isOrganizer && <MicButton isActive={isMicActive} onPress={handleMicPress} />}
         </View>
       </View>
 
@@ -492,7 +535,7 @@ export default function ExploreScreen() {
         <MaterialIcons name="my-location" size={24} color="#BB487C" />
       </Pressable>
 
-      {isMicActive && (
+      {isOrganizer && isMicActive && (
         <View
           style={[
             styles.micPanel,
