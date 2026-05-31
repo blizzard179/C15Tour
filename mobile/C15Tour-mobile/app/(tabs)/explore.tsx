@@ -13,6 +13,7 @@ import { useAuth } from '@/context/auth';
 import MicIcon from '../../../../shared/global_assets/pictos/Mic.svg';
 import MicMutedIcon from '../../../../shared/global_assets/pictos/MicMuted.svg';
 import { getLocation, startHeadingTracking, startTracking, stopTracking } from '../services/locations/locationService';
+import ConvoySpeed from '@/components/ui/ConvoySpeed';
 
 
 const MIC_STATUS_COLORS = {
@@ -570,6 +571,7 @@ export default function ExploreScreen() {
           </View>
         </View>
       )}
+      <ConvoySpeed />
     </View>
   );
 }
