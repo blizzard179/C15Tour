@@ -7,7 +7,6 @@ import HomeButton from '@/components/ui/HomeButton';
 import MicButton from '@/components/ui/MicButton';
 import ConvoyName from '@/components/ui/ConvoyName';
 import { API_BASE_URL } from '@/constants/api';
-import { useAuth } from '@/context/auth';
 import MicIcon from '../../../../shared/global_assets/pictos/Mic.svg';
 import MicMutedIcon from '../../../../shared/global_assets/pictos/MicMuted.svg';
 import { getLocation, startHeadingTracking, startTracking, stopTracking } from '../services/locations/locationService';
@@ -293,9 +292,6 @@ export default function ExploreScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
   const lastGeocodeLocationRef = useRef<Coordinates | null>(null);
   const geocodeMinMoveMeters = 50;
-  const { trip } = useAuth();
-  const { colorScheme } = useAppTheme();
-  const isDark = colorScheme === 'dark';
 
   useEffect(() => {
     const fetchSteps = async () => {
