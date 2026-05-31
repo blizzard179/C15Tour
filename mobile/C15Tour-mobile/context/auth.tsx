@@ -5,6 +5,7 @@ type Role = 'participant' | 'leader';
 type Trip = {
   trip_id: number;
   trip_name: string;
+  trip_speed?: number | string | null;
   [key: string]: unknown;
 };
 
