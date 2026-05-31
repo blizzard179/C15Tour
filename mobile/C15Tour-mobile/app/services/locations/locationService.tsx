@@ -80,3 +80,9 @@ export function stopTracking() {
     locationCallback = null;
     console.log('🛑 Suivi de localisation arrêté');
 }
+
+export default {
+    getLocation,
+    startTracking,
+    stopTracking
+};

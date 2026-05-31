@@ -206,3 +206,12 @@ export async function reverseGeocodeStreetName(location: Coordinates) {
 
   return typeof street === 'string' && street.trim() ? street : null;
 }
+
+export default {
+  fetchTripSteps,
+  computeTripRoute,
+  computeOsrmDistance,
+  computeGuidance,
+  computeDistanceToStart,
+  reverseGeocodeStreetName
+};
