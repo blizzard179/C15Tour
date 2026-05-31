@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { StyleSheet, ImageBackground, TouchableOpacity, useWindowDimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Keyboard, StyleSheet, ImageBackground, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import Animated, {
@@ -9,6 +9,8 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScrollUp from '@/components/ui/scroll-up';
 import { useAppTheme } from '@/context/theme';
 
@@ -18,6 +20,10 @@ const LOGO_PADDING = 16;    // min gap between logo edge and screen top / sheet 
 
 export default function LoginScreen() {
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const previousSheetIndexRef = useRef(1);
+  const isKeyboardOpenRef = useRef(false);
+  const [sheetIndex, setSheetIndex] = useState(0);
+  const insets = useSafeAreaInsets();
   const { colorScheme, toggleTheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
 
@@ -33,10 +39,10 @@ export default function LoginScreen() {
     // Maximum size that fits with padding on both sides
     const maxSize = Math.max(0, available - LOGO_PADDING * 2);
     const scale = maxSize < BASE_LOGO_SIZE ? maxSize / BASE_LOGO_SIZE : 1;
-    const effectiveSize = BASE_LOGO_SIZE * scale;
 
-    // Vertically center the logo in the available space
-    const top = TOP_SAFE_AREA + (available - effectiveSize) / 2;
+    // The scale transform keeps the image layout box centered on itself, so
+    // place the unscaled box center between the status bar and the sheet.
+    const top = TOP_SAFE_AREA + available / 2 - BASE_LOGO_SIZE / 2;
 
     return {
       top,
@@ -48,10 +54,32 @@ export default function LoginScreen() {
     paddingTop: interpolate(
       animatedPosition.value,
       [expandedSheetPosition, collapsedSheetPosition],
-      [48, 0],
+      [48, 10],
       Extrapolation.CLAMP
     ),
   }));
+
+  useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+  }, []);
+
+  useEffect(() => {
+    const keyboardShowSubscription = Keyboard.addListener('keyboardDidShow', () => {
+      isKeyboardOpenRef.current = true;
+      previousSheetIndexRef.current = sheetIndex;
+      bottomSheetRef.current?.snapToPosition('100%');
+    });
+
+    const keyboardHideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      isKeyboardOpenRef.current = false;
+      bottomSheetRef.current?.snapToIndex(previousSheetIndexRef.current);
+    });
+
+    return () => {
+      keyboardShowSubscription.remove();
+      keyboardHideSubscription.remove();
+    };
+  }, [sheetIndex]);
 
   return (
     <ImageBackground
@@ -76,14 +104,30 @@ export default function LoginScreen() {
         <BottomSheet
           ref={bottomSheetRef}
           index={0}
-          snapPoints={['15%', '75%']}
+          snapPoints={['15%', '65%']}
+          enableDynamicSizing={false}
+          enableOverDrag={false}
+          keyboardBehavior="fillParent"
+          keyboardBlurBehavior="none"
+          android_keyboardInputMode="adjustResize"
+          bottomInset={insets.bottom}
+          onChange={(index) => {
+            if (!isKeyboardOpenRef.current) {
+              setSheetIndex(index);
+            }
+          }}
           animatedPosition={animatedPosition}
           backgroundStyle={{ backgroundColor: isDark ? '#1c1c1e' : '#fff' }}
           handleIndicatorStyle={{ backgroundColor: isDark ? '#555' : '#ccc' }}
         >
           <BottomSheetView style={styles.contentContainer}>
             <Animated.View style={contentPaddingStyle}>
-              <ScrollUp />
+              <ScrollUp
+                collapsed={sheetIndex === 0}
+                animatedPosition={animatedPosition}
+                expandedSheetPosition={expandedSheetPosition}
+                collapsedSheetPosition={collapsedSheetPosition}
+              />
             </Animated.View>
           </BottomSheetView>
         </BottomSheet>

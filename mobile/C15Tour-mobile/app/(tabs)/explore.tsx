@@ -1,6 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/context/theme';
 import { useAuth } from '@/context/auth';
 import HomeButton from '@/components/ui/HomeButton';
@@ -10,6 +13,7 @@ import { API_BASE_URL } from '@/constants/api';
 import MicIcon from '../../../../shared/global_assets/pictos/Mic.svg';
 import MicMutedIcon from '../../../../shared/global_assets/pictos/MicMuted.svg';
 import { getLocation, startHeadingTracking, startTracking, stopTracking } from '../services/locations/locationService';
+import ConvoySpeed from '@/components/ui/ConvoySpeed';
 import ScrollUpItinerary from '@/components/ui/scroll-up-itinerary';
 import {
   computeDistanceToStart,
@@ -42,8 +46,22 @@ const mapHtmlContent = `
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"><\/script>
     <style>
+        :root {
+            --leaflet-control-right: 18px;
+            --leaflet-control-bottom: 86px;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body, #map { width: 100%; height: 100%; }
+        .leaflet-control-container .leaflet-top.leaflet-left {
+            top: auto;
+            left: auto;
+            right: var(--leaflet-control-right);
+            bottom: var(--leaflet-control-bottom);
+        }
+        .leaflet-control-container .leaflet-top.leaflet-left .leaflet-control {
+            margin-top: 0;
+            margin-left: 0;
+        }
         .leader-leaflet-icon {
             background: transparent;
             border: none;
@@ -214,15 +232,21 @@ const mapHtmlContent = `
             try {
                 const data = JSON.parse(event.data);
                 if (data.type === 'SET_LOCATION') {
-                    const { latitude, longitude } = data;
+                    const { latitude, longitude, center = true } = data;
                     userMarker.setLatLng([latitude, longitude]);
-                    map.setView([latitude, longitude], 13);
+                    if (center) {
+                        map.setView([latitude, longitude], 13);
+                    }
                     console.log('Map updated:', latitude, longitude);
                 }
                 if (data.type === 'SET_LEADER_LOCATION') {
                     const { latitude, longitude, heading } = data;
                     updateLeaderMarker(latitude, longitude, heading);
                     console.log('Leader updated:', latitude, longitude, heading);
+                }
+                if (data.type === 'SET_CONTROL_POSITION') {
+                    document.documentElement.style.setProperty('--leaflet-control-right', data.right + 'px');
+                    document.documentElement.style.setProperty('--leaflet-control-bottom', data.bottom + 'px');
                 }
                 if (data.type === 'SET_STEPS') {
                   const { steps } = data;
@@ -277,10 +301,54 @@ export default function ExploreScreen() {
   const [isMicActive, setIsMicActive] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
   const webViewRef = useRef<WebView>(null);
+  const latestUserPositionRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { colorScheme } = useAppTheme();
   const { trip, role } = useAuth();
   const isDark = colorScheme === 'dark';
   const tripId = trip?.trip_id;
+  const isOrganizer = role === 'leader';
+  const isLandscape = width > height;
+  const topBarTop = isLandscape ? Math.max(16, insets.top + 8) : Math.max(40, insets.top + 8);
+  const bottomSafeOffset = isLandscape ? Math.max(16, insets.bottom + 12) : Math.max(30, insets.bottom + 16);
+  const horizontalSafeOffset = isLandscape ? Math.max(16, insets.right + 16) : 18;
+  const topBarHorizontalOffset = 15;
+  const micButtonSafeOffset = isLandscape ? Math.max(0, insets.right + 16 - topBarHorizontalOffset) : 0;
+  const panelHorizontalOffset = isLandscape
+    ? Math.max(15, Math.max(insets.left, insets.right) + 16)
+    : 15;
+  const recenterBottomOffset = isMicActive
+    ? bottomSafeOffset + (isLandscape ? 120 : 190)
+    : bottomSafeOffset;
+  const leafletControlBottomOffset = recenterBottomOffset + 56;
+
+  const syncLeafletControlPosition = useCallback(() => {
+    webViewRef.current?.postMessage(
+      JSON.stringify({
+        type: 'SET_CONTROL_POSITION',
+        right: horizontalSafeOffset,
+        bottom: leafletControlBottomOffset,
+      })
+    );
+  }, [horizontalSafeOffset, leafletControlBottomOffset]);
+
+  useEffect(() => {
+    return () => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    };
+  }, []);
+
+  useEffect(() => {
+    syncLeafletControlPosition();
+  }, [syncLeafletControlPosition]);
+
+  useEffect(() => {
+    if (!isOrganizer) {
+      setIsMicActive(false);
+      setCallStatus('idle');
+    }
+  }, [isOrganizer]);
   const [tripSteps, setTripSteps] = useState<TripStep[]>([]);
   const [routeGeometry, setRouteGeometry] = useState<RouteGeometry | null>(null);
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
@@ -499,6 +567,10 @@ export default function ExploreScreen() {
         
         const location = await getLocation();
         if (location && webViewRef.current) {
+          latestUserPositionRef.current = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
           latestLeaderPosition = {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
@@ -514,6 +586,7 @@ export default function ExploreScreen() {
               type: 'SET_LOCATION',
               latitude: location.coords.latitude,
               longitude: location.coords.longitude,
+              center: true,
             })
           );
           await sendLeaderTelemetry(location.coords.latitude, location.coords.longitude, location.coords.heading);
@@ -521,6 +594,7 @@ export default function ExploreScreen() {
 
         // Démarrer le suivi continu pour mettre à jour la position en temps réel
         await startTracking((latitude, longitude, heading) => {
+          latestUserPositionRef.current = { latitude, longitude };
           latestLeaderPosition = { latitude, longitude };
 
           setCurrentLocation({ latitude, longitude });
@@ -530,6 +604,7 @@ export default function ExploreScreen() {
                 type: 'SET_LOCATION',
                 latitude,
                 longitude,
+                center: false,
               })
             );
           }
@@ -627,6 +702,28 @@ export default function ExploreScreen() {
     });
   };
 
+  const handleRecenterPosition = async () => {
+    let position = latestUserPositionRef.current;
+
+    if (!position) {
+      const location = await getLocation();
+      position = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+      latestUserPositionRef.current = position;
+    }
+
+    webViewRef.current?.postMessage(
+      JSON.stringify({
+        type: 'SET_LOCATION',
+        latitude: position.latitude,
+        longitude: position.longitude,
+        center: true,
+      })
+    );
+  };
+
   const statusContent = {
     idle: {
       status: 'MICRO INACTIF',
@@ -653,10 +750,18 @@ export default function ExploreScreen() {
         style={styles.webview}
         javaScriptEnabled
         domStorageEnabled
-        onLoadEnd={() => setIsMapReady(true)}
+        onLoadEnd={() => { setIsMapReady(true); syncLeafletControlPosition(); }}
       />
 
-      <View style={styles.topBar}>
+      <View
+        style={[
+          styles.topBar,
+          {
+            top: topBarTop,
+            left: topBarHorizontalOffset,
+            right: topBarHorizontalOffset,
+          },
+        ]}>
         <View style={styles.topBarSide}>
           <HomeButton />
         </View>
@@ -665,8 +770,8 @@ export default function ExploreScreen() {
           <ConvoyName />
         </View>
 
-        <View style={styles.topBarSide}>
-          <MicButton isActive={isMicActive} onPress={handleMicPress} />
+        <View style={[styles.topBarSide, { transform: [{ translateX: -micButtonSafeOffset }] }]}>
+          {isOrganizer && <MicButton isActive={isMicActive} onPress={handleMicPress} />}
         </View>
       </View>
 
@@ -682,8 +787,42 @@ export default function ExploreScreen() {
       />
 
 
-      {isMicActive && (
-        <View style={[styles.micPanel, { backgroundColor: isDark ? 'rgba(28,28,30,0.96)' : 'rgba(255,255,255,0.96)' }]}>
+      <ScrollUpItinerary
+        speedKmh={trip?.trip_speed}
+        distanceKm={routeSummary?.distanceKm}
+        durationSeconds={routeSummary?.durationSeconds}
+        distanceToStartKm={distanceToStartKm}
+        distanceToNextTargetMeters={guidance?.distanceToTargetMeters ?? null}
+        distanceToNextManeuverMeters={guidance?.distanceToNextManeuverMeters ?? null}
+        nextInstruction={guidance?.instruction ?? null}
+        streetName={userStreetName}
+      />
+
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Recentrer ma position"
+        style={({ pressed }) => [
+          styles.recenterButton,
+          { bottom: recenterBottomOffset },
+          { right: horizontalSafeOffset },
+          pressed && styles.recenterButtonPressed,
+        ]}
+        onPress={handleRecenterPosition}>
+        <MaterialIcons name="my-location" size={24} color="#BB487C" />
+      </Pressable>
+
+      {isOrganizer && isMicActive && (
+        <View
+          style={[
+            styles.micPanel,
+            {
+              bottom: bottomSafeOffset,
+              left: panelHorizontalOffset,
+              right: panelHorizontalOffset,
+              backgroundColor: isDark ? 'rgba(28,28,30,0.96)' : 'rgba(255,255,255,0.96)',
+            },
+          ]}>
           <View
             style={[
               styles.roundMicButtonOuter,
@@ -708,6 +847,7 @@ export default function ExploreScreen() {
           </View>
         </View>
       )}
+      <ConvoySpeed />
     </View>
   );
 }
@@ -745,6 +885,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
+  },
+  recenterButton: {
+    position: 'absolute',
+    right: 18,
+    bottom: 30,
+    zIndex: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderWidth: 2,
+    borderColor: '#BB487C',
+    elevation: 4,
+  },
+  recenterButtonWithMicPanel: {
+    bottom: 220,
+  },
+  recenterButtonPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.96 }],
   },
   micPanel: {
     position: 'absolute',
