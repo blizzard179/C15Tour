@@ -334,8 +334,6 @@ export default function ExploreScreen() {
   }, [horizontalSafeOffset, leafletControlBottomOffset]);
 
   useEffect(() => {
-    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.ALL);
-
     return () => {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
     };
