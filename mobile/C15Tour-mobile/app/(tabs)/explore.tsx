@@ -245,6 +245,7 @@ export default function ExploreScreen() {
   const bottomSafeOffset = isLandscape ? Math.max(16, insets.bottom + 12) : Math.max(30, insets.bottom + 16);
   const horizontalSafeOffset = isLandscape ? Math.max(16, insets.right + 16) : 18;
   const topBarHorizontalOffset = 15;
+  const micButtonSafeOffset = isLandscape ? Math.max(0, insets.right + 16 - topBarHorizontalOffset) : 0;
   const panelHorizontalOffset = isLandscape
     ? Math.max(15, Math.max(insets.left, insets.right) + 16)
     : 15;
@@ -518,7 +519,7 @@ export default function ExploreScreen() {
           <ConvoyName />
         </View>
 
-        <View style={styles.topBarSide}>
+        <View style={[styles.topBarSide, { transform: [{ translateX: -micButtonSafeOffset }] }]}>
           {isOrganizer && <MicButton isActive={isMicActive} onPress={handleMicPress} />}
         </View>
       </View>
