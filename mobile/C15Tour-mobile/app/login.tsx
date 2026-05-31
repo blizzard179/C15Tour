@@ -3,6 +3,8 @@ import { StyleSheet, ImageBackground, TouchableOpacity, useWindowDimensions } fr
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import Animated, {
+  Extrapolation,
+  interpolate,
   useSharedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
@@ -21,6 +23,8 @@ export default function LoginScreen() {
 
   const { height: screenHeight } = useWindowDimensions();
   const animatedPosition = useSharedValue(screenHeight * 0.85);
+  const expandedSheetPosition = screenHeight * 0.25;
+  const collapsedSheetPosition = screenHeight * 0.85;
 
   const logoStyle = useAnimatedStyle(() => {
     // Available vertical space between the status bar and the sheet's top edge
@@ -39,6 +43,15 @@ export default function LoginScreen() {
       transform: [{ scale }],
     };
   });
+
+  const contentPaddingStyle = useAnimatedStyle(() => ({
+    paddingTop: interpolate(
+      animatedPosition.value,
+      [expandedSheetPosition, collapsedSheetPosition],
+      [48, 0],
+      Extrapolation.CLAMP
+    ),
+  }));
 
   return (
     <ImageBackground
@@ -69,7 +82,9 @@ export default function LoginScreen() {
           handleIndicatorStyle={{ backgroundColor: isDark ? '#555' : '#ccc' }}
         >
           <BottomSheetView style={styles.contentContainer}>
-            <ScrollUp />
+            <Animated.View style={contentPaddingStyle}>
+              <ScrollUp />
+            </Animated.View>
           </BottomSheetView>
         </BottomSheet>
       </GestureHandlerRootView>
@@ -101,7 +116,8 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    padding: 36,
+    paddingHorizontal: 36,
+    paddingBottom: 36,
     alignItems: 'center',
   },
 });

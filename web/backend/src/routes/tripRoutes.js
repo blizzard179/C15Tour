@@ -301,6 +301,15 @@ router.post('/:tripId/telemetry', validateTelemetry, telemetryController.createT
 
 /**
  * @swagger
+ * /api/trips/{tripId}/telemetry/latest:
+ *   get:
+ *     summary: Récupérer la dernière position GPS d'un convoi
+ *     tags: [Trips]
+ */
+router.get('/:tripId/telemetry/latest', telemetryController.getLatestTelemetryByTrip);
+
+/**
+ * @swagger
  * /api/trips/{tripId}/telemetry:
  *   get:
  *     summary: Récupérer les positions GPS d'un convoi

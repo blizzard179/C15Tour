@@ -1,10 +1,11 @@
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { StyleSheet } from "react-native";
 
 function LoginHeader() {
     return (
         <ThemedView style={styles.headerContainer}>
-            <ThemedText style={styles.headerText}>
+            <ThemedText style={styles.headerText} numberOfLines={1} adjustsFontSizeToFit>
                 CHARGER UN ITINÉRAIRE
             </ThemedText>
         </ThemedView>
@@ -13,9 +14,11 @@ function LoginHeader() {
 
 export default LoginHeader;
 
-const styles = {
+const styles = StyleSheet.create({
     headerContainer: {
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 20,
     },
     headerText: {
         fontSize: 24,
@@ -24,4 +27,4 @@ const styles = {
         color : '#BB487C',
 
     },
-};
+});
