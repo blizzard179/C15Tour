@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/context/theme';
 import HomeButton from '@/components/ui/HomeButton';
 import MicButton from '@/components/ui/MicButton';
@@ -212,10 +214,30 @@ export default function ExploreScreen() {
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
   const webViewRef = useRef<WebView>(null);
   const latestUserPositionRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { colorScheme } = useAppTheme();
   const { trip, role } = useAuth();
   const isDark = colorScheme === 'dark';
   const tripId = trip?.trip_id;
+  const isLandscape = width > height;
+  const topBarTop = isLandscape ? Math.max(16, insets.top + 8) : Math.max(40, insets.top + 8);
+  const bottomSafeOffset = isLandscape ? Math.max(16, insets.bottom + 12) : Math.max(30, insets.bottom + 16);
+  const horizontalSafeOffset = isLandscape ? Math.max(16, insets.right + 16) : 18;
+  const panelHorizontalOffset = isLandscape
+    ? Math.max(15, Math.max(insets.left, insets.right) + 16)
+    : 15;
+  const recenterBottomOffset = isMicActive
+    ? bottomSafeOffset + (isLandscape ? 120 : 190)
+    : bottomSafeOffset;
+
+  useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.ALL);
+
+    return () => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    };
+  }, []);
 
   // Récupérer la position actuelle au chargement
   useEffect(() => {
@@ -435,7 +457,15 @@ export default function ExploreScreen() {
         domStorageEnabled
       />
 
-      <View style={styles.topBar}>
+      <View
+        style={[
+          styles.topBar,
+          {
+            top: topBarTop,
+            left: panelHorizontalOffset,
+            right: panelHorizontalOffset,
+          },
+        ]}>
         <View style={styles.topBarSide}>
           <HomeButton />
         </View>
@@ -454,7 +484,8 @@ export default function ExploreScreen() {
         accessibilityLabel="Recentrer ma position"
         style={({ pressed }) => [
           styles.recenterButton,
-          isMicActive && styles.recenterButtonWithMicPanel,
+          { bottom: recenterBottomOffset },
+          { right: horizontalSafeOffset },
           pressed && styles.recenterButtonPressed,
         ]}
         onPress={handleRecenterPosition}>
@@ -462,7 +493,16 @@ export default function ExploreScreen() {
       </Pressable>
 
       {isMicActive && (
-        <View style={[styles.micPanel, { backgroundColor: isDark ? 'rgba(28,28,30,0.96)' : 'rgba(255,255,255,0.96)' }]}>
+        <View
+          style={[
+            styles.micPanel,
+            {
+              bottom: bottomSafeOffset,
+              left: panelHorizontalOffset,
+              right: panelHorizontalOffset,
+              backgroundColor: isDark ? 'rgba(28,28,30,0.96)' : 'rgba(255,255,255,0.96)',
+            },
+          ]}>
           <View
             style={[
               styles.roundMicButtonOuter,

@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '@/context/auth';
 import { AppThemeProvider, useAppTheme } from '@/context/theme';
 
@@ -25,12 +26,14 @@ function ThemedNavigator() {
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView>
-      <AppThemeProvider>
-        <AuthProvider>
-          <ThemedNavigator />
-        </AuthProvider>
-      </AppThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <AppThemeProvider>
+          <AuthProvider>
+            <ThemedNavigator />
+          </AuthProvider>
+        </AppThemeProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

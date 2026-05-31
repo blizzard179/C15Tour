@@ -9,6 +9,8 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScrollUp from '@/components/ui/scroll-up';
 import { useAppTheme } from '@/context/theme';
 
@@ -21,6 +23,7 @@ export default function LoginScreen() {
   const previousSheetIndexRef = useRef(1);
   const isKeyboardOpenRef = useRef(false);
   const [sheetIndex, setSheetIndex] = useState(0);
+  const insets = useSafeAreaInsets();
   const { colorScheme, toggleTheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
 
@@ -55,6 +58,10 @@ export default function LoginScreen() {
       Extrapolation.CLAMP
     ),
   }));
+
+  useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+  }, []);
 
   useEffect(() => {
     const keyboardShowSubscription = Keyboard.addListener('keyboardDidShow', () => {
@@ -103,6 +110,7 @@ export default function LoginScreen() {
           keyboardBehavior="fillParent"
           keyboardBlurBehavior="none"
           android_keyboardInputMode="adjustResize"
+          bottomInset={insets.bottom}
           onChange={(index) => {
             if (!isKeyboardOpenRef.current) {
               setSheetIndex(index);
