@@ -53,8 +53,11 @@ export default function CardConvoi({
   onGeneralSettingsChange,
   canExportGpx = false,
   onExportGpx,
+  canExportPdf = false,
+  onExportPdf,
   canSaveConvoy = false,
   onSaveConvoy,
+  onPersistConvoy,
   onBackToConvoySelector,
   shareTrip: savedShareTrip = null,
   onTripPersisted,
@@ -519,16 +522,21 @@ export default function CardConvoi({
     onExportGpx?.();
   };
 
-  const handleSaveConvoyLocally = () => {
+  const handleExportPdf = () => {
+    onExportPdf?.();
+  };
+
+  const handleSaveConvoyLocally = async () => {
     if (!waypoints || waypoints.length < 2) {
       setExportSaveMessage("Impossible d'enregistrer localement : au moins 2 étapes requises.");
       return;
     }
 
     const tripPayload = buildTripPayload();
+    const steps = await buildStepsPayload();
     const pendingPayload = {
       trip: tripPayload,
-      steps: buildStepsPayload()
+      steps
     };
 
     saveTripPayloadLocally(pendingPayload);
@@ -591,10 +599,51 @@ export default function CardConvoi({
     };
   };
 
-  const buildStepsPayload = () => {
+  const reverseGeocodeAddress = async (lat, lng) => {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=json`
+      );
+      if (!response.ok) {
+        return null;
+      }
+      const data = await response.json();
+      return data?.display_name || null;
+    } catch (error) {
+      console.warn('Reverse geocode failed', error);
+      return null;
+    }
+  };
+
+  const getStepAddress = async (waypoint, index) => {
+    if (waypoint.address) {
+      return waypoint.address;
+    }
+
+    const lat = Number(waypoint.lat);
+    const lng = Number(waypoint.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      const reversedAddress = await reverseGeocodeAddress(lat, lng);
+      if (reversedAddress) {
+        return reversedAddress;
+      }
+      return `${lat}, ${lng}`;
+    }
+
+    return waypoint.display_name || waypoint.name || waypointNames[index] || "";
+  };
+
+  const buildStepsPayload = async () => {
+    const stepAddresses = await Promise.all(
+      waypoints.map((waypoint, index) => getStepAddress(waypoint, index))
+    );
+
     return waypoints.map((waypoint, index) => {
-      const address =
-        waypoint.display_name || waypoint.address || waypoint.name || waypointNames[index] || `${waypoint.lat}, ${waypoint.lng}`;
+      const address = stepAddresses[index];
       const nameToUse = waypointNames[index] || address || `Etape ${index + 1}`;
       const stepConfig = stepsConfig[index] || getStepLoadConfig(index);
       const shouldStop = Boolean(stepConfig.hasBreak);
@@ -672,7 +721,7 @@ export default function CardConvoi({
   };
 
   const persistTripSteps = async (tripId) => {
-    const steps = buildStepsPayload();
+    const steps = await buildStepsPayload();
     for (const step of steps) {
       await createTripStep(tripId, step);
     }
@@ -680,7 +729,7 @@ export default function CardConvoi({
 
   const syncTripSteps = async (tripId) => {
     const existingSteps = await fetchExistingTripSteps(tripId);
-    const steps = buildStepsPayload();
+    const steps = await buildStepsPayload();
     const finalStepIds = [];
     const updateCount = Math.min(existingSteps.length, steps.length);
 
@@ -709,7 +758,7 @@ export default function CardConvoi({
   const handlePersistConvoy = async () => {
     setPersistMessage("");
     if (!waypoints || waypoints.length < 2) {
-      setPersistMessage("Un convoi doit contenir au moins deux étapes pour être enregistre.");
+      setPersistMessage("Un convoi doit contenir au moins deux étapes pour être enregistré.");
       return;
     }
 
@@ -720,9 +769,10 @@ export default function CardConvoi({
     }
 
     const tripPayload = buildTripPayload();
+    const steps = await buildStepsPayload();
     const pendingPayload = {
       trip: tripPayload,
-      steps: buildStepsPayload(),
+      steps,
       backendTripId
     };
 
@@ -790,7 +840,8 @@ export default function CardConvoi({
       clearPendingTripPayload();
       setShareTrip(createdTrip);
       onTripPersisted?.(createdTrip, savedLocally);
-      setPersistMessage("Convoi enregistre avec succes.");
+      setPersistMessage("Convoi enregistré avec succès.");
+      onPersistConvoy?.(createdTrip.trip_id);
     } catch (error) {
       console.error("Failed to persist convoy", error);
       setPersistMessage(
@@ -806,22 +857,22 @@ export default function CardConvoi({
     return (
       <div className="waypoint-config-overlay">
         <div className="waypoint-config-popup" ref={popupRef}>
-          <h3>Configuration de l'etape</h3>
+          <h3>Configuration de l'étape</h3>
 
           <div className="form-group">
-            <label htmlFor="step-name">Nom de l'etape</label>
+            <label htmlFor="step-name">Nom de l'étape</label>
             <input
               id="step-name"
               type="text"
               value={currentEditData.name}
               onChange={(e) => updateEditDataItem(index, (prev) => ({ ...prev, name: e.target.value }))}
               className="config-input"
-              placeholder="Nom de l'etape"
+              placeholder="Nom de l'étape"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="arrival-time">Heure d'arrivee</label>
+            <label htmlFor="arrival-time">Heure d'arrivée</label>
             <input
               id="arrival-time"
               type="time"
@@ -884,7 +935,7 @@ export default function CardConvoi({
       // parameters generaux
       <div className="general-settings-overlay" onClick={closeGeneralSettings}>
         <div className="general-settings-popup" onClick={(e) => e.stopPropagation()}>
-          <h3>PARAMETRES GENERAUX</h3>
+          <h3>PARAMÈTRES GÉNÉRAUX</h3>
 
           <div className="settings-section">
             <div className="settings-section-title">Type de route</div>
@@ -932,7 +983,7 @@ export default function CardConvoi({
           <div className="settings-section">
             <div className="settings-section-title">Vitesse</div>
             <div className="settings-row">
-              <span>Vitesse generale</span>
+              <span>Vitesse générale</span>
               <div className="settings-inline">
                 <input
                   type="number"
@@ -955,7 +1006,7 @@ export default function CardConvoi({
             </div>
 
             <label className="settings-row">
-              <span>Reduction automatique</span>
+              <span>Réduction automatique</span>
               <input
                 type="checkbox"
                 checked={generalSettingsDraft.speed.autoReductionEnabled}
@@ -994,7 +1045,7 @@ export default function CardConvoi({
             )}
           </div>
 
-          <div className="general-settings-actions">
+          <div className="general-settings-actions general-settings-actions--settings">
             <button className="delete-btn" onClick={closeGeneralSettings}>ANNULER</button>
             <button className="validate-btn" onClick={saveGeneralSettings}>VALIDER</button>
           </div>
@@ -1067,7 +1118,7 @@ export default function CardConvoi({
           </div>
 
           <div className="general-settings-actions">
-            <button className="delete-btn" onClick={closeShareModal}>FERMER</button>
+            <button className="validate-btn" onClick={closeShareModal}>✗ FERMER</button>
           </div>
         </div>
       </div>
@@ -1087,8 +1138,13 @@ export default function CardConvoi({
 
             <div className="settings-row export-row">
               <span>PDF</span>
-              <button className="export-link-btn" type="button" disabled>
-                Telecharger
+              <button
+                className="export-link-btn"
+                type="button"
+                onClick={handleExportPdf}
+                disabled={!canExportPdf}
+              >
+                Télécharger
               </button>
             </div>
 
@@ -1100,7 +1156,7 @@ export default function CardConvoi({
                 onClick={handleExportGpx}
                 disabled={!canExportGpx}
               >
-                Telecharger
+                Télécharger
               </button>
             </div>
 
@@ -1119,7 +1175,9 @@ export default function CardConvoi({
           </div>
 
           <div className="general-settings-actions">
-            <button className="delete-btn" onClick={closeExportModal}>RETOUR</button>
+            <button className="validate-btn export-back-btn" onClick={closeExportModal}>
+              RETOUR
+            </button>
           </div>
         </div>
       </div>
@@ -1174,8 +1232,8 @@ export default function CardConvoi({
         <div className="convoyBody">
           <div className="convoySection">
             <div className="convoySectionLeft">
-              <img src={FlagIcon} alt="Depart" className="flagIcon" />
-              <span className="label">DEPART</span>
+              <img src={FlagIcon} alt="Départ" className="flagIcon" />
+              <span className="label">DÉPART</span>
             </div>
 
             <div className="timeEdit">
@@ -1231,7 +1289,7 @@ export default function CardConvoi({
                   const isLast = index === waypoints.length - 1;
                   const label =
                     waypointNames[index] ||
-                    (isFirst ? "Point de depart" : isLast ? "Point d'arrivee" : `Etape ${index}`);
+                    (isFirst ? "Point de départ" : isLast ? "Point d'arrivée" : `Etape ${index}`);
 
                   return (
                     <div
@@ -1289,7 +1347,7 @@ export default function CardConvoi({
           <div className="convoySection bottom">
             <div className="convoySectionLeft">
               <img src={FlagIcon} alt="Arrivee" className="flagIcon" />
-              <span className="label">ARRIVEE</span>
+              <span className="label">ARRIVÉE</span>
             </div>
             <div className="arriveeTime">{calculateArrivalTime()}</div>
           </div>

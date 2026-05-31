@@ -1,6 +1,107 @@
 import PDFDocument from 'pdfkit';
 import prisma from '../config/database.js';
 
+// TODO: avoir un screen de la map en plus des infos du trip pour le PDF
+
+// Utilitaires pour calculer les temps
+const calculateSegmentTravelTime = (trip, totalSegments) => {
+  if (!trip.trip_speed || trip.trip_speed <= 0) {
+    return 30;
+  }
+
+  const speedFactor = 50 / trip.trip_speed;
+  let estimatedMinutes = 90 * speedFactor;
+
+  if (trip.trip_is_reduced && trip.trip_reduction) {
+    estimatedMinutes *= (1 + trip.trip_reduction / 100);
+  }
+
+  if (totalSegments > 1) {
+    return Math.round(estimatedMinutes / totalSegments);
+  }
+
+  return Math.round(estimatedMinutes);
+};
+
+const getStepBreakTime = (step) => {
+  if (step.step_is_stop && step.step_stop_duration) {
+    return parseInt(step.step_stop_duration);
+  }
+  return 0;
+};
+
+const calculateWaypointTime = (trip, stepIndex, steps) => {
+  if (!trip.trip_start_time || !steps || steps.length === 0) {
+    return null;
+  }
+
+  try {
+    if (stepIndex === 0) {
+      const startDate = new Date(trip.trip_start_time);
+      return formatTime(startDate);
+    }
+
+    const startDate = new Date(trip.trip_start_time);
+    let totalMinutes = startDate.getHours() * 60 + startDate.getMinutes();
+    const totalSegments = Math.max(1, steps.length - 1);
+
+    for (let i = 0; i < stepIndex; i++) {
+      totalMinutes += calculateSegmentTravelTime(trip, totalSegments);
+    }
+
+    for (let i = 0; i < stepIndex; i++) {
+      totalMinutes += getStepBreakTime(steps[i]);
+    }
+
+    const hours = Math.floor(totalMinutes / 60) % 24;
+    const minutes = totalMinutes % 60;
+
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  } catch (error) {
+    console.error('Error calculating waypoint time:', error);
+    return null;
+  }
+};
+
+const calculateArrivalTime = (trip, steps) => {
+  if (!trip.trip_start_time || !steps || steps.length === 0) {
+    return null;
+  }
+
+  try {
+    const startDate = new Date(trip.trip_start_time);
+    let totalMinutes = startDate.getHours() * 60 + startDate.getMinutes();
+    const totalSegments = Math.max(1, steps.length - 1);
+
+    for (let i = 0; i < totalSegments; i++) {
+      totalMinutes += calculateSegmentTravelTime(trip, totalSegments);
+    }
+
+    for (let i = 0; i < steps.length; i++) {
+      totalMinutes += getStepBreakTime(steps[i]);
+    }
+
+    const hours = Math.floor(totalMinutes / 60) % 24;
+    const minutes = totalMinutes % 60;
+
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  } catch (error) {
+    console.error('Error calculating arrival time:', error);
+    return null;
+  }
+};
+
+const formatTime = (date) => {
+  try {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  } catch (error) {
+    console.error('Error formatting time:', error);
+    return '00:00';
+  }
+};
+
 // Export PDF
 const exportToPDF = async (tripId) => {
   const trip = await prisma.trip.findUnique({
@@ -38,9 +139,17 @@ const exportToPDF = async (tripId) => {
       if (trip.trip_speed) {
         doc.text(`Vitesse moyenne: ${trip.trip_speed} km/h`);
       }
-      if (trip.trip_start_time) {
-        doc.text(`Heure de départ: ${new Date(trip.trip_start_time).toLocaleString('fr-FR')}`);
+
+      const departureTime = trip.trip_start_time ? formatTime(new Date(trip.trip_start_time)) : null;
+      if (departureTime) {
+        doc.text(`Heure de départ: ${departureTime}`);
       }
+
+      const arrivalTime = calculateArrivalTime(trip, trip.steps);
+      if (arrivalTime) {
+        doc.text(`Heure d'arrivée estimée: ${arrivalTime}`);
+      }
+
       doc.moveDown();
 
       // Préférences de route
@@ -55,15 +164,29 @@ const exportToPDF = async (tripId) => {
       doc.fontSize(12).text('Étapes:', { underline: true });
       doc.moveDown(0.5);
 
+      const totalSegments = Math.max(1, trip.steps.length - 1);
+
       trip.steps.forEach((step, index) => {
         doc.fontSize(10);
         doc.text(`${index + 1}. ${step.step_name}`, { bold: true });
         doc.fontSize(9);
         doc.text(`   Adresse: ${step.step_address}`);
         doc.text(`   Coordonnées: ${step.step_latitude}, ${step.step_longitude}`);
+
+        const waypointTime = calculateWaypointTime(trip, index, trip.steps);
+        if (waypointTime) {
+          doc.text(`   Arrivée: ${waypointTime}`);
+        }
+
         if (step.step_is_stop && step.step_stop_duration) {
           doc.text(`   Pause: ${step.step_stop_duration} minutes`);
         }
+
+        if (index < trip.steps.length - 1) {
+          const travelTime = calculateSegmentTravelTime(trip, totalSegments);
+          doc.text(`   Trajet: ${travelTime} minutes`);
+        }
+
         doc.moveDown(0.5);
       });
 
