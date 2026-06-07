@@ -644,11 +644,13 @@ export default function CardConvoi({
     );
 
     return waypoints.map((waypoint, index) => {
-      const address = stepAddresses[index];
-      const nameToUse = waypointNames[index] || address || `Etape ${index + 1}`;
+      var address = stepAddresses[index];
+      address = address.substring(0, 255);
+      var nameToUse = waypointNames[index] || address || `Etape ${index + 1}`;
+      nameToUse = nameToUse.substring(0, 100);
       const stepConfig = stepsConfig[index] || getStepLoadConfig(index);
       const shouldStop = Boolean(stepConfig.hasBreak);
-      const stopDuration = Number.isFinite(stepConfig.breakTime) ? stepConfig.breakTime : 0;
+      const stopDuration = Number.isFinite(stepConfig.breakTime) ? stepConfig.breakTime : null;
 
       return {
         step_name: nameToUse,
@@ -656,7 +658,7 @@ export default function CardConvoi({
         step_latitude: Number(waypoint.lat),
         step_longitude: Number(waypoint.lng),
         step_is_stop: shouldStop,
-        step_stop_duration: shouldStop ? stopDuration : 0,
+        step_stop_duration: shouldStop && stopDuration != null ? stopDuration : null,
         step_order: index + 1
       };
     });
@@ -791,10 +793,10 @@ export default function CardConvoi({
         body: JSON.stringify(tripPayload)
       });
 
-    if (!tripResponse.ok) {
+      if (!tripResponse.ok) {
         const errorBody = await tripResponse.json().catch(() => null);
         throw new Error(errorBody?.error || tripResponse.statusText || `HTTP ${tripResponse.status}`);
-    }
+      }
 
       const createdTrip = await tripResponse.json();
       const tripId = createdTrip.trip_id;
@@ -828,6 +830,7 @@ export default function CardConvoi({
 
           if (deleteTrip) {
             // Suppression du trip créé pour éviter d'avoir un trip sans étapes
+            setBackendTripId(null);
             await fetch(`${BACKEND_BASE_URL}/api/trips/${createdTrip.trip_id}`, {
               method: "DELETE"
             }).catch((deleteError) => {
