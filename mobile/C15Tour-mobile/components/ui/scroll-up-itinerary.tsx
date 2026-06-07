@@ -122,7 +122,11 @@ function ScrollUpItinerary({
 
                     <View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <CarIcon width={16} height={16} />
+                            <CarIcon
+                                width={20}
+                                height={20}
+                                style={{ transform: [{ scaleX: -1 }] }}
+                            />
                             <ThemedText style={styles.confirmationText}>...</ThemedText>
                             <FlowerIcon width={16} height={16} />
                         </View>
