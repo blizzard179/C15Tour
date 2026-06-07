@@ -1,6 +1,7 @@
 import React, { useMemo, useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemedText } from "../themed-text";
 import { useAppTheme } from "@/context/theme";
 import SpeedIcon from "../../../../shared/global_assets/pictos/Speed.svg";
@@ -32,6 +33,7 @@ function ScrollUpItinerary({
 }: ScrollUpItineraryProps) {
     const bottomSheetRef = useRef<BottomSheet>(null);
     const snapPoints = useMemo(() => ['15%', '45%'], []);
+    const insets = useSafeAreaInsets();
     const { colorScheme } = useAppTheme();
     const isDark = colorScheme === 'dark';
 
@@ -68,6 +70,7 @@ function ScrollUpItinerary({
             ref={bottomSheetRef}
             index={0}
             snapPoints={snapPoints}
+            bottomInset={insets.bottom}
             backgroundStyle={{ backgroundColor: isDark ? '#1c1c1e' : '#fff' }}
             handleIndicatorStyle={{ backgroundColor: isDark ? '#555' : '#ccc' }}
         >

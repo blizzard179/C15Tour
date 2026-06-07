@@ -1,12 +1,16 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
+import { StyleSheet } from 'react-native';
 import 'react-native-reanimated';
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '@/context/auth';
 import { AppThemeProvider, useAppTheme } from '@/context/theme';
+
+void SystemUI.setBackgroundColorAsync('#FFFFFF');
 
 function ThemedNavigator() {
   const { colorScheme } = useAppTheme();
@@ -26,7 +30,7 @@ function ThemedNavigator() {
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <AppThemeProvider>
           <AuthProvider>
@@ -37,3 +41,10 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+});

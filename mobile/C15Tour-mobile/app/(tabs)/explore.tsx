@@ -786,18 +786,6 @@ export default function ExploreScreen() {
       />
 
 
-      <ScrollUpItinerary
-        speedKmh={trip?.trip_speed}
-        distanceKm={routeSummary?.distanceKm}
-        durationSeconds={routeSummary?.durationSeconds}
-        distanceToStartKm={distanceToStartKm}
-        distanceToNextTargetMeters={guidance?.distanceToTargetMeters ?? null}
-        distanceToNextManeuverMeters={guidance?.distanceToNextManeuverMeters ?? null}
-        nextInstruction={guidance?.instruction ?? null}
-        streetName={userStreetName}
-      />
-
-
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Recentrer ma position"
