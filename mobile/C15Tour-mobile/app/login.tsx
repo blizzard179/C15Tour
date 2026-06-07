@@ -54,7 +54,7 @@ export default function LoginScreen() {
     paddingTop: interpolate(
       animatedPosition.value,
       [expandedSheetPosition, collapsedSheetPosition],
-      [48, 10],
+      [10, 10],
       Extrapolation.CLAMP
     ),
   }));
@@ -104,7 +104,7 @@ export default function LoginScreen() {
         <BottomSheet
           ref={bottomSheetRef}
           index={0}
-          snapPoints={['15%', '65%']}
+          snapPoints={['13%', '65%']}
           enableDynamicSizing={false}
           enableOverDrag={false}
           keyboardBehavior="fillParent"
@@ -159,7 +159,6 @@ const styles = StyleSheet.create({
     height: BASE_LOGO_SIZE,
   },
   contentContainer: {
-    flex: 1,
     paddingHorizontal: 36,
     paddingBottom: 36,
     alignItems: 'center',
