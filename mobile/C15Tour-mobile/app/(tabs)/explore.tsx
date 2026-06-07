@@ -13,7 +13,6 @@ import { API_BASE_URL } from '@/constants/api';
 import MicIcon from '../../../../shared/global_assets/pictos/Mic.svg';
 import MicMutedIcon from '../../../../shared/global_assets/pictos/MicMuted.svg';
 import { getLocation, startHeadingTracking, startTracking, stopTracking } from '../services/locations/locationService';
-import ConvoySpeed from '@/components/ui/ConvoySpeed';
 import ScrollUpItinerary from '@/components/ui/scroll-up-itinerary';
 import {
   computeDistanceToStart,
@@ -847,7 +846,6 @@ export default function ExploreScreen() {
           </View>
         </View>
       )}
-      <ConvoySpeed />
     </View>
   );
 }
@@ -889,7 +887,7 @@ const styles = StyleSheet.create({
   recenterButton: {
     position: 'absolute',
     right: 18,
-    bottom: 30,
+    bottom: 60,
     zIndex: 8,
     width: 44,
     height: 44,
