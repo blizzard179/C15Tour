@@ -1,6 +1,6 @@
 import { ThemedText } from "@/components/themed-text";
 import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { API_BASE_URL } from "@/constants/api";
 import { useAuth } from "@/context/auth";
@@ -130,10 +130,7 @@ function LoginBody() {
 
             {/* Submit Button */}
             <TouchableOpacity style={[styles.button, { backgroundColor: colors.accent }]} onPress={handleLogin} disabled={loading}>
-                {loading
-                    ? <ActivityIndicator color="#fff" />
-                    : <Text style={styles.buttonText}>EN ROUTE !</Text>
-                }
+                <Text style={styles.buttonText}>EN ROUTE !</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.scanButton, { borderColor: colors.accent }]} onPress={() => router.push('/scan-qr')}>

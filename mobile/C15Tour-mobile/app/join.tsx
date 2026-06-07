@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo } from 'react';
+import { Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { ConvoyLoader, type LoaderProfile } from '@/app/(tabs)/loader';
 import { API_BASE_URL } from '@/constants/api';
 import { useAuth } from '@/context/auth';
 
@@ -34,17 +35,16 @@ export default function JoinScreen() {
   const params = useLocalSearchParams<{ role?: string; code?: string }>();
   const router = useRouter();
   const { login } = useAuth();
-  const [message, setMessage] = useState('Chargement du convoi...');
 
   const role = useMemo(() => normalizeRole(params.role), [params.role]);
   const code = useMemo(() => normalizeCode(params.code), [params.code]);
+  const profile: LoaderProfile = role ?? 'participant';
 
   useEffect(() => {
     let isCancelled = false;
 
     async function joinTrip() {
       if (!role || !code) {
-        setMessage('QR code invalide.');
         Alert.alert('QR code invalide', 'Ce QR code ne contient pas les informations du convoi.', [
           { text: 'OK', onPress: () => router.replace('/login') },
         ]);
@@ -67,12 +67,11 @@ export default function JoinScreen() {
         if (isCancelled) return;
 
         login(data, role);
-        router.replace('/(tabs)/loader');
+        router.replace('/(tabs)/explore');
       } catch (error) {
         if (isCancelled) return;
 
         const errorMessage = error instanceof Error ? error.message : 'Erreur reseau. Verifiez votre connexion.';
-        setMessage(errorMessage);
         Alert.alert('Erreur', errorMessage, [{ text: 'OK', onPress: () => router.replace('/login') }]);
       }
     }
@@ -84,27 +83,5 @@ export default function JoinScreen() {
     };
   }, [code, login, role, router]);
 
-  return (
-    <View style={styles.container}>
-      <ActivityIndicator color="#BB487C" size="large" />
-      <Text style={styles.message}>{message}</Text>
-    </View>
-  );
+  return <ConvoyLoader profile={profile} />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-    paddingHorizontal: 24,
-    backgroundColor: '#fff',
-  },
-  message: {
-    color: '#BB487C',
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-});

@@ -12,18 +12,19 @@ const LOADER_CYCLE_DURATION_MS = 4500;
 const REDIRECT_DELAY_MS = 5000;
 const LOOP_PROBABILITY = 0.2;
 
-type Profile = 'leader' | 'participant';
+export type LoaderProfile = 'leader' | 'participant';
+
+type ConvoyLoaderProps = {
+  profile: LoaderProfile;
+  isMapReady?: boolean;
+};
 
 function pickLoaderGif() {
   return Math.random() < LOOP_PROBABILITY ? loaderAnimation : loaderAnimationJump;
 }
 
-export default function LoaderScreen() {
-  const router = useRouter();
-  const { role } = useAuth();
+export function ConvoyLoader({ profile, isMapReady = false }: ConvoyLoaderProps) {
   const translateX = useRef(new Animated.Value(300)).current;
-  const profile: Profile = role ?? 'participant';
-  const [isMapReady] = useState(false);
   const [currentLoaderGif, setCurrentLoaderGif] = useState(() => pickLoaderGif());
   const profileContent = {
     leader: {
@@ -36,16 +37,6 @@ export default function LoaderScreen() {
     },
   }[profile];
   const loaderText = isMapReady ? 'Convoi charge !' : 'Chargement en cours...';
-
-  useEffect(() => {
-    const redirectTimer = setTimeout(() => {
-      router.replace('/(tabs)/explore');
-    }, REDIRECT_DELAY_MS);
-
-    return () => {
-      clearTimeout(redirectTimer);
-    };
-  }, [router]);
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -101,6 +92,24 @@ export default function LoaderScreen() {
       </View>
     </ImageBackground>
   );
+}
+
+export default function LoaderScreen() {
+  const router = useRouter();
+  const { role } = useAuth();
+  const profile: LoaderProfile = role ?? 'participant';
+
+  useEffect(() => {
+    const redirectTimer = setTimeout(() => {
+      router.replace('/(tabs)/explore');
+    }, REDIRECT_DELAY_MS);
+
+    return () => {
+      clearTimeout(redirectTimer);
+    };
+  }, [router]);
+
+  return <ConvoyLoader profile={profile} />;
 }
 
 const styles = StyleSheet.create({
