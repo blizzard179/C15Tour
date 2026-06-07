@@ -37,6 +37,7 @@ const mergeGeneralSettings = (input) => ({
 });
 
 const BACKEND_BASE_URL = "http://localhost:3000";
+const MOBILE_DEEP_LINK_BASE = "c15tourmobile://join";
 
 export default function CardConvoi({
   initialName = "Nom du convoi",
@@ -1058,10 +1059,10 @@ export default function CardConvoi({
     if (!isShareModalOpen) return null;
     const participantCode = getParticipantShareCode();
     const organizerUrl = shareTrip?.trip_admin_code
-      ? `${BACKEND_BASE_URL}/api/trips/admin/${shareTrip.trip_admin_code}`
+      ? `${MOBILE_DEEP_LINK_BASE}?role=leader&code=${encodeURIComponent(shareTrip.trip_admin_code)}`
       : "";
     const participantUrl = participantCode
-      ? `${BACKEND_BASE_URL}/api/trips/code/${participantCode}`
+      ? `${MOBILE_DEEP_LINK_BASE}?role=participant&code=${encodeURIComponent(participantCode)}`
       : "";
 
     return (

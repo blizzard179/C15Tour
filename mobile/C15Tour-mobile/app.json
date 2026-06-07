@@ -20,10 +20,25 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "c15tourmobile"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -44,7 +59,13 @@
           }
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autoriser C15Tour à utiliser la caméra pour scanner les QR codes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

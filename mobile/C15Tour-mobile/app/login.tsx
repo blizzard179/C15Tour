@@ -1,12 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Keyboard, StyleSheet, ImageBackground, TouchableOpacity, useWindowDimensions } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Keyboard, StyleSheet, ImageBackground, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetHandle, BottomSheetView, type BottomSheetHandleProps } from '@gorhom/bottom-sheet';
 import Animated, {
+  Easing,
   Extrapolation,
   interpolate,
   useSharedValue,
   useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from 'react-native-reanimated';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -23,14 +27,32 @@ export default function LoginScreen() {
   const previousSheetIndexRef = useRef(1);
   const isKeyboardOpenRef = useRef(false);
   const [sheetIndex, setSheetIndex] = useState(0);
+  const [isScrollUpTouched, setIsScrollUpTouched] = useState(false);
   const insets = useSafeAreaInsets();
   const { colorScheme, toggleTheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
 
   const { height: screenHeight } = useWindowDimensions();
   const animatedPosition = useSharedValue(screenHeight * 0.85);
+  const scrollHintProgress = useSharedValue(0);
   const expandedSheetPosition = screenHeight * 0.25;
   const collapsedSheetPosition = screenHeight * 0.85;
+
+  const hideScrollHint = useCallback(() => {
+    setIsScrollUpTouched(true);
+  }, []);
+
+  const renderBottomSheetHandle = useCallback(
+    (props: BottomSheetHandleProps) => (
+      <View onTouchStart={hideScrollHint}>
+        <BottomSheetHandle
+          {...props}
+          indicatorStyle={{ backgroundColor: isDark ? '#555' : '#ccc' }}
+        />
+      </View>
+    ),
+    [hideScrollHint, isDark]
+  );
 
   const logoStyle = useAnimatedStyle(() => {
     // Available vertical space between the status bar and the sheet's top edge
@@ -54,10 +76,31 @@ export default function LoginScreen() {
     paddingTop: interpolate(
       animatedPosition.value,
       [expandedSheetPosition, collapsedSheetPosition],
-      [48, 10],
+      [10, 10],
       Extrapolation.CLAMP
     ),
   }));
+
+  const scrollHintStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollHintProgress.value, [0, 1], [0.7, 1], Extrapolation.CLAMP),
+    transform: [
+      {
+        translateY: interpolate(scrollHintProgress.value, [0, 1], [8, -8], Extrapolation.CLAMP),
+      },
+    ],
+  }));
+
+  useEffect(() => {
+    scrollHintProgress.value = 0;
+    scrollHintProgress.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 900, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 900, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      false
+    );
+  }, [scrollHintProgress]);
 
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
@@ -101,10 +144,24 @@ export default function LoginScreen() {
           resizeMode="contain"
         />
 
+        {sheetIndex === 0 && !isScrollUpTouched && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.scrollHint,
+              { bottom: screenHeight * 0.13 + insets.bottom + 6 },
+              scrollHintStyle,
+            ]}
+          >
+            <MaterialIcons name="keyboard-arrow-up" size={42} color="#fff" style={styles.scrollHintArrowTop} />
+            <MaterialIcons name="keyboard-arrow-up" size={42} color="#fff" style={styles.scrollHintArrowBottom} />
+          </Animated.View>
+        )}
+
         <BottomSheet
           ref={bottomSheetRef}
           index={0}
-          snapPoints={['15%', '65%']}
+          snapPoints={['13%', '65%']}
           enableDynamicSizing={false}
           enableOverDrag={false}
           keyboardBehavior="fillParent"
@@ -115,12 +172,18 @@ export default function LoginScreen() {
             if (!isKeyboardOpenRef.current) {
               setSheetIndex(index);
             }
+
+          }}
+          onAnimate={(fromIndex, toIndex) => {
+            if (fromIndex === 0 && toIndex !== 0) {
+              setIsScrollUpTouched(true);
+            }
           }}
           animatedPosition={animatedPosition}
           backgroundStyle={{ backgroundColor: isDark ? '#1c1c1e' : '#fff' }}
-          handleIndicatorStyle={{ backgroundColor: isDark ? '#555' : '#ccc' }}
+          handleComponent={renderBottomSheetHandle}
         >
-          <BottomSheetView style={styles.contentContainer}>
+          <BottomSheetView style={styles.contentContainer} onTouchStart={hideScrollHint}>
             <Animated.View style={contentPaddingStyle}>
               <ScrollUp
                 collapsed={sheetIndex === 0}
@@ -158,8 +221,22 @@ const styles = StyleSheet.create({
     width: BASE_LOGO_SIZE,
     height: BASE_LOGO_SIZE,
   },
+  scrollHint: {
+    position: 'absolute',
+    zIndex: 8,
+    alignSelf: 'center',
+    width: 64,
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollHintArrowTop: {
+    marginBottom: -26,
+  },
+  scrollHintArrowBottom: {
+    marginTop: -26,
+  },
   contentContainer: {
-    flex: 1,
     paddingHorizontal: 36,
     paddingBottom: 36,
     alignItems: 'center',
