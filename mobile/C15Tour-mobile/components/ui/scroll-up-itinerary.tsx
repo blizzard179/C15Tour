@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, useWindowDimensions } from "react-native";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemedText } from "../themed-text";
@@ -19,6 +19,7 @@ type ScrollUpItineraryProps = {
     distanceToNextManeuverMeters?: number | null;
     nextInstruction?: string | null;
     streetName?: string | null;
+    onSheetChange?: (index: number, position?: number) => void;
 };
 
 function ScrollUpItinerary({
@@ -29,13 +30,16 @@ function ScrollUpItinerary({
     distanceToNextTargetMeters,
     distanceToNextManeuverMeters,
     nextInstruction,
-    streetName
+    streetName,
+    onSheetChange
 }: ScrollUpItineraryProps) {
     const bottomSheetRef = useRef<BottomSheet>(null);
-    const snapPoints = useMemo(() => ['15%', '45%'], []);
+    const snapPoints = useMemo(() => ['15%'], []);
+    const { height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const { colorScheme } = useAppTheme();
     const isDark = colorScheme === 'dark';
+    const maxDynamicContentSize = Math.round(height * 0.6);
 
     const speedText = typeof speedKmh === 'number'
         ? (Number.isFinite(speedKmh) ? `${speedKmh} km/h` : 'N/A')
@@ -70,7 +74,12 @@ function ScrollUpItinerary({
             ref={bottomSheetRef}
             index={0}
             snapPoints={snapPoints}
+            enableDynamicSizing
+            maxDynamicContentSize={maxDynamicContentSize}
             bottomInset={insets.bottom}
+            onChange={(index, position) => onSheetChange?.(index, position)}
+            onAnimate={(_fromIndex, toIndex, _fromPosition, toPosition) => onSheetChange?.(toIndex, toPosition)}
+            containerStyle={styles.sheetContainer}
             backgroundStyle={{ backgroundColor: isDark ? '#1c1c1e' : '#fff' }}
             handleIndicatorStyle={{ backgroundColor: isDark ? '#555' : '#ccc' }}
         >
@@ -153,8 +162,11 @@ function ScrollUpItinerary({
 export default ScrollUpItinerary;
 
 const styles = StyleSheet.create({
+    sheetContainer: {
+        zIndex: 10,
+        elevation: 10,
+    },
     contentContainer: {
-        flex: 1,
         padding: 16,
         gap: 8,
     },
