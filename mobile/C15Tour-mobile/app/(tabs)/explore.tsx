@@ -352,7 +352,7 @@ export default function ExploreScreen() {
     itineraryClearanceOffset,
     micPanelClearanceOffset
   );
-  const leafletControlBottomOffset = recenterBottomOffset + 56;
+  const leafletControlBottomOffset = recenterBottomOffset;
   const recenterBottomAnimated = useRef(new Animated.Value(recenterBottomOffset)).current;
   const [leaderAudioState, setLeaderAudioState] = useState<LiveAudioState>({
     status: 'idle',
