@@ -18,6 +18,11 @@ const tripSchema = Joi.object({
   trip_reduction: Joi.number().min(0).max(100).default(0).messages({
     'number.min': 'La réduction doit être entre 0 et 100',
     'number.max': 'La réduction doit être entre 0 et 100'
+  }),
+  trip_nb_sections: Joi.number().integer().min(1).default(1).messages({
+    'number.base': 'Le nombre de segments doit être un nombre',
+    'number.integer': 'Le nombre de segments doit être un entier',
+    'number.min': 'Le nombre de segments doit être supérieur ou égal à 1'
   })
 });
 
