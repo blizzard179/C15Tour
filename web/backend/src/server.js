@@ -1,9 +1,11 @@
 import express from "express";
 import cors from "cors";
 import "dotenv/config";
+import http from "http";
 import tripsRouter from "./routes/tripRoutes.js";
 import stepsRouter from "./routes/stepRoutes.js";
 import errorHandler from "./middlewares/errorHandler.js";
+import attachLiveAudioSignaling from "./services/liveAudioSignalingService.js";
 
 const app = express();
 
@@ -23,6 +25,10 @@ app.use("/api", stepsRouter);
 app.use(errorHandler);
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`API: http://localhost:${port}`));
+const server = http.createServer(app);
+
+attachLiveAudioSignaling(server);
+
+server.listen(port, () => console.log(`API: http://localhost:${port}`));
 
 setInterval(() => {}, 1000);

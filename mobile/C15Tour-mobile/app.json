@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Le micro est utilise pour diffuser les indications audio du leader aux participants."
+      }
     },
     "android": {
       "adaptiveIcon": {
