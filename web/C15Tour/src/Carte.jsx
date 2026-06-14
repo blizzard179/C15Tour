@@ -44,9 +44,9 @@ const popupStyles = `
     min-width: 0;
   }
   .popup-title {
-    font-weight: 700;
-    color: #b14080;
-    font-size: 18px;
+    font-weight: 600;
+    color: #BB487C;
+    font-size: 16px;
     line-height: 1.1;
     white-space: nowrap;
     overflow: hidden;
@@ -72,14 +72,14 @@ const popupStyles = `
     border-radius: 999px;
     width: 24px;
     height: 24px;
-    font-size: 14px;
-    color: #b14080;
+    font-size: 16px;
+    color: #BB487C;
     cursor: pointer;
     transition: all 0.2s;
   }
   .popup-icon-btn:hover {
-    background: #fff0f7;
-    border-color: #d670a8;
+    background: #f8f9fa;
+    border-color: #BB487C;
   }
   .popup-line {
     color: #b14080;
@@ -373,6 +373,10 @@ function Carte() {
       );
     };
 
+    const handlePersistConvoyOnServer = (tripId) => {
+      setCurrentConvoyId(tripId);
+    };
+
     const openConvoy = (convoy) => {
       setIsConvoySelectorOpen(false);
       setCurrentConvoyId(convoy.id);
@@ -429,7 +433,7 @@ function Carte() {
           {
             lat: Number(trkptNodes[0].getAttribute('lat')),
             lng: Number(trkptNodes[0].getAttribute('lon')),
-            display_name: 'Depart'
+            display_name: 'Départ'
           },
           {
             lat: Number(trkptNodes[trkptNodes.length - 1].getAttribute('lat')),
@@ -577,6 +581,77 @@ function Carte() {
       URL.revokeObjectURL(url);
       return true;
     };
+
+    const exportCurrentRouteAsPdf = async () => {
+      if (!currentConvoyId) {
+        alert('Le convoi doit être sauvegardé avant d\'exporter en PDF');
+        return false;
+      }
+
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${currentConvoyId}/exports/pdf`);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Backend error:', errorText);
+          alert(`Erreur lors de l'export PDF: Trajet non sauvegardé en base de données ou erreur serveur`);
+          return false;
+        }
+
+        const blob = await response.blob();
+
+        // Vérifier que c'est vraiment un PDF
+        if (blob.type !== 'application/pdf') {
+          console.error('Invalid content type:', blob.type);
+          alert('Le serveur n\'a pas retourné un PDF valide');
+          return false;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const nowIso = new Date().toISOString();
+        const timestamp = nowIso.replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '_');
+        const convoyNameForExport = (currentConvoyName || waypointNames[0] || 'Trajet C15Tour').trim();
+        const sanitizedBaseName = convoyNameForExport
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .replace(/[^a-zA-Z0-9_-]+/g, '_')
+          .replace(/^_+|_+$/g, '')
+          .replace(/_+/g, '_');
+        a.href = url;
+        a.download = `${sanitizedBaseName || `trajet_${timestamp}`}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        return true;
+      } catch (error) {
+        console.error('Error exporting PDF:', error);
+        alert(`Erreur lors de l'export PDF: ${error.message}`);
+        return false;
+      }
+    };
+
+    const handleUpdateWaypoint = (index, newName, newCoords = null) => {
+        if (newCoords) {
+            setWaypoints(prev => {
+                const updated = [...prev];
+                updated[index] = newCoords;
+                return updated;
+            });
+        }
+        
+        if (newName !== undefined) {
+            setWaypointNames(prev => {
+                const updated = [...prev];
+                updated[index] = newName;
+                return updated;
+            });
+        }
+    };
+    const [isConvoyBelowSearch, setIsConvoyBelowSearch] = useState(false);
+    const leftPanelRef = useRef(null);
+    const searchLayerRef = useRef(null);
 
     const pinIcon = L.icon({
         iconUrl: Pin,
@@ -757,14 +832,14 @@ function Carte() {
                             if (convoy) openConvoy(convoy);
                           }}
                         >
-                          SELECTIONNER
+                          SÉLECTIONNER
                         </button>
                       </div>
 
                       <div className="selector-or">OU</div>
                       <div className="create-convoy-row">
                         <button className="convoy-selector-btn primary" type="button" onClick={createNewConvoy}>
-                          + CREER UN CONVOI
+                          + CRÉER UN CONVOI
                         </button>
                         <button
                           className="convoy-selector-btn"
@@ -923,8 +998,11 @@ function Carte() {
                     }}
                     canExportGpx={routeCoordinates.length >= 2}
                     onExportGpx={exportCurrentRouteAsGpx}
+                    canExportPdf={Boolean(currentConvoyId)}
+                    onExportPdf={exportCurrentRouteAsPdf}
                     canSaveConvoy={waypoints.length >= 2}
                     onSaveConvoy={saveCurrentConvoyLocal}
+                    onPersistConvoy={handlePersistConvoyOnServer}
                     onBackToConvoySelector={openConvoySelector}
                     shareTrip={currentSavedConvoy?.shareTrip || null}
                     onTripPersisted={handleTripPersisted}

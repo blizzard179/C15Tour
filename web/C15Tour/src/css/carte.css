@@ -41,7 +41,7 @@ html,
 
 /* Style pour CardConvoi */
 .convoyCard {
-  width: clamp(240px, 28vw, 340px);
+  width: clamp(240px, 28vw, 360px);
   max-width: 100%;
   height: 100%;
   max-height: 100%;
@@ -137,7 +137,7 @@ html,
 
 .label {
   font-weight: 800;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .timeEdit {
@@ -616,6 +616,7 @@ html,
   border-radius: 6px;
   font-size: 1rem;
   transition: border-color 0.2s, box-shadow 0.2s;
+  color: #bb487c;
 }
 
 .config-input:focus {
@@ -674,7 +675,7 @@ html,
 }
 
 .validate-btn {
-  background: #4a6cf7;
+  background: #b14080;
   color: white;
   border: none;
   padding: 8px 16px;
@@ -685,7 +686,7 @@ html,
 }
 
 .validate-btn:hover {
-  background: #3a5ce4;
+  background: #8a3362;
 }
 
 /* Ajustement pour les petits écrans à tester*/
@@ -843,23 +844,26 @@ html,
 }
 
 .waypoint-config-popup {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  width: 90%;
-  max-width: 400px;
+  width: min(90vw, 520px);
+  background: #f8f8f8;
+  border: 2px solid #c24a8b;
+  border-radius: 20px;
+  padding: 26px 34px 22px;
+  color: #b14080;
   max-height: 88vh;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2);
   position: relative;
 }
 
 .waypoint-config-popup h3 {
-  margin: 0 0 20px;
-  color: #333;
-  font-size: 1.2rem;
-  font-weight: 600;
-  text-align: center;
+  margin: 0 0 16px;
+  color: #b14080;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: left;
+  text-transform: uppercase;
 }
 
 .waypoint-config-popup .form-group {
@@ -869,53 +873,71 @@ html,
 
 .waypoint-config-popup label {
   display: block;
-  margin-bottom: 6px;
-  font-size: 0.9rem;
-  color: #555;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #b14080;
   font-weight: 500;
 }
 
 .waypoint-config-popup .config-input {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 1rem;
+  padding: 8px 12px;
+  border: 1px solid #d1d1d1;
+  border-radius: 8px;
+  background: #fff;
+  color: #b14080;
+  font-size: 16px;
   transition: border-color 0.2s, box-shadow 0.2s;
   box-sizing: border-box;
 }
 
 .waypoint-config-popup .config-input:focus {
   outline: none;
-  border-color: #4a6cf7;
-  box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.2);
+  border-color: #c24a8b;
+  box-shadow: 0 0 0 3px rgba(194, 74, 139, 0.2);
+}
+
+.waypoint-config-popup .checkbox-group {
+  margin-bottom: 0;
+  color: #b14080;
+}
+
+.waypoint-config-popup .config-checkbox {
+  accent-color: #c24a8b;
+  outline: 1px solid #c24a8b;
+  outline-offset: -1px;
 }
 
 .waypoint-config-popup .popup-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid #eee;
+  gap: 10px;
+  margin-top: 16px;
+  border-top: none;
 }
 
 .waypoint-config-popup .delete-btn {
   background: #ffebee;
   color: #d32f2f;
   border: none;
-  border-radius: 6px;
-  padding: 8px 12px;
+  border-radius: 999px;
+  padding: 8px 16px;
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.9rem;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
 }
 
 .waypoint-config-popup .delete-btn:hover {
   background: #ffcdd2;
+}
+
+.waypoint-config-popup .delete-btn::before {
+  content: "✗ ";
 }
 
 .waypoint-config-popup .delete-btn img {
@@ -930,12 +952,10 @@ html,
 
 .waypoint-config-popup .cancel-btn,
 .waypoint-config-popup .validate-btn {
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 600;
   padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
 .waypoint-config-popup .cancel-btn {
@@ -949,13 +969,21 @@ html,
 }
 
 .waypoint-config-popup .validate-btn {
-  background: #4a6cf7;
+  background: #b14080;
   color: white;
   border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .waypoint-config-popup .validate-btn:hover {
-  background: #3a5ce4;
+  background: #8a3362;
+}
+
+.waypoint-config-popup .validate-btn::before {
+  content: "✓ ";
 }
 
 /* Styles pour la case à cocher et son conteneur */
@@ -981,8 +1009,8 @@ html,
 
 .break-time-label {
   margin-left: 10px;
-  color: #666;
-  font-size: 0.9rem;
+  color: #BB487C;
+    font-size: 1rem;
 }
 
 /* Amélioration de la largeur des étapes */
@@ -1023,6 +1051,12 @@ input[type="number"] {
   line-height: 1;
   color: #b14080;
   font-weight: 900;
+}
+
+.general-settings-popup input[type="checkbox"] {
+  accent-color: #c24a8b;
+  width: 16px;
+  height: 16px;
 }
 
 .settings-section {
@@ -1082,13 +1116,37 @@ input[type="number"] {
 .general-settings-actions .delete-btn,
 .general-settings-actions .validate-btn {
   border-radius: 999px;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   padding: 8px 16px;
+}
+
+.general-settings-actions--settings .delete-btn::before {
+  content: "✗ ";
+}
+
+.general-settings-actions--settings .validate-btn::before {
+  content: "✓ ";
 }
 
 .export-popup {
   max-width: 420px;
+}
+
+.export-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-back-btn::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: url("../../../../shared/global_assets/pictos/Back.svg") center / contain no-repeat;
+  mask: url("../../../../shared/global_assets/pictos/Back.svg") center / contain no-repeat;
 }
 
 .share-popup {
@@ -1195,7 +1253,7 @@ input[type="number"] {
 
 .persist-message {
   margin-top: 8px;
-  font-size: 12px;
+  font-size: 14px;
   color: #b14080;
   font-weight: 700;
 }
@@ -1235,7 +1293,7 @@ input[type="number"] {
 }
 
 .selector-section-title {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   margin: 4px 0 8px;
 }
@@ -1257,7 +1315,7 @@ input[type="number"] {
 }
 
 .last-convoy-meta span {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -1265,7 +1323,8 @@ input[type="number"] {
 }
 
 .last-convoy-meta small {
-  font-size: 10px;
+  font-size: 14px;
+  font-weight: 500;
   color: #9b6b87;
 }
 
@@ -1275,8 +1334,8 @@ input[type="number"] {
   background: #fff;
   color: #b14080;
   padding: 6px 12px;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1311,7 +1370,7 @@ input[type="number"] {
   border: 1px solid #e1cfda;
   border-radius: 6px;
   padding: 5px 8px;
-  font-size: 11px;
+  font-size: 14px;
   color: #6a5e67;
   background: #fff;
 }
@@ -1319,7 +1378,7 @@ input[type="number"] {
 .selector-or {
   text-align: center;
   color: #b17b96;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
   margin: 8px 0;
 }

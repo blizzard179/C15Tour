@@ -1,13 +1,15 @@
 import { ThemedText } from "@/components/themed-text";
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { API_BASE_URL } from "@/constants/api";
 import { useAuth } from "@/context/auth";
 import { useAppTheme } from "@/context/theme";
 import { useRouter } from "expo-router";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 function LoginBody() {
-    const [active, setActive] = useState<'participant' | 'leader' | ''>('');
+    const [active, setActive] = useState<'participant' | 'leader' | ''>('participant');
     const [participantCode, setParticipantCode] = useState('');
     const [leaderCode, setLeaderCode] = useState('');
     const [loading, setLoading] = useState(false);
@@ -43,9 +45,9 @@ function LoginBody() {
             }
 
             login(data, active);
-            router.replace('/(tabs)/explore');
+            router.replace('/(tabs)/loader');
 
-        } catch (err) {
+        } catch {
             Alert.alert('Erreur', 'Erreur réseau. Vérifiez votre connexion.');
         } finally {
             setLoading(false);
@@ -77,7 +79,7 @@ function LoginBody() {
             </TouchableOpacity>
 
             {/* Input Participant */}
-            <TextInput
+            <BottomSheetTextInput
                 style={[
                     styles.input,
                     { borderColor: colors.inputBorder, backgroundColor: colors.inputBg, color: colors.inputText },
@@ -111,7 +113,7 @@ function LoginBody() {
             </TouchableOpacity>
 
             {/* Input Leader */}
-            <TextInput
+            <BottomSheetTextInput
                 style={[
                     styles.input,
                     { borderColor: colors.inputBorder, backgroundColor: colors.inputBg, color: colors.inputText },
@@ -128,10 +130,12 @@ function LoginBody() {
 
             {/* Submit Button */}
             <TouchableOpacity style={[styles.button, { backgroundColor: colors.accent }]} onPress={handleLogin} disabled={loading}>
-                {loading
-                    ? <ActivityIndicator color="#fff" />
-                    : <Text style={styles.buttonText}>EN ROUTE !</Text>
-                }
+                <Text style={styles.buttonText}>EN ROUTE !</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.scanButton, { borderColor: colors.accent }]} onPress={() => router.push('/scan-qr')}>
+                <MaterialIcons name="qr-code-scanner" size={20} color={colors.accent} />
+                <Text style={[styles.scanButtonText, { color: colors.accent }]}>SCANNER UN QR CODE</Text>
             </TouchableOpacity>
 
         </View>
@@ -140,7 +144,7 @@ function LoginBody() {
 
 const styles = StyleSheet.create({
     container: {
-        padding: 20,
+        paddingHorizontal: 20,
     },
     row: {
         flexDirection: 'row',
@@ -184,7 +188,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     button: {
-        marginTop: 80,
+        marginTop: 30,
         padding: 12,
         alignItems: 'center',
         borderRadius: 6,
@@ -193,6 +197,22 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    scanButton: {
+        marginTop: 12,
+        minHeight: 44,
+        borderWidth: 1,
+        borderRadius: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+        gap: 8,
+        paddingHorizontal: 12,
+        marginBottom: 20,
+    },
+    scanButtonText: {
+        fontSize: 14,
+        fontWeight: '700',
     },
 });
 

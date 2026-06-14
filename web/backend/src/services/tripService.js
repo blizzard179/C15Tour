@@ -116,6 +116,7 @@ const createTrip = async (data) => {
       trip_chemin: data.trip_chemin ?? false,
       trip_is_reduced: isReduced,
       trip_reduction: tripReduction,
+      trip_nb_sections: data.trip_nb_sections ?? 1,
       trip_user_code: userCode,
       trip_admin_code: adminCode
     },
@@ -138,7 +139,8 @@ const updateTrip = async (id, data) => {
       trip_voie_rapide: data.trip_voie_rapide,
       trip_chemin: data.trip_chemin,
       trip_is_reduced: data.trip_is_reduced,
-      trip_reduction: data.trip_reduction
+      trip_reduction: data.trip_reduction,
+      trip_nb_sections: data.trip_nb_sections
     },
     include: { steps: { orderBy: { step_order: 'asc' } } }
   });

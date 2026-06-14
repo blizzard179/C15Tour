@@ -37,6 +37,8 @@ const router = express.Router();
  *           type: boolean
  *         trip_reduction:
  *           type: integer
+ *         trip_nb_sections:
+ *           type: integer
  *         trip_created_at:
  *           type: string
  *           format: date-time
@@ -71,6 +73,9 @@ const router = express.Router();
  *         trip_reduction:
  *           type: integer
  *           default: 0
+ *         trip_nb_sections:
+ *           type: integer
+ *           default: 1
  */
 
 /**
@@ -298,6 +303,15 @@ router.get('/:tripId/exports/gpx', exportController.exportToGPX);
  *     tags: [Trips]
  */
 router.post('/:tripId/telemetry', validateTelemetry, telemetryController.createTelemetry);
+
+/**
+ * @swagger
+ * /api/trips/{tripId}/telemetry/latest:
+ *   get:
+ *     summary: Récupérer la dernière position GPS d'un convoi
+ *     tags: [Trips]
+ */
+router.get('/:tripId/telemetry/latest', telemetryController.getLatestTelemetryByTrip);
 
 /**
  * @swagger
