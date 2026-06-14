@@ -1,8 +1,8 @@
-import './css/carte.css'
+﻿import './css/carte.css'
 import './css/leaflet.css';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useRef, useState, useEffect } from 'react';
+import { useLayoutEffect, useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import RoutingMachine from './helper/RoutingMachine';
 import ClickHandler from './helper/ClickHandler';
 import FlyTo from './helper/FlyTo';
@@ -19,101 +19,110 @@ const CONVOYS_STORAGE_KEY = 'c15tour_convoys_v1';
 const LAST_CONVOY_STORAGE_KEY = 'c15tour_last_convoy_id';
 const BACKEND_BASE_URL = 'http://localhost:3000';
 
-// Styles pour le popup personnalisé
+// Styles pour le popup personnalisÃ©
 const popupStyles = `
   .custom-popup {
-    padding: 12px;
-    min-width: 200px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+    padding: 10px 12px;
+    min-width: 230px;
+    background: #f8f8f8;
+    border: 2px solid #d670a8;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    color: #b14080;
+    font-family: 'Montserrat', sans-serif;
   }
   .popup-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #f0f0f0;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .popup-title-wrap {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
   }
   .popup-title {
     font-weight: 600;
     color: #BB487C;
     font-size: 16px;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .popup-actions {
+  .popup-subtitle {
+    font-style: italic;
+    color: #d28bb3;
+    font-size: 14px;
+    margin-top: 2px;
+  }
+  .popup-top-actions {
     display: flex;
-    gap: 8px;
-    margin-top: 12px;
+    gap: 6px;
+    flex-shrink: 0;
   }
-  .popup-action-btn {
+  .popup-icon-btn {
     display: flex;
     align-items: center;
-    gap: 4px;
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    padding: 6px 10px;
+    justify-content: center;
+    background: #fff;
+    border: 1px solid #efc2da;
+    border-radius: 999px;
+    width: 24px;
+    height: 24px;
     font-size: 16px;
     color: #BB487C;
     cursor: pointer;
     transition: all 0.2s;
   }
-  .popup-action-btn:hover {
+  .popup-icon-btn:hover {
     background: #f8f9fa;
     border-color: #BB487C;
   }
-  .popup-config-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #6c757d;
-    padding: 4px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
+  .popup-line {
+    color: #b14080;
+    font-size: 17px;
+    line-height: 1.2;
+    margin-top: 3px;
   }
-  .popup-config-btn:hover {
-    color: #4A6CF7;
-    background-color: #f8f9fa;
+  .popup-coords {
+    color: #b14080;
+    font-size: 22px;
+    line-height: 1.1;
+    margin-top: 2px;
+    font-weight: 500;
+  }
+  .popup-pin {
+    color: #d670a8;
+    margin-right: 4px;
   }
 `;
 
 // Composant de popup personnalisé
-const CustomPopup = ({ index, name, address }) => {
+const CustomPopup = ({ index, name, address, lat, lng }) => {
+  const displayCoords = Number.isFinite(lat) && Number.isFinite(lng)
+    ? `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+    : '';
+
   return `
     <div class="custom-popup">
       <div class="popup-header">
-        <div>
+        <div class="popup-title-wrap">
           <div class="popup-title">${name || `Etape ${index + 1}`}</div>
-          ${address ? `<div class="popup-address">${address}</div>` : ''}
+          <div class="popup-subtitle"></div>
         </div>
-        <button class="popup-config-btn" onclick="event.stopPropagation(); window.configClickHandler(${index})">
-          <img src="${Pin}" alt="Configurer" width="16" height="16" />
-        </button>
+        <div class="popup-top-actions">
+          <button class="popup-icon-btn" onclick="event.stopPropagation(); window.configClickHandler(${index})" title="Editer">?</button>
+          <button class="popup-icon-btn" onclick="event.stopPropagation(); window.detailsClickHandler(${index})" title="Ajouter">+</button>
+        </div>
       </div>
-      <div class="popup-actions">
-        <button class="popup-action-btn" onclick="event.stopPropagation(); window.itineraireClickHandler(${index})">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="#4A6CF7"/>
-            <path d="M13 7H11V13H17V11H13V7Z" fill="#4A6CF7"/>
-          </svg>
-          Itinéraire
-        </button>
-        <button class="popup-action-btn" onclick="event.stopPropagation(); window.detailsClickHandler(${index})">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="#4A6CF7"/>
-            <path d="M12.31 11.14C10.54 10.28 9.5 9.8 9.5 8.5C9.5 7.4 10.4 6.5 11.5 6.5C12.6 6.5 13.5 7.4 13.5 8.5H15.5C15.5 6.3 13.7 4.5 11.5 4.5C9.3 4.5 7.5 6.3 7.5 8.5C7.5 10.92 9.5 11.86 11.19 12.61C13.12 13.47 14.5 14.1 14.5 15.5C14.5 16.6 13.6 17.5 12.5 17.5C11.4 17.5 10.5 16.6 10.5 15.5H8.5C8.5 17.7 10.3 19.5 12.5 19.5C14.7 19.5 16.5 17.7 16.5 15.5C16.5 13.08 14.5 12.14 12.81 11.39L12.31 11.14Z" fill="#4A6CF7"/>
-          </svg>
-          Détails
-        </button>
-      </div>
+      ${address ? `<div class="popup-line"><span class="popup-pin">?</span>${address}</div>` : ''}
+      ${displayCoords ? `<div class="popup-coords">${displayCoords}</div>` : ''}
     </div>
   `;
 };
-
 function Carte() {
 
     const [waypoints, setWaypoints] = useState([]);
@@ -124,6 +133,7 @@ function Carte() {
     const importInputRef = useRef();
     const [editingWaypointIndex, setEditingWaypointIndex] = useState(null);
     const [routeDurationMinutes, setRouteDurationMinutes] = useState(null);
+    const [routeLegDurationsMinutes, setRouteLegDurationsMinutes] = useState([]);
     const [routeCoordinates, setRouteCoordinates] = useState([]);
     const [showConvoySelector, setShowConvoySelector] = useState(true);
     const [isConvoySelectorOpen, setIsConvoySelectorOpen] = useState(false);
@@ -144,6 +154,73 @@ function Carte() {
             reductionPercent: 20
         }
     });
+    const [segmentConfig, setSegmentConfig] = useState([]);
+
+    const haversineKm = (a, b) => {
+      const toRad = (value) => (value * Math.PI) / 180;
+      const lat1 = Number(a?.[0]);
+      const lon1 = Number(a?.[1]);
+      const lat2 = Number(b?.[0]);
+      const lon2 = Number(b?.[1]);
+      if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return 0;
+
+      const earthRadiusKm = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const s1 = Math.sin(dLat / 2);
+      const s2 = Math.sin(dLon / 2);
+      const h =
+        s1 * s1 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * s2 * s2;
+      return 2 * earthRadiusKm * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+    };
+
+    const totalDistanceKm = useMemo(() => {
+      if (!Array.isArray(routeCoordinates) || routeCoordinates.length < 2) return null;
+      let total = 0;
+      for (let i = 1; i < routeCoordinates.length; i += 1) {
+        total += haversineKm(routeCoordinates[i - 1], routeCoordinates[i]);
+      }
+      return total > 0 ? total : null;
+    }, [routeCoordinates]);
+
+    const configuredSpeedKmH = useMemo(() => {
+      const value = Number(generalSettings?.speed?.generalSpeedKmH);
+      return Number.isFinite(value) && value > 0 ? value : null;
+    }, [generalSettings]);
+
+    const totalMinutesFromSpeed = useMemo(() => {
+      if (!Number.isFinite(totalDistanceKm) || !Number.isFinite(configuredSpeedKmH)) return null;
+      let minutes = (totalDistanceKm / configuredSpeedKmH) * 60;
+      const isReduced = Boolean(generalSettings?.speed?.autoReductionEnabled);
+      if (isReduced) {
+        const reduction = Math.max(0, Number(generalSettings?.speed?.reductionPercent) || 0);
+        minutes *= 1 + reduction / 100;
+      }
+      return Math.max(0, Math.round(minutes));
+    }, [totalDistanceKm, configuredSpeedKmH, generalSettings]);
+
+    const areSegmentConfigsEqual = (a = [], b = []) => {
+      if (!Array.isArray(a) || !Array.isArray(b)) return false;
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i += 1) {
+        const left = a[i] || {};
+        const right = b[i] || {};
+        if (
+          Number.parseInt(left.stepNbSections, 10) !== Number.parseInt(right.stepNbSections, 10) ||
+          Number.parseInt(left.segmentRank, 10) !== Number.parseInt(right.segmentRank, 10) ||
+          (left.segmentColor || '') !== (right.segmentColor || '')
+        ) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    const handleSegmentConfigChange = useCallback((newConfig) => {
+      const normalized = Array.isArray(newConfig) ? newConfig : [];
+      setSegmentConfig((prev) => (areSegmentConfigsEqual(prev, normalized) ? prev : normalized));
+    }, []);
 
     const moveItem = (items, fromIndex, toIndex) => {
         if (!Array.isArray(items)) return items;
@@ -209,8 +286,8 @@ function Carte() {
     }, [savedConvoys, isStorageLoaded]);
 
     useEffect(() => {
-      // Si un convoi est chargé, on ferme le panneau de sélection
-      // pour réactiver immédiatement l'overlay principal.
+      // Si un convoi est chargÃ©, on ferme le panneau de sÃ©lection
+      // pour rÃ©activer immÃ©diatement l'overlay principal.
       if (!showConvoySelector) return;
       if (isConvoySelectorOpen) return;
       if (currentConvoyId || waypoints.length > 0) {
@@ -428,6 +505,7 @@ function Carte() {
         if (waypoints.length < 2) {
             setRouteDurationMinutes(null);
             setRouteCoordinates([]);
+            setRouteLegDurationsMinutes([]);
         }
     }, [waypoints.length]);
 
@@ -591,20 +669,20 @@ function Carte() {
           document.head.appendChild(styleElement);
         }
 
-        // Définir les gestionnaires d'événements globaux
+        // DÃ©finir les gestionnaires d'Ã©vÃ©nements globaux
         window.configClickHandler = (index) => {
           console.log('Configuration du point', index);
           // Ajoutez ici la logique pour ouvrir la configuration
         };
 
         window.itineraireClickHandler = (index) => {
-          console.log('Itinéraire vers le point', index);
-          // Ajoutez ici la logique pour l'itinéraire
+          console.log('ItinÃ©raire vers le point', index);
+          // Ajoutez ici la logique pour l'itinÃ©raire
         };
 
         window.detailsClickHandler = (index) => {
-          console.log('Détails du point', index);
-          // Ajoutez ici la logique pour afficher les détails
+          console.log('DÃ©tails du point', index);
+          // Ajoutez ici la logique pour afficher les dÃ©tails
         };
 
         return () => {
@@ -624,7 +702,7 @@ function Carte() {
                 ref={mapRef}
             >
                 {/* <button onClick={() => setWaypoints([])}>
-                    Réinitialiser
+                    RÃ©initialiser
                 </button>
                 <button onClick={() =>
                     setWaypoints(prev => prev.slice(0, -1))
@@ -643,7 +721,7 @@ function Carte() {
                     const waypointName = waypointNames[index] || '';
                     let lat, lng, displayName;
 
-                    // Gestion des différents formats de points
+                    // Gestion des diffÃ©rents formats de points
                     if (Array.isArray(point)) {
                         [lat, lng] = point;
                         displayName = point.display_name || `Point ${index + 1}`;
@@ -664,7 +742,7 @@ function Carte() {
                     const position = [parseFloat(lat), parseFloat(lng)];
                     
                     if (isNaN(position[0]) || isNaN(position[1])) {
-                        console.error('Coordonnées invalides pour le point:', point);
+                        console.error('CoordonnÃ©es invalides pour le point:', point);
                         return null;
                     }
                     
@@ -680,7 +758,9 @@ function Carte() {
                                         __html: CustomPopup({ 
                                             index,
                                             name: waypointName,
-                                            address: displayName
+                                            address: displayName,
+                                            lat: position[0],
+                                            lng: position[1]
                                         }) 
                                     }} 
                                 />
@@ -689,14 +769,16 @@ function Carte() {
                     );
                 })}
                 
-                {/* Gestion du routage avec des coordonnées valides - s'affiche automatiquement dès 2 points */}
+                {/* Gestion du routage avec des coordonnÃ©es valides - s'affiche automatiquement dÃ¨s 2 points */}
                 {waypoints.length >= 2 && (
                   <RoutingControl 
                     waypoints={waypoints}
                     map={mapRef.current}
                     onRouteDurationChange={setRouteDurationMinutes}
+                    onRouteLegDurationsChange={setRouteLegDurationsMinutes}
                     onRouteGeometryChange={setRouteCoordinates}
                     routePreferences={generalSettings}
+                    segmentConfig={segmentConfig}
                   />
                 )}
 
@@ -795,11 +877,15 @@ function Carte() {
                         
                         mapRef.current.flyTo([position.lat, position.lng], 15);
                         
-                        const addressParts = display_name.split(',');
-                        const cityName = addressParts[0] + (addressParts[1] ? `, ${addressParts[1]}` : '');
+                        const addressParts = display_name.split(',').map((part) => part.trim()).filter(Boolean);
+                        const firstPart = addressParts[0] || '';
+                        const secondPart = addressParts[1] || '';
+                        const cityName = secondPart && firstPart.toLowerCase() !== secondPart.toLowerCase()
+                          ? `${firstPart}, ${secondPart}`
+                          : firstPart;
                         
                         if (editingWaypointIndex !== null) {
-                            // Mise à jour d'un waypoint existant
+                            // Mise Ã  jour d'un waypoint existant
                             setWaypoints(prev => {
                                 const updated = [...prev];
                                 updated[editingWaypointIndex] = position;
@@ -829,16 +915,17 @@ function Carte() {
                       initialStepConfigs={stepConfigs}
                       initialBackendTripId={currentSavedConvoy?.backendTripId || currentSavedConvoy?.shareTrip?.trip_id || null}
                     routeDurationMinutes={routeDurationMinutes}
-                      generalSettings={generalSettings}
-                    onUpdateWaypoint={(index, newName, newCoords = null, metadata = {}) => {
-                        // Mise à jour du nom 
+                    routeLegDurationsMinutes={routeLegDurationsMinutes}
+                    generalSettings={generalSettings}
+                    onUpdateWaypoint={(index, newName, newCoords = null) => {
+                        // Mise Ã  jour du nom 
                         setWaypointNames(prev => {
                             const updated = [...prev];
                             updated[index] = newName || `Etape ${index + 1}`;
                             return updated;
                         });
                         
-                        // Si de nouvelles coordonnées sont fournies, on les met à jour
+                        // Si de nouvelles coordonnÃ©es sont fournies, on les met Ã  jour
                         if (newCoords) {
                             setWaypoints(prev => {
                                 const updated = [...prev];
@@ -885,6 +972,7 @@ function Carte() {
                         setWaypoints(prev => moveItem(prev, fromIndex, toIndex));
                         setWaypointNames(prev => moveItem(prev, fromIndex, toIndex));
                         setStepConfigs(prev => {
+                           if (Object.keys(prev).length === 0) return prev;
                            const length = Object.keys(prev).length;
                            const order = Array.from({ length: Math.max(length, waypoints.length) }, (_, i) => i);
                            const [moved] = order.splice(fromIndex, 1);
@@ -930,6 +1018,7 @@ function Carte() {
                         )
                       );
                     }}
+                    onSegmentConfigChange={handleSegmentConfigChange}
                     onStartEditingCoords={(index) => {
                         setEditingWaypointIndex(index);
                         setSearchQuery(waypointNames[index] || '');
@@ -939,6 +1028,16 @@ function Carte() {
                   </div>
                 )}
             </div>
+            {!showConvoySelector && (
+              <div className="route-total-card">
+                <div className="route-total-title">TOTAL</div>
+                <div className="route-total-values">
+                  <span>{Number.isFinite(totalDistanceKm) ? `${totalDistanceKm.toFixed(1)} KM` : '-- KM'}</span>
+                  <span>{Number.isFinite(configuredSpeedKmH) ? `${Math.round(configuredSpeedKmH)} KM/H` : '-- KM/H'}</span>
+                  <span>{Number.isFinite(totalMinutesFromSpeed) ? `${totalMinutesFromSpeed} MIN` : '-- MIN'}</span>
+                </div>
+              </div>
+            )}
         </div>
 
     );
@@ -978,7 +1077,7 @@ const decodePolyline6 = (encoded) => {
 };
 
 // Composant pour gerer le routage 
-const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometryChange, routePreferences }) => {
+const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteLegDurationsChange, onRouteGeometryChange, routePreferences, segmentConfig = [] }) => {
   useEffect(() => {
     if (!map || waypoints.length < 2) return;
 
@@ -998,7 +1097,51 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometry
     const useTolls = routeTypePrefs.avoidFastRoad === false ? 0 : 0.5;
 
     const abortController = new AbortController();
-    let routeLayer = null;
+    const routeLayers = [];
+    const defaultPalette = ['#4A6CF7', '#2AA876', '#FF9F1C', '#E63946', '#7B61FF', '#0096C7'];
+    const transitionColor = '#111111';
+
+    const getRankAtIndex = (index) => {
+      const value = Number.parseInt(segmentConfig[index]?.segmentRank, 10);
+      if (!Number.isFinite(value) || value < 1) return null;
+      return value;
+    };
+
+    const drawColoredSections = (legCoordinates) => {
+      if (!Array.isArray(legCoordinates) || legCoordinates.length < 1) return;
+
+      legCoordinates.forEach((legLatLngs, legIndex) => {
+        if (!Array.isArray(legLatLngs) || legLatLngs.length < 2) return;
+        const segmentRank = getRankAtIndex(legIndex) ?? 1;
+        const endPointRank = getRankAtIndex(legIndex + 1) ?? segmentRank;
+        const isTransitionLeg = segmentRank !== endPointRank;
+        const sectionCount = isTransitionLeg
+          ? 1
+          : Math.max(1, Number.parseInt(segmentConfig[legIndex]?.stepNbSections, 10) || 1);
+        const rankColor =
+          segmentConfig.find((config) => Math.max(1, Number.parseInt(config?.segmentRank, 10) || 1) === segmentRank)?.segmentColor;
+        const baseColor = isTransitionLeg
+          ? transitionColor
+          : (rankColor || segmentConfig[legIndex]?.segmentColor || defaultPalette[(segmentRank - 1) % defaultPalette.length]);
+        const pointsPerSection = Math.max(2, Math.ceil(legLatLngs.length / sectionCount));
+
+        for (let sectionIndex = 0; sectionIndex < sectionCount; sectionIndex += 1) {
+          const start = Math.max(0, sectionIndex * pointsPerSection - (sectionIndex > 0 ? 1 : 0));
+          const end = Math.min(legLatLngs.length, (sectionIndex + 1) * pointsPerSection);
+          const sectionPoints = legLatLngs.slice(start, end);
+          if (sectionPoints.length < 2) continue;
+          const polyline = L.polyline(sectionPoints, {
+            color: baseColor,
+            weight: isTransitionLeg ? 5 : 4 + (sectionIndex % 2),
+            opacity: isTransitionLeg ? 0.9 : 0.7 + (sectionIndex % 2) * 0.2,
+            lineCap: 'butt',
+            lineJoin: 'round',
+            className: 'animate-route'
+          }).addTo(map);
+          routeLayers.push(polyline);
+        }
+      });
+    };
 
     const fetchRoute = async () => {
       try {
@@ -1027,8 +1170,15 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometry
           const data = await response.json();
           const legs = data?.trip?.legs || [];
           const summary = data?.trip?.summary;
+          const legDurations = legs.map((leg) => {
+            const seconds = leg?.summary?.time;
+            if (typeof seconds === 'number' && !Number.isNaN(seconds)) {
+              return Math.max(0, Math.round(seconds / 60));
+            }
+            return null;
+          });
 
-          const latLngs = legs.flatMap((leg) => {
+          const legLatLngs = legs.map((leg) => {
             const shape = leg?.shape;
 
             if (Array.isArray(shape)) {
@@ -1039,15 +1189,12 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometry
 
             return decodePolyline6(shape);
           });
+          const latLngs = legLatLngs.flat();
 
           if (latLngs.length > 1) {
-            routeLayer = L.polyline(latLngs, {
-              color: '#4A6CF7',
-              weight: 4,
-              opacity: 0.8,
-              className: 'animate-route'
-            }).addTo(map);
+            drawColoredSections(legLatLngs);
           }
+          onRouteLegDurationsChange?.(legDurations);
           onRouteGeometryChange?.(latLngs);
 
           const totalTimeSeconds = summary?.time;
@@ -1062,28 +1209,61 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometry
         // Fallback OSRM si Valhalla indisponible
         const osrmCoords = waypointCoords.map((p) => `${p.lon},${p.lat}`).join(';');
         const osrmResponse = await fetch(
-          `https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=full&geometries=polyline6&alternatives=false&steps=false`,
+          `https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=false&geometries=polyline6&alternatives=false&steps=true`,
           { signal: abortController.signal }
         );
 
         if (!osrmResponse.ok) {
           onRouteDurationChange?.(null);
+          onRouteLegDurationsChange?.([]);
           onRouteGeometryChange?.([]);
           return;
         }
 
         const osrmData = await osrmResponse.json();
         const route = osrmData?.routes?.[0];
-        const latLngs = decodePolyline6(route?.geometry || '');
+        const osrmLegs = route?.legs || [];
+        const legDurations = osrmLegs.map((leg) => {
+          const seconds = leg?.duration;
+          if (typeof seconds === 'number' && !Number.isNaN(seconds)) {
+            return Math.max(0, Math.round(seconds / 60));
+          }
+          return null;
+        });
+
+        // Build per-leg coordinates from steps geometry (exact waypoint boundaries)
+        const legLatLngs = osrmLegs.map((leg) => {
+          const steps = leg?.steps || [];
+          const coords = [];
+          steps.forEach((step, stepIdx) => {
+            const stepCoords = decodePolyline6(step?.geometry || '');
+            // Skip first point of each step (except first step) to avoid duplicates
+            const start = stepIdx > 0 ? 1 : 0;
+            for (let k = start; k < stepCoords.length; k++) {
+              coords.push(stepCoords[k]);
+            }
+          });
+          return coords;
+        }).filter((coords) => coords.length >= 2);
+
+        const latLngs = legLatLngs.flat();
 
         if (latLngs.length > 1) {
-          routeLayer = L.polyline(latLngs, {
-            color: '#4A6CF7',
-            weight: 4,
-            opacity: 0.8,
-            className: 'animate-route'
-          }).addTo(map);
+          if (legLatLngs.length > 0) {
+            drawColoredSections(legLatLngs);
+          } else {
+            const fallbackLayer = L.polyline(latLngs, {
+              color: '#4A6CF7',
+              weight: 4,
+              opacity: 0.8,
+              lineCap: 'butt',
+              lineJoin: 'round',
+              className: 'animate-route'
+            }).addTo(map);
+            routeLayers.push(fallbackLayer);
+          }
         }
+        onRouteLegDurationsChange?.(legDurations);
         onRouteGeometryChange?.(latLngs);
 
         const totalTimeSeconds = route?.duration;
@@ -1095,6 +1275,7 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometry
       } catch (error) {
         if (error?.name !== 'AbortError') {
           onRouteDurationChange?.(null);
+          onRouteLegDurationsChange?.([]);
           onRouteGeometryChange?.([]);
         }
       }
@@ -1105,14 +1286,17 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometry
     return () => {
       abortController.abort();
       onRouteDurationChange?.(null);
+      onRouteLegDurationsChange?.([]);
       onRouteGeometryChange?.([]);
-      if (routeLayer && map.hasLayer(routeLayer)) {
-        map.removeLayer(routeLayer);
-      }
+      routeLayers.forEach((layer) => {
+        if (layer && map.hasLayer(layer)) map.removeLayer(layer);
+      });
     };
-  }, [map, waypoints, onRouteDurationChange, onRouteGeometryChange, routePreferences]);
+  }, [map, waypoints, onRouteDurationChange, onRouteLegDurationsChange, onRouteGeometryChange, routePreferences, segmentConfig]);
 
   return null;
 };
 
 export default Carte;
+
+
