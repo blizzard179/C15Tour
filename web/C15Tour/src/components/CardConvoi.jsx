@@ -39,6 +39,7 @@ const mergeGeneralSettings = (input) => ({
 });
 
 const BACKEND_BASE_URL = "http://localhost:3000";
+const MOBILE_DEEP_LINK_BASE = "c15tourmobile://join";
 const SEGMENT_COLOR_PALETTE = ["#4A6CF7", "#2AA876", "#FF9F1C", "#E63946", "#7B61FF", "#0096C7"];
 
 export default function CardConvoi({
@@ -58,8 +59,11 @@ export default function CardConvoi({
   onGeneralSettingsChange,
   canExportGpx = false,
   onExportGpx,
+  canExportPdf = false,
+  onExportPdf,
   canSaveConvoy = false,
   onSaveConvoy,
+  onPersistConvoy,
   onBackToConvoySelector,
   onConvoyNameChange,
   onSegmentConfigChange,
@@ -715,16 +719,21 @@ export default function CardConvoi({
     onExportGpx?.();
   };
 
-  const handleSaveConvoyLocally = () => {
+  const handleExportPdf = () => {
+    onExportPdf?.();
+  };
+
+  const handleSaveConvoyLocally = async () => {
     if (!waypoints || waypoints.length < 2) {
       setExportSaveMessage("Impossible d'enregistrer localement : au moins 2 étapes requises.");
       return;
     }
 
     const tripPayload = buildTripPayload();
+    const steps = await buildStepsPayload();
     const pendingPayload = {
       trip: tripPayload,
-      steps: buildStepsPayload()
+      steps
     };
 
     saveTripPayloadLocally(pendingPayload);
@@ -787,22 +796,65 @@ export default function CardConvoi({
     };
   };
 
-  const buildStepsPayload = () => {
+  const reverseGeocodeAddress = async (lat, lng) => {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=json`
+      );
+      if (!response.ok) {
+        return null;
+      }
+      const data = await response.json();
+      return data?.display_name || null;
+    } catch (error) {
+      console.warn('Reverse geocode failed', error);
+      return null;
+    }
+  };
+
+  const getStepAddress = async (waypoint, index) => {
+    if (waypoint.address) {
+      return waypoint.address;
+    }
+
+    const lat = Number(waypoint.lat);
+    const lng = Number(waypoint.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      const reversedAddress = await reverseGeocodeAddress(lat, lng);
+      if (reversedAddress) {
+        return reversedAddress;
+      }
+      return `${lat}, ${lng}`;
+    }
+
+    return waypoint.display_name || waypoint.name || waypointNames[index] || "";
+  };
+
+  const buildStepsPayload = async () => {
+    const stepAddresses = await Promise.all(
+      waypoints.map((waypoint, index) => getStepAddress(waypoint, index))
+    );
+
     return waypoints.map((waypoint, index) => {
-      const address =
-        waypoint.display_name || waypoint.address || waypoint.name || waypointNames[index] || `${waypoint.lat}, ${waypoint.lng}`;
-      const nameToUse = waypointNames[index] || address || `Etape ${index + 1}`;
+      var address = stepAddresses[index];
+      address = address.substring(0, 255);
+      var nameToUse = waypointNames[index] || address || `Etape ${index + 1}`;
+      nameToUse = nameToUse.substring(0, 100);
       const stepConfig = stepsConfig[index] || getStepLoadConfig(index);
       const shouldStop = Boolean(stepConfig.hasBreak);
-      const stopDuration = Number.isFinite(stepConfig.breakTime) ? stepConfig.breakTime : 0;
+      const stopDuration = Number.isFinite(stepConfig.breakTime) ? stepConfig.breakTime : null;
 
       return {
         step_name: nameToUse,
         step_address: address,
         step_latitude: Number(waypoint.lat),
         step_longitude: Number(waypoint.lng),
-        step_is_stop: false,
-        step_stop_duration: null,
+        step_is_stop: shouldStop,
+        step_stop_duration: shouldStop && stopDuration != null ? stopDuration : null,
         step_order: index + 1,
         step_no_sections: index < segmentCount ? getStepSegmentSections(index) : 1
       };
@@ -869,7 +921,7 @@ export default function CardConvoi({
   };
 
   const persistTripSteps = async (tripId) => {
-    const steps = buildStepsPayload();
+    const steps = await buildStepsPayload();
     for (const step of steps) {
       await createTripStep(tripId, step);
     }
@@ -877,7 +929,7 @@ export default function CardConvoi({
 
   const syncTripSteps = async (tripId) => {
     const existingSteps = await fetchExistingTripSteps(tripId);
-    const steps = buildStepsPayload();
+    const steps = await buildStepsPayload();
     const finalStepIds = [];
     const updateCount = Math.min(existingSteps.length, steps.length);
 
@@ -906,7 +958,7 @@ export default function CardConvoi({
   const handlePersistConvoy = async () => {
     setPersistMessage("");
     if (!waypoints || waypoints.length < 2) {
-      setPersistMessage("Un convoi doit contenir au moins deux étapes pour être enregistre.");
+      setPersistMessage("Un convoi doit contenir au moins deux étapes pour être enregistré.");
       return;
     }
 
@@ -917,9 +969,10 @@ export default function CardConvoi({
     }
 
     const tripPayload = buildTripPayload();
+    const steps = await buildStepsPayload();
     const pendingPayload = {
       trip: tripPayload,
-      steps: buildStepsPayload(),
+      steps,
       backendTripId
     };
 
@@ -937,10 +990,10 @@ export default function CardConvoi({
         body: JSON.stringify(tripPayload)
       });
 
-    if (!tripResponse.ok) {
+      if (!tripResponse.ok) {
         const errorBody = await tripResponse.json().catch(() => null);
         throw new Error(errorBody?.error || tripResponse.statusText || `HTTP ${tripResponse.status}`);
-    }
+      }
 
       const createdTrip = await tripResponse.json();
       const tripId = createdTrip.trip_id;
@@ -970,22 +1023,24 @@ export default function CardConvoi({
           deleteTrip = true;
         });
 
-        if (deleteTrip) {
-          // Suppression du trip créé pour éviter d'avoir un trip sans étapes
-          await fetch(`${BACKEND_BASE_URL}/api/trips/${createdTrip.trip_id}`, {
-            method: "DELETE"
-          }).catch((deleteError) => {
-            console.error("Failed to delete trip after steps persistence failure", deleteError);
-          });
+          if (deleteTrip) {
+            // Suppression du trip créé pour éviter d'avoir un trip sans étapes
+            setBackendTripId(null);
+            await fetch(`${BACKEND_BASE_URL}/api/trips/${createdTrip.trip_id}`, {
+              method: "DELETE"
+            }).catch((deleteError) => {
+              console.error("Failed to delete trip after steps persistence failure", deleteError);
+            });
+            throw new Error("Une erreur est survenue lors de l'enregistrement des étapes. Veuillez réessayer.");
+          }
         }
-
-        throw new Error("Une erreur est survenue lors de l'enregistrement des étapes. Veuillez réessayer.");
+        clearPendingTripPayload();
+        setShareTrip(createdTrip);
+        onTripPersisted?.(createdTrip, savedLocally);
+        setPersistMessage("Convoi enregistré avec succès.");
+        onPersistConvoy?.(createdTrip.trip_id);
       }
-      clearPendingTripPayload();
-      setShareTrip(createdTrip);
-      onTripPersisted?.(createdTrip, savedLocally);
-      setPersistMessage("Convoi enregistre avec succes.");
-    } catch (error) {
+     catch (error) {
       console.error("Failed to persist convoy", error);
       setPersistMessage(
         `Erreur lors de l'enregistrement du convoi : ${error.message || "Une erreur s'est produite"}`
@@ -1000,22 +1055,22 @@ export default function CardConvoi({
     return (
       <div className="waypoint-config-overlay">
         <div className="waypoint-config-popup" ref={popupRef}>
-          <h3>Configuration de l'etape</h3>
+          <h3>Configuration de l'étape</h3>
 
           <div className="form-group">
-            <label htmlFor="step-name">Nom de l'etape</label>
+            <label htmlFor="step-name">Nom de l'étape</label>
             <input
               id="step-name"
               type="text"
               value={currentEditData.name}
               onChange={(e) => updateEditDataItem(index, (prev) => ({ ...prev, name: e.target.value }))}
               className="config-input"
-              placeholder="Nom de l'etape"
+              placeholder="Nom de l'étape"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="arrival-time">Heure d'arrivee</label>
+            <label htmlFor="arrival-time">Heure d'arrivée</label>
             <input
               id="arrival-time"
               type="time"
@@ -1202,7 +1257,7 @@ export default function CardConvoi({
           <div className="settings-section">
             <div className="settings-section-title">Vitesse</div>
             <div className="settings-row">
-              <span>Vitesse generale</span>
+              <span>Vitesse générale</span>
               <div className="settings-inline">
                 <input
                   type="number"
@@ -1225,7 +1280,7 @@ export default function CardConvoi({
             </div>
 
             <label className="settings-row">
-              <span>Reduction automatique</span>
+              <span>Réduction automatique</span>
               <input
                 type="checkbox"
                 checked={generalSettingsDraft.speed.autoReductionEnabled}
@@ -1264,7 +1319,7 @@ export default function CardConvoi({
             )}
           </div>
 
-          <div className="general-settings-actions">
+          <div className="general-settings-actions general-settings-actions--settings">
             <button className="delete-btn" onClick={closeGeneralSettings}>ANNULER</button>
             <button className="validate-btn" onClick={saveGeneralSettings}>VALIDER</button>
           </div>
@@ -1277,10 +1332,10 @@ export default function CardConvoi({
     if (!isShareModalOpen) return null;
     const participantCode = getParticipantShareCode();
     const organizerUrl = shareTrip?.trip_admin_code
-      ? `${BACKEND_BASE_URL}/api/trips/admin/${shareTrip.trip_admin_code}`
+      ? `${MOBILE_DEEP_LINK_BASE}?role=leader&code=${encodeURIComponent(shareTrip.trip_admin_code)}`
       : "";
     const participantUrl = participantCode
-      ? `${BACKEND_BASE_URL}/api/trips/code/${participantCode}`
+      ? `${MOBILE_DEEP_LINK_BASE}?role=participant&code=${encodeURIComponent(participantCode)}`
       : "";
 
     return (
@@ -1337,7 +1392,7 @@ export default function CardConvoi({
           </div>
 
           <div className="general-settings-actions">
-            <button className="delete-btn" onClick={closeShareModal}>FERMER</button>
+            <button className="validate-btn" onClick={closeShareModal}>✗ FERMER</button>
           </div>
         </div>
       </div>
@@ -1357,8 +1412,13 @@ export default function CardConvoi({
 
             <div className="settings-row export-row">
               <span>PDF</span>
-              <button className="export-link-btn" type="button" disabled>
-                Telecharger
+              <button
+                className="export-link-btn"
+                type="button"
+                onClick={handleExportPdf}
+                disabled={!canExportPdf}
+              >
+                Télécharger
               </button>
             </div>
 
@@ -1370,7 +1430,7 @@ export default function CardConvoi({
                 onClick={handleExportGpx}
                 disabled={!canExportGpx}
               >
-                Telecharger
+                Télécharger
               </button>
             </div>
 
@@ -1389,7 +1449,9 @@ export default function CardConvoi({
           </div>
 
           <div className="general-settings-actions">
-            <button className="delete-btn" onClick={closeExportModal}>RETOUR</button>
+            <button className="validate-btn export-back-btn" onClick={closeExportModal}>
+              RETOUR
+            </button>
           </div>
         </div>
       </div>
@@ -1444,8 +1506,8 @@ export default function CardConvoi({
         <div className="convoyBody">
           <div className="convoySection">
             <div className="convoySectionLeft">
-              <img src={FlagIcon} alt="Depart" className="flagIcon" />
-              <span className="label">DEPART</span>
+              <img src={FlagIcon} alt="Départ" className="flagIcon" />
+              <span className="label">DÉPART</span>
             </div>
 
             <div className="timeEdit">
@@ -1611,7 +1673,7 @@ export default function CardConvoi({
           <div className="convoySection bottom">
             <div className="convoySectionLeft">
               <img src={FlagIcon} alt="Arrivee" className="flagIcon" />
-              <span className="label">ARRIVEE</span>
+              <span className="label">ARRIVÉE</span>
             </div>
             <div className="arriveeTime">{calculateArrivalTime()}</div>
           </div>

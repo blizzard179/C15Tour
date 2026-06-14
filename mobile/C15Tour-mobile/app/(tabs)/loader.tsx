@@ -1,24 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
+import { useAuth } from '@/context/auth';
 import LogoAccueil from '../../../../shared/global_assets/logo_accueil.svg';
 
 const damier = require('../../assets/images/damier_accueil_mobile.png');
 const loaderAnimation = require('../../../../shared/global_assets/gif/loadingLoop.gif');
 const loaderAnimationJump = require('../../../../shared/global_assets/gif/loadingJump.gif');
 const LOADER_CYCLE_DURATION_MS = 4500;
-const LOOP_PROBABILITY = 0.25;
+const REDIRECT_DELAY_MS = 5000;
+const LOOP_PROBABILITY = 0.2;
 
-type Profile = 'leader' | 'participant';
+export type LoaderProfile = 'leader' | 'participant';
+
+type ConvoyLoaderProps = {
+  profile: LoaderProfile;
+  isMapReady?: boolean;
+};
 
 function pickLoaderGif() {
   return Math.random() < LOOP_PROBABILITY ? loaderAnimation : loaderAnimationJump;
 }
 
-export default function LoaderScreen() {
+export function ConvoyLoader({ profile, isMapReady = false }: ConvoyLoaderProps) {
   const translateX = useRef(new Animated.Value(300)).current;
-  const profile: Profile = 'leader';
-  const [isMapReady] = useState(false);
   const [currentLoaderGif, setCurrentLoaderGif] = useState(() => pickLoaderGif());
   const profileContent = {
     leader: {
@@ -86,6 +92,24 @@ export default function LoaderScreen() {
       </View>
     </ImageBackground>
   );
+}
+
+export default function LoaderScreen() {
+  const router = useRouter();
+  const { role } = useAuth();
+  const profile: LoaderProfile = role ?? 'participant';
+
+  useEffect(() => {
+    const redirectTimer = setTimeout(() => {
+      router.replace('/(tabs)/explore');
+    }, REDIRECT_DELAY_MS);
+
+    return () => {
+      clearTimeout(redirectTimer);
+    };
+  }, [router]);
+
+  return <ConvoyLoader profile={profile} />;
 }
 
 const styles = StyleSheet.create({

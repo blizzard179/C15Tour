@@ -16,8 +16,8 @@ const createTelemetry = async (tripId, data) => {
       telemetry_trip_id: parseInt(tripId),
       telemetry_latitude: data.latitude,
       telemetry_longitude: data.longitude,
-      telemetry_speed: data.speed || null,
-      telemetry_heading: data.heading || null,
+      telemetry_speed: data.speed ?? null,
+      telemetry_heading: data.heading ?? null,
       telemetry_timestamp: data.timestamp ? new Date(data.timestamp) : new Date()
     }
   });
@@ -50,7 +50,28 @@ const getTelemetryByTrip = async (tripId, since) => {
   });
 };
 
+// Récupérer la dernière position GPS d'un trip
+const getLatestTelemetryByTrip = async (tripId) => {
+  const trip = await prisma.trip.findUnique({
+    where: { trip_id: parseInt(tripId) }
+  });
+
+  if (!trip) {
+    throw { status: 404, message: 'Trip non trouvé' };
+  }
+
+  return prisma.telemetry.findFirst({
+    where: {
+      telemetry_trip_id: parseInt(tripId)
+    },
+    orderBy: {
+      telemetry_timestamp: 'desc'
+    }
+  });
+};
+
 export default {
   createTelemetry,
-  getTelemetryByTrip
+  getTelemetryByTrip,
+  getLatestTelemetryByTrip
 };

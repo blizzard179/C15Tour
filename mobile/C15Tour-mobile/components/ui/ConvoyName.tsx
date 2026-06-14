@@ -1,12 +1,15 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-const DEFAULT_CONVOY_NAME = 'C15 Fiesta Tour #1';
+import { useAuth } from '@/context/auth';
 
 export default function ConvoyName() {
+  const { trip } = useAuth();
+  const convoyName = trip?.trip_name?.trim() || 'C15 Fiesta Tour #1';
+
   return (
     <View style={styles.container}>
       <Text numberOfLines={1} style={styles.label}>
-        {DEFAULT_CONVOY_NAME}
+        {convoyName}
       </Text>
     </View>
   );

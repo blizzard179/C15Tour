@@ -1,7 +1,7 @@
 import { Alert, Linking } from "react-native";
 import * as Location from "expo-location";
 
-export default async function checkLocationPermission() {
+export async function checkLocationPermission() {
     try{
         const permission = await Location.getForegroundPermissionsAsync();
 
@@ -45,4 +45,8 @@ export default async function checkLocationPermission() {
         return false;
     }
 }
+
+export default {
+    checkLocationPermission
+};
 
