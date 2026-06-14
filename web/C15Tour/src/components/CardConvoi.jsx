@@ -274,6 +274,17 @@ export default function CardConvoi({
       }
 
       setPendingAddSegment(null);
+    } else if (!pendingAddSegment && currentCount > previousCount && currentCount > 1) {
+      // Waypoint added directly from map (no pending): inherit rank of previous last waypoint
+      const newWaypointIndex = currentCount - 1;
+      const inheritRank = getStepSegmentRank(currentCount - 2);
+      setStepsConfig((prev) => ({
+        ...prev,
+        [newWaypointIndex]: {
+          ...(prev[newWaypointIndex] || {}),
+          segmentRank: inheritRank
+        }
+      }));
     }
 
     previousWaypointCountRef.current = currentCount;
@@ -292,13 +303,15 @@ export default function CardConvoi({
     return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
   };
 
-  const getStepSegmentColor = (index) => {
-    return stepsConfig[index]?.segmentColor || SEGMENT_COLOR_PALETTE[index % SEGMENT_COLOR_PALETTE.length];
-  };
   const getStepSegmentRank = (index) => {
     const rawValue = stepsConfig[index]?.segmentRank;
     const parsed = Number.parseInt(rawValue, 10);
     return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+  };
+
+  const getStepSegmentColor = (index) => {
+    const rank = getStepSegmentRank(index);
+    return stepsConfig[index]?.segmentColor || SEGMENT_COLOR_PALETTE[(rank - 1) % SEGMENT_COLOR_PALETTE.length];
   };
 
   useEffect(() => {
