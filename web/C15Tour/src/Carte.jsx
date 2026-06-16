@@ -134,6 +134,7 @@ function Carte() {
     const [editingWaypointIndex, setEditingWaypointIndex] = useState(null);
     const [routeDurationMinutes, setRouteDurationMinutes] = useState(null);
     const [routeLegDurationsMinutes, setRouteLegDurationsMinutes] = useState([]);
+    const [routeLegDistancesKm, setRouteLegDistancesKm] = useState([]);
     const [routeCoordinates, setRouteCoordinates] = useState([]);
     const [showConvoySelector, setShowConvoySelector] = useState(true);
     const [isConvoySelectorOpen, setIsConvoySelectorOpen] = useState(false);
@@ -197,8 +198,18 @@ function Carte() {
         const reduction = Math.max(0, Number(generalSettings?.speed?.reductionPercent) || 0);
         minutes *= 1 + reduction / 100;
       }
-      return Math.max(0, Math.round(minutes));
-    }, [totalDistanceKm, configuredSpeedKmH, generalSettings]);
+      const breakMinutes = waypoints.reduce((total, waypoint, index) => {
+        const configuredBreak = Number(stepConfigs[index]?.breakTime);
+        if (Number.isFinite(configuredBreak) && configuredBreak > 0) {
+          return total + configuredBreak;
+        }
+
+        const hasStop = waypoint?.step_is_stop ?? waypoint?.isStop ?? false;
+        const loadedBreak = Number(waypoint?.step_stop_duration ?? waypoint?.stopDuration);
+        return total + (hasStop && Number.isFinite(loadedBreak) && loadedBreak > 0 ? loadedBreak : 0);
+      }, 0);
+      return Math.max(0, Math.round(minutes) + breakMinutes);
+    }, [totalDistanceKm, configuredSpeedKmH, generalSettings, stepConfigs, waypoints]);
 
     const areSegmentConfigsEqual = (a = [], b = []) => {
       if (!Array.isArray(a) || !Array.isArray(b)) return false;
@@ -776,6 +787,7 @@ function Carte() {
                     map={mapRef.current}
                     onRouteDurationChange={setRouteDurationMinutes}
                     onRouteLegDurationsChange={setRouteLegDurationsMinutes}
+                    onRouteLegDistancesChange={setRouteLegDistancesKm}
                     onRouteGeometryChange={setRouteCoordinates}
                     routePreferences={generalSettings}
                     segmentConfig={segmentConfig}
@@ -916,6 +928,8 @@ function Carte() {
                       initialBackendTripId={currentSavedConvoy?.backendTripId || currentSavedConvoy?.shareTrip?.trip_id || null}
                     routeDurationMinutes={routeDurationMinutes}
                     routeLegDurationsMinutes={routeLegDurationsMinutes}
+                    routeLegDistancesKm={routeLegDistancesKm}
+                    routeDistanceKm={totalDistanceKm}
                     generalSettings={generalSettings}
                     onUpdateWaypoint={(index, newName, newCoords = null, metadata = null) => {
                         // Mise Ã  jour du nom 
@@ -1076,8 +1090,44 @@ const decodePolyline6 = (encoded) => {
   return coordinates;
 };
 
+const measurePathDistanceKm = (coordinates) => {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return null;
+
+  const toRad = (value) => (value * Math.PI) / 180;
+  let total = 0;
+
+  for (let i = 1; i < coordinates.length; i += 1) {
+    const lat1 = Number(coordinates[i - 1]?.[0]);
+    const lon1 = Number(coordinates[i - 1]?.[1]);
+    const lat2 = Number(coordinates[i]?.[0]);
+    const lon2 = Number(coordinates[i]?.[1]);
+    if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) continue;
+
+    const earthRadiusKm = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const s1 = Math.sin(dLat / 2);
+    const s2 = Math.sin(dLon / 2);
+    const h =
+      s1 * s1 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * s2 * s2;
+    total += 2 * earthRadiusKm * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  }
+
+  return total > 0 ? total : null;
+};
+
 // Composant pour gerer le routage 
-const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteLegDurationsChange, onRouteGeometryChange, routePreferences, segmentConfig = [] }) => {
+const RoutingControl = ({
+  waypoints,
+  map,
+  onRouteDurationChange,
+  onRouteLegDurationsChange,
+  onRouteLegDistancesChange,
+  onRouteGeometryChange,
+  routePreferences,
+  segmentConfig = []
+}) => {
   useEffect(() => {
     if (!map || waypoints.length < 2) return;
 
@@ -1195,6 +1245,7 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteLegDurat
             drawColoredSections(legLatLngs);
           }
           onRouteLegDurationsChange?.(legDurations);
+          onRouteLegDistancesChange?.(legLatLngs.map(measurePathDistanceKm));
           onRouteGeometryChange?.(latLngs);
 
           const totalTimeSeconds = summary?.time;
@@ -1216,6 +1267,7 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteLegDurat
         if (!osrmResponse.ok) {
           onRouteDurationChange?.(null);
           onRouteLegDurationsChange?.([]);
+          onRouteLegDistancesChange?.([]);
           onRouteGeometryChange?.([]);
           return;
         }
@@ -1264,6 +1316,7 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteLegDurat
           }
         }
         onRouteLegDurationsChange?.(legDurations);
+        onRouteLegDistancesChange?.(legLatLngs.map(measurePathDistanceKm));
         onRouteGeometryChange?.(latLngs);
 
         const totalTimeSeconds = route?.duration;
@@ -1276,6 +1329,7 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteLegDurat
         if (error?.name !== 'AbortError') {
           onRouteDurationChange?.(null);
           onRouteLegDurationsChange?.([]);
+          onRouteLegDistancesChange?.([]);
           onRouteGeometryChange?.([]);
         }
       }
@@ -1287,12 +1341,22 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteLegDurat
       abortController.abort();
       onRouteDurationChange?.(null);
       onRouteLegDurationsChange?.([]);
+      onRouteLegDistancesChange?.([]);
       onRouteGeometryChange?.([]);
       routeLayers.forEach((layer) => {
         if (layer && map.hasLayer(layer)) map.removeLayer(layer);
       });
     };
-  }, [map, waypoints, onRouteDurationChange, onRouteLegDurationsChange, onRouteGeometryChange, routePreferences, segmentConfig]);
+  }, [
+    map,
+    waypoints,
+    onRouteDurationChange,
+    onRouteLegDurationsChange,
+    onRouteLegDistancesChange,
+    onRouteGeometryChange,
+    routePreferences,
+    segmentConfig
+  ]);
 
   return null;
 };
