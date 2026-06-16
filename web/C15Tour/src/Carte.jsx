@@ -917,7 +917,7 @@ function Carte() {
                     routeDurationMinutes={routeDurationMinutes}
                     routeLegDurationsMinutes={routeLegDurationsMinutes}
                     generalSettings={generalSettings}
-                    onUpdateWaypoint={(index, newName, newCoords = null) => {
+                    onUpdateWaypoint={(index, newName, newCoords = null, metadata = null) => {
                         // Mise Ã  jour du nom 
                         setWaypointNames(prev => {
                             const updated = [...prev];

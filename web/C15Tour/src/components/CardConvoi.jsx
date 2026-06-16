@@ -516,15 +516,21 @@ export default function CardConvoi({
     const loadedConfig = getStepLoadConfig(index);
 
     setConfigPopup(configPopup === index ? null : index);
-    setEditData({
-      name: currentConfig.name !== undefined ? currentConfig.name : currentName,
-      arrivalTime: currentConfig.arrivalTime || "00:00",
-      breakTime: currentConfig.breakTime || 5,
-      hasBreak: currentConfig.breakTime !== undefined ? currentConfig.breakTime > 0 : true,
+    const hasConfiguredBreak = currentConfig.breakTime !== undefined;
+    const hasBreak = hasConfiguredBreak ? currentConfig.breakTime > 0 : loadedConfig.hasBreak;
+
+    setEditData((prev) => ({
+      ...prev,
+      [index]: {
+        name: currentConfig.name !== undefined ? currentConfig.name : currentName,
+        arrivalTime: currentConfig.arrivalTime || "00:00",
+        breakTime: hasConfiguredBreak ? currentConfig.breakTime : loadedConfig.breakTime || 5,
+        hasBreak
+      },
       segmentSections: getStepSegmentSections(index),
       segmentColor: getStepSegmentColor(index),
       segmentRank: getStepSegmentRank(index)
-    });
+    }));
   };
 
   const handleAddWaypointToSegment = (rank) => {
@@ -545,8 +551,8 @@ export default function CardConvoi({
 
     const config = {
       name: nameToSave,
-      arrivalTime: editData.arrivalTime || "00:00",
-      breakTime: editData.hasBreak ? parseInt(editData.breakTime, 10) || 0 : 0,
+      arrivalTime: currentEditData.arrivalTime || "00:00",
+      breakTime: currentEditData.hasBreak ? parseInt(currentEditData.breakTime, 10) || 0 : 0,
       stepNoSections: Math.max(1, parseInt(editData.segmentSections, 10) || 1),
       segmentColor: editData.segmentColor || SEGMENT_COLOR_PALETTE[0],
       segmentRank: Math.max(1, parseInt(editData.segmentRank, 10) || 1)
