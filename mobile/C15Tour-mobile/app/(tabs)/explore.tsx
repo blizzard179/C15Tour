@@ -38,6 +38,7 @@ const MIC_STATUS_COLORS = {
 
 const ITINERARY_CLOSED_RATIO = 0.15;
 const ITINERARY_CONTROL_GAP = 50;
+const STEP_REACHED_THRESHOLD_METERS = 50;
 const AUDIO_STATUS_COLORS = {
   idle: '#CCCCCC',
   connecting: '#BB487C',
@@ -156,6 +157,12 @@ const mapHtmlContent = `
           weight: 4,
           opacity: 0.9
         }).addTo(map);
+        const nextStepLine = L.polyline([], {
+          color: '#2F80ED',
+          weight: 4,
+          opacity: 0.95,
+          dashArray: '8 10'
+        }).addTo(map);
         let leaderMarker = null;
         let leaderAnimationFrame = null;
         let leaderLatLng = null;
@@ -254,6 +261,18 @@ const mapHtmlContent = `
                         map.setView([latitude, longitude], 13);
                     }
                     console.log('Map updated:', latitude, longitude);
+                }
+                if (data.type === 'SET_NEXT_STEP_LINE') {
+                  const { coordinates } = data;
+                  nextStepLine.setLatLngs([]);
+                  if (Array.isArray(coordinates) && coordinates.length > 1) {
+                    const latLngs = coordinates
+                      .map((coord) => Array.isArray(coord) ? [coord[1], coord[0]] : null)
+                      .filter((coord) => Array.isArray(coord));
+                    if (latLngs.length > 1) {
+                      nextStepLine.setLatLngs(latLngs);
+                    }
+                  }
                 }
                 if (data.type === 'SET_LEADER_LOCATION') {
                     const { latitude, longitude, heading } = data;
@@ -517,6 +536,7 @@ export default function ExploreScreen() {
   const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [guidance, setGuidance] = useState<GuidanceResult | null>(null);
+  const [nextStepRouteGeometry, setNextStepRouteGeometry] = useState<RouteGeometry | null>(null);
   const [userStreetName, setUserStreetName] = useState<string | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
   const [networkError, setNetworkError] = useState(false);
@@ -528,15 +548,21 @@ export default function ExploreScreen() {
       if (!trip?.trip_id) {
         setTripSteps([]);
         setRouteGeometry(null);
+        setCurrentStepIndex(0);
+        setNextStepRouteGeometry(null);
         return;
       }
 
       try {
         const data = await fetchTripSteps(trip.trip_id);
         setTripSteps(data);
+        setCurrentStepIndex(0);
+        setNextStepRouteGeometry(null);
       } catch (error) {
         console.error('Erreur reseau lors de la recuperation des etapes:', error);
         setTripSteps([]);
+        setCurrentStepIndex(0);
+        setNextStepRouteGeometry(null);
       }
     };
 
@@ -604,6 +630,25 @@ export default function ExploreScreen() {
   }, [tripSteps, currentStepIndex]);
 
   useEffect(() => {
+    if (!isMapReady || !webViewRef.current || !nextStepRouteGeometry) {
+      webViewRef.current?.postMessage(
+        JSON.stringify({
+          type: 'SET_NEXT_STEP_LINE',
+          coordinates: [],
+        })
+      );
+      return;
+    }
+
+    webViewRef.current.postMessage(
+      JSON.stringify({
+        type: 'SET_NEXT_STEP_LINE',
+        coordinates: nextStepRouteGeometry.coordinates,
+      })
+    );
+  }, [nextStepRouteGeometry, isMapReady]);
+
+  useEffect(() => {
     const fetchStreetName = async () => {
       if (!currentLocation) {
         setUserStreetName(null);
@@ -654,16 +699,19 @@ export default function ExploreScreen() {
   }, [currentLocation, tripSteps]);
 
   useEffect(() => {
+    let isCancelled = false;
+
     const updateGuidance = async () => {
       if (!currentLocation || tripSteps.length === 0) {
         setGuidance(null);
+        setNextStepRouteGeometry(null);
         return;
       }
 
-      const targetIndex = Math.min(currentStepIndex + 1, tripSteps.length - 1);
-      const target = tripSteps[targetIndex];
+      const target = tripSteps[currentStepIndex];
       if (!target) {
         setGuidance(null);
+        setNextStepRouteGeometry(null);
         return;
       }
 
@@ -674,23 +722,34 @@ export default function ExploreScreen() {
 
       if (!Number.isFinite(targetCoords.latitude) || !Number.isFinite(targetCoords.longitude)) {
         setGuidance(null);
+        setNextStepRouteGeometry(null);
         return;
       }
 
       try {
         const result = await computeGuidance(currentLocation, targetCoords);
-        setGuidance(result);
+        if (isCancelled) return;
 
-        if (typeof result.distanceToTargetMeters === 'number' && result.distanceToTargetMeters <= 50) {
+        setGuidance(result);
+        setNextStepRouteGeometry(result.geometry);
+
+        if (typeof result.distanceToTargetMeters === 'number' && result.distanceToTargetMeters <= STEP_REACHED_THRESHOLD_METERS) {
           setCurrentStepIndex((prev) => Math.min(prev + 1, tripSteps.length - 1));
         }
       } catch (error) {
+        if (isCancelled) return;
+
         console.error('Erreur reseau OSRM guidance:', error);
         setGuidance(null);
+        setNextStepRouteGeometry(null);
       }
     };
 
     updateGuidance();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [currentLocation, tripSteps, currentStepIndex]);
 
   // Récupérer la position actuelle au chargement
@@ -916,6 +975,10 @@ export default function ExploreScreen() {
     );
   };
 
+  const handleSkipToNextStep = () => {
+    setCurrentStepIndex((prev) => Math.min(prev + 1, Math.max(tripSteps.length - 1, 0)));
+  };
+
   const statusContent = {
     idle: {
       status: 'MICRO INACTIF',
@@ -933,6 +996,7 @@ export default function ExploreScreen() {
 
   const RoundMicIcon = callStatus === 'muted' ? MicMutedIcon : MicIcon;
   const isCallLive = callStatus === 'live';
+  const canSkipToNextStep = tripSteps.length > 1 && currentStepIndex < tripSteps.length - 1;
   const leaderPanelMessage = leaderAudioError
     ?? (leaderAudioState.status === 'connecting' ? leaderAudioState.message : statusContent.label);
   const participantAudioColor = AUDIO_STATUS_COLORS[participantAudioState.status];
@@ -1062,11 +1126,23 @@ export default function ExploreScreen() {
           styles.recenterButtonPosition,
           { bottom: recenterBottomAnimated, right: horizontalSafeOffset },
         ]}>
+        {canSkipToNextStep && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Passer a l'etape suivante"
+            style={({ pressed }) => [
+              styles.mapControlButton,
+              pressed && styles.recenterButtonPressed,
+            ]}
+            onPress={handleSkipToNextStep}>
+            <MaterialIcons name="skip-next" size={24} color="#2F80ED" />
+          </Pressable>
+        )}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Recentrer ma position"
           style={({ pressed }) => [
-            styles.recenterButton,
+            styles.mapControlButton,
             pressed && styles.recenterButtonPressed,
           ]}
           onPress={handleRecenterPosition}>
@@ -1212,8 +1288,9 @@ const styles = StyleSheet.create({
     right: 18,
     bottom: 60,
     zIndex: 1,
+    gap: 10,
   },
-  recenterButton: {
+  mapControlButton: {
     width: 44,
     height: 44,
     borderRadius: 8,
