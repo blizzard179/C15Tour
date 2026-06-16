@@ -51,6 +51,8 @@ export default function CardConvoi({
   initialBackendTripId = null,
   routeDurationMinutes = null,
   routeLegDurationsMinutes = [],
+  routeLegDistancesKm = [],
+  routeDistanceKm = null,
   generalSettings = DEFAULT_GENERAL_SETTINGS,
   shareTrip: savedShareTrip = null,
   onUpdateWaypoint,
@@ -335,12 +337,21 @@ export default function CardConvoi({
   }, [waypoints.length]);
 
   const getAdjustedRouteDurationMinutes = () => {
+    const speed = Number(resolvedGeneralSettings.speed.generalSpeedKmH);
+    if (speed > 0 && Number.isFinite(routeDistanceKm) && routeDistanceKm >= 0) {
+      let adjusted = (routeDistanceKm / speed) * 60;
+
+      if (resolvedGeneralSettings.speed.autoReductionEnabled) {
+        const reduction = Math.max(0, Number(resolvedGeneralSettings.speed.reductionPercent) || 0);
+        adjusted *= 1 + reduction / 100;
+      }
+
+      return Math.max(0, Math.round(adjusted));
+    }
+
     if (!Number.isFinite(routeDurationMinutes) || routeDurationMinutes < 0) return null;
 
-    const speed = Number(resolvedGeneralSettings.speed.generalSpeedKmH);
-    const speedFactor = speed > 0 ? 50 / speed : 1;
-
-    let adjusted = routeDurationMinutes * speedFactor;
+    let adjusted = routeDurationMinutes;
 
     if (resolvedGeneralSettings.speed.autoReductionEnabled) {
       const reduction = Math.max(0, Number(resolvedGeneralSettings.speed.reductionPercent) || 0);
@@ -351,11 +362,20 @@ export default function CardConvoi({
   };
 
   const getSegmentTravelTime = (index) => {
+    const speed = Number(resolvedGeneralSettings.speed.generalSpeedKmH);
+    const routeLegDistance = routeLegDistancesKm[index];
+    if (speed > 0 && Number.isFinite(routeLegDistance) && routeLegDistance >= 0) {
+      let adjustedLeg = (routeLegDistance / speed) * 60;
+      if (resolvedGeneralSettings.speed.autoReductionEnabled) {
+        const reduction = Math.max(0, Number(resolvedGeneralSettings.speed.reductionPercent) || 0);
+        adjustedLeg *= 1 + reduction / 100;
+      }
+      return Math.max(0, Math.round(adjustedLeg));
+    }
+
     const routeLegDuration = routeLegDurationsMinutes[index];
     if (Number.isFinite(routeLegDuration) && routeLegDuration >= 0) {
-      const speed = Number(resolvedGeneralSettings.speed.generalSpeedKmH);
-      const speedFactor = speed > 0 ? 50 / speed : 1;
-      let adjustedLeg = routeLegDuration * speedFactor;
+      let adjustedLeg = routeLegDuration;
       if (resolvedGeneralSettings.speed.autoReductionEnabled) {
         const reduction = Math.max(0, Number(resolvedGeneralSettings.speed.reductionPercent) || 0);
         adjustedLeg *= 1 + reduction / 100;
