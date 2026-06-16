@@ -30,6 +30,7 @@ export type GuidanceResult = {
   distanceToNextManeuverMeters: number | null;
   distanceToTargetMeters: number | null;
   durationSeconds: number | null;
+  geometry: RouteGeometry | null;
 };
 
 const OSRM_BASE_URL = 'https://router.project-osrm.org/route/v1/driving';
@@ -131,7 +132,7 @@ function buildInstruction(step: any) {
 }
 
 export async function computeGuidance(from: Coordinates, to: Coordinates): Promise<GuidanceResult> {
-  const url = `${OSRM_BASE_URL}/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=false&steps=true&geometries=geojson`;
+  const url = `${OSRM_BASE_URL}/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=full&steps=true&geometries=geojson`;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`OSRM guidance error: ${response.status}`);
@@ -156,7 +157,10 @@ export async function computeGuidance(from: Coordinates, to: Coordinates): Promi
     instruction: buildInstruction(step),
     distanceToNextManeuverMeters,
     distanceToTargetMeters: typeof route?.distance === 'number' ? route.distance : null,
-    durationSeconds: typeof route?.duration === 'number' ? route.duration : null
+    durationSeconds: typeof route?.duration === 'number' ? route.duration : null,
+    geometry: Array.isArray(route?.geometry?.coordinates)
+      ? { coordinates: route.geometry.coordinates }
+      : null
   };
 }
 
