@@ -449,10 +449,16 @@ export class LiveAudioSession {
       return;
     }
 
-    if (state === 'live' && !this.remoteStream) {
+    if (state === 'live') {
+      const status = this.isParticipantPaused ? 'paused' : this.remoteStream ? 'live' : 'waiting';
+
       this.emit({
-        status: 'waiting',
-        message: 'Connexion au direct audio...',
+        status,
+        message: status === 'paused'
+          ? 'Audio en pause.'
+          : status === 'live'
+            ? 'Audio du leader en direct.'
+            : 'Connexion au direct audio...',
       });
     }
   }
@@ -597,3 +603,4 @@ export class LiveAudioSession {
     this.onStateChange(state);
   }
 }
+ export default LiveAudioSession;
