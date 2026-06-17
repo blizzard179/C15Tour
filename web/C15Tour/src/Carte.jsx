@@ -727,7 +727,10 @@ function Carte() {
                     attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
                 {/* Gestion des clics sur la carte */}
-                <ClickHandler setWaypoints={setWaypoints} />
+                <ClickHandler onMapClick={(latlng) => {
+                    setWaypoints(prev => [...prev, latlng]);
+                    setWaypointNames(prev => [...prev, '']);
+                }} />
                 {waypoints.map((point, index) => {
                     const waypointName = waypointNames[index] || '';
                     let lat, lng, displayName;
