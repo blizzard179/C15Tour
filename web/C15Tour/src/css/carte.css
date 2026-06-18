@@ -495,6 +495,13 @@ html,
   background: #fff6fb;
 }
 
+.segment-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .add-segment-btn {
   display: inline-flex;
   align-items: center;
@@ -506,8 +513,6 @@ html,
   padding: 10px 12px;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 8px;
-  align-self: flex-start;
 }
 
 .add-segment-btn:hover {
@@ -541,8 +546,13 @@ html,
   line-height: 1;
 }
 
-.remove-segment-btn:hover {
+.remove-segment-btn:hover:not(:disabled) {
   background: #fff6fb;
+}
+
+.remove-segment-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 /* Responsive overrides for segment list */

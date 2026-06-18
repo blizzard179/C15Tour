@@ -1,9 +1,9 @@
 import { useMapEvents } from 'react-leaflet'
 
-function ClickHandler({ setWaypoints }) {
+function ClickHandler({ onMapClick }) {
   useMapEvents({
     click(e) {
-      setWaypoints(prev => [...prev, e.latlng])
+      onMapClick(e.latlng)
     }
   })
 
