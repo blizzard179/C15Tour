@@ -519,6 +519,17 @@ html,
   background: #fff6fb;
 }
 
+.segment-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.segment-actions-row .add-segment-btn {
+  margin-top: 0;
+}
+
 .remove-segment-btn {
   display: inline-flex;
   align-items: center;
@@ -530,7 +541,7 @@ html,
   color: #b14080;
   border-radius: 10px;
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   line-height: 1;
 }
