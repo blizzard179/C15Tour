@@ -702,6 +702,28 @@ export default function CardConvoi({
     });
   };
 
+  const handleRemoveSegment = () => {
+    if (configuredSegmentsCount <= 1) return;
+    const newCount = configuredSegmentsCount - 1;
+    setStepsConfig((prev) => {
+      const next = {};
+      Object.keys(prev).forEach((key) => {
+        const k = Number(key);
+        const current = prev[k] || {};
+        const currentRank = Number.parseInt(current.segmentRank, 10) || 1;
+        next[k] = {
+          ...current,
+          segmentRank: Math.min(currentRank, newCount)
+        };
+      });
+      return next;
+    });
+    onGeneralSettingsChange?.({
+      ...resolvedGeneralSettings,
+      segmentsCount: newCount
+    });
+  };
+
   const openGeneralSettings = () => {
     setGeneralSettingsDraft(mergeGeneralSettings(resolvedGeneralSettings));
     setIsGeneralSettingsOpen(true);
@@ -1716,6 +1738,7 @@ export default function CardConvoi({
                       </div>
                     );
                   })}
+                    <div className="segment-actions-row">
                     <button
                       type="button"
                       className="add-segment-btn"
@@ -1724,6 +1747,16 @@ export default function CardConvoi({
                       <img alt="" className="plus-icon" src={PlusIcon} />
                       Ajouter un segment
                     </button>
+                    {configuredSegmentsCount > 1 && (
+                      <button
+                        type="button"
+                        className="remove-segment-btn"
+                        onClick={handleRemoveSegment}
+                      >
+                        &minus;
+                      </button>
+                    )}
+                    </div>
                     </>
                   );
                 })()}
