@@ -694,6 +694,14 @@ export default function CardConvoi({
     }));
   };
 
+  const handleAddSegment = () => {
+    const newCount = configuredSegmentsCount + 1;
+    onGeneralSettingsChange?.({
+      ...resolvedGeneralSettings,
+      segmentsCount: newCount
+    });
+  };
+
   const openGeneralSettings = () => {
     setGeneralSettingsDraft(mergeGeneralSettings(resolvedGeneralSettings));
     setIsGeneralSettingsOpen(true);
@@ -1617,7 +1625,9 @@ export default function CardConvoi({
                     }
                   }
 
-                  return runs.map((run, runIdx) => {
+                  return (
+                    <>
+                    {runs.map((run, runIdx) => {
                     const { rank, indexes } = run;
                     const segmentColor = indexes.length > 0
                       ? getStepSegmentColor(indexes[0])
@@ -1705,7 +1715,17 @@ export default function CardConvoi({
                         </div>
                       </div>
                     );
-                  });
+                  })}
+                    <button
+                      type="button"
+                      className="add-segment-btn"
+                      onClick={handleAddSegment}
+                    >
+                      <img alt="" className="plus-icon" src={PlusIcon} />
+                      Ajouter un segment
+                    </button>
+                    </>
+                  );
                 })()}
               </div>
             )}
