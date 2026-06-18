@@ -201,96 +201,57 @@ export default function CardConvoi({
     const previousCount = previousWaypointCountRef.current;
     const currentCount = waypoints.length;
 
-    if (pendingAddSegment && currentCount > previousCount && currentCount > 0) {
+    if (currentCount > previousCount && currentCount > 0) {
       const newWaypointIndex = currentCount - 1;
-      const targetRank = pendingAddSegment.rank;
+      const newWaypoint = waypoints[newWaypointIndex];
+      // Map clicks (ClickHandler) produce {lat,lng} with no display_name.
+      // Search results from ResearchBar always include display_name.
+      const isFromSearch = Boolean(newWaypoint && newWaypoint.display_name !== undefined);
 
-      let insertAfter = -1;
-      for (let i = 0; i < newWaypointIndex; i++) {
-        if (getStepSegmentRank(i) === targetRank) {
-          insertAfter = i;
+      if (pendingAddSegment && isFromSearch) {
+        const targetRank = pendingAddSegment.rank;
+
+        // Find the last existing waypoint with the same rank before the new one,
+        // so we can insert the new waypoint right after it (within its segment block).
+        let insertAfter = -1;
+        for (let i = 0; i < newWaypointIndex; i++) {
+          if (getStepSegmentRank(i) === targetRank) insertAfter = i;
         }
-      }
 
-      const insertPosition = insertAfter + 1;
-      const needsReorder = insertAfter >= 0 && insertPosition < newWaypointIndex;
-
-      // Compute the final stepsConfig after reorder to emit segmentConfig atomically
-      const computeFinalConfigs = (prevStepsConfig) => {
-        const finalConfigs = {};
+        const insertPosition = insertAfter + 1;
+        // Reorder only when there are waypoints of other segments between the
+        // insertion point and the newly appended waypoint.
+        const needsReorder = insertAfter >= 0 && insertPosition < newWaypointIndex;
         if (needsReorder) {
-          const order = Array.from({ length: currentCount }, (_, i) => i);
-          const [moved] = order.splice(newWaypointIndex, 1);
-          order.splice(insertPosition, 0, moved);
-          order.forEach((oldIndex, newIndex) => {
-            if (prevStepsConfig[oldIndex] !== undefined) {
-              finalConfigs[newIndex] = prevStepsConfig[oldIndex];
-            }
+          onReorderWaypoints?.(newWaypointIndex, insertPosition);
+          // Atomically reorder stepsConfig and assign the target rank.
+          setStepsConfig((prev) => {
+            const order = Array.from({ length: currentCount }, (_, i) => i);
+            const [moved] = order.splice(newWaypointIndex, 1);
+            order.splice(insertPosition, 0, moved);
+            const next = {};
+            order.forEach((oldIdx, newIdx) => {
+              if (prev[oldIdx] !== undefined) next[newIdx] = prev[oldIdx];
+            });
+            next[insertPosition] = { ...(next[insertPosition] || {}), segmentRank: targetRank };
+            return next;
           });
-          finalConfigs[insertPosition] = {
-            ...(finalConfigs[insertPosition] || {}),
-            segmentRank: targetRank
-          };
         } else {
-          Object.assign(finalConfigs, prevStepsConfig);
-          finalConfigs[newWaypointIndex] = {
-            ...(prevStepsConfig[newWaypointIndex] || {}),
-            segmentRank: targetRank
-          };
+          setStepsConfig((prev) => ({
+            ...prev,
+            [newWaypointIndex]: { ...(prev[newWaypointIndex] || {}), segmentRank: targetRank }
+          }));
         }
-        return finalConfigs;
-      };
-
-      const finalConfigs = computeFinalConfigs(stepsConfig);
-
-      if (needsReorder) {
-        onReorderWaypoints?.(newWaypointIndex, insertPosition);
-        reorderStepsConfig(newWaypointIndex, insertPosition);
-        setStepsConfig((prev) => ({
-          ...prev,
-          [insertPosition]: {
-            ...(prev[insertPosition] || {}),
-            segmentRank: targetRank
-          }
-        }));
+        setPendingAddSegment(null);
       } else {
+        // Map click (or search without pendingAddSegment): inherit rank from the previous waypoint.
+        // Map clicks never consume pendingAddSegment so the pending intent stays active.
+        const inheritRank = currentCount > 1 ? getStepSegmentRank(currentCount - 2) : 1;
         setStepsConfig((prev) => ({
           ...prev,
-          [newWaypointIndex]: {
-            ...(prev[newWaypointIndex] || {}),
-            segmentRank: targetRank
-          }
+          [newWaypointIndex]: { ...(prev[newWaypointIndex] || {}), segmentRank: inheritRank }
         }));
       }
-
-      // Emit the correct segmentConfig in the same batch as the reorder
-      if (typeof onSegmentConfigChange === 'function') {
-        const finalSegmentConfig = Array.from({ length: currentCount }, (_, idx) => {
-          const cfg = finalConfigs[idx] || {};
-          const rawRank = Number.parseInt(cfg.segmentRank, 10);
-          const rank = Number.isFinite(rawRank) && rawRank >= 1 ? rawRank : 1;
-          const color = cfg.segmentColor || SEGMENT_COLOR_PALETTE[(rank - 1) % SEGMENT_COLOR_PALETTE.length];
-          return {
-            stepNoSections: Math.max(1, Number.parseInt(cfg.stepNoSections, 10) || 1),
-            segmentColor: color,
-            segmentRank: rank
-          };
-        });
-        onSegmentConfigChange(finalSegmentConfig);
-      }
-
-      setPendingAddSegment(null);
-    } else if (!pendingAddSegment && currentCount > previousCount && currentCount > 1) {
-      // Waypoint added directly from map (no pending): inherit rank of previous last waypoint
-      const newWaypointIndex = currentCount - 1;
-      const inheritRank = getStepSegmentRank(currentCount - 2);
-      setStepsConfig((prev) => ({
-        ...prev,
-        [newWaypointIndex]: {
-          ...(prev[newWaypointIndex] || {}),
-          segmentRank: inheritRank
-        }
-      }));
     }
 
     previousWaypointCountRef.current = currentCount;
@@ -696,6 +657,14 @@ export default function CardConvoi({
 
   const handleAddSegment = () => {
     const newCount = configuredSegmentsCount + 1;
+    onGeneralSettingsChange?.({
+      ...resolvedGeneralSettings,
+      segmentsCount: newCount
+    });
+  };
+
+  const handleRemoveSegment = () => {
+    const newCount = Math.max(1, configuredSegmentsCount - 1);
     onGeneralSettingsChange?.({
       ...resolvedGeneralSettings,
       segmentsCount: newCount
@@ -1127,60 +1096,6 @@ export default function CardConvoi({
               onChange={(e) => updateEditDataItem(index, (prev) => ({ ...prev, arrivalTime: e.target.value }))}
               className="config-input"
             />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="segment-sections">Nombre de segments</label>
-            <input
-              id="segment-sections"
-              type="range"
-              min="1"
-              max="6"
-              value={editData.segmentSections}
-              onChange={(e) =>
-                setEditData((prev) => ({ ...prev, segmentSections: parseInt(e.target.value, 10) || 1 }))
-              }
-              className="config-input"
-            />
-            <div>Rang actif: {editData.segmentSections}</div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="segment-rank">Rang du segment</label>
-            <input
-              id="segment-rank"
-              type="range"
-              min="1"
-              max="6"
-              value={editData.segmentRank}
-              onChange={(e) =>
-                setEditData((prev) => ({ ...prev, segmentRank: parseInt(e.target.value, 10) || 1 }))
-              }
-              className="config-input"
-            />
-            <div>Segment {editData.segmentRank}</div>
-          </div>
-
-          <div className="form-group">
-            <label>Couleur du segment</label>
-            <div className="settings-inline">
-              {SEGMENT_COLOR_PALETTE.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  aria-label={`Choisir la couleur ${color}`}
-                  onClick={() => setEditData((prev) => ({ ...prev, segmentColor: color }))}
-                  style={{
-                    width: "22px",
-                    height: "22px",
-                    borderRadius: "50%",
-                    border: editData.segmentColor === color ? "2px solid #111" : "1px solid #ccc",
-                    backgroundColor: color,
-                    cursor: "pointer"
-                  }}
-                />
-              ))}
-            </div>
           </div>
 
           <div className="form-group">
@@ -1652,7 +1567,7 @@ export default function CardConvoi({
                               const isLast = index === waypoints.length - 1;
                               const label =
                                 waypointNames[index] ||
-                                (isFirst ? "Point de depart" : isLast ? "Point d'arrivee" : `Etape ${index}`);
+                                (isFirst ? "Point de depart" : isLast ? "Point d'arrivee" : `Etape ${index + 1}`);
 
                               return (
                                 <div
