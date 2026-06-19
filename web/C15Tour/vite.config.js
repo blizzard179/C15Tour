@@ -19,5 +19,11 @@ export default defineConfig({
     alias: {
       '@shared': path.resolve(__dirname, '../../shared')
     }
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.js',
+    css: true
   }
 })
