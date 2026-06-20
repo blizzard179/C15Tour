@@ -284,7 +284,7 @@ router.post('/:tripId/compute', routingController.computeRoute);
  *     summary: Exporter un convoi en PDF
  *     tags: [Trips]
  */
-router.get('/:tripId/exports/pdf', exportController.exportToPDF);
+router.post('/:tripId/exports/pdf', exportController.exportToPDF);
 
 /**
  * @swagger

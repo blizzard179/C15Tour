@@ -4,8 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest --runInBand",
+    "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
     "dev": "nodemon src/server.js"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {},
+    "extensionsToTreatAsEsm": [],
+    "testMatch": ["**/__tests__/**/*.test.js"]
   },
   "keywords": [],
   "author": "",
@@ -22,11 +29,10 @@
     "swagger-jsdoc": "^6.2.8"
   },
   "devDependencies": {
+    "@jest/globals": "^30.4.1",
+    "jest": "^30.4.2",
     "nodemon": "^3.1.11",
     "prisma": "^5.7.1"
   },
   "type": "module"
-  
-  
 }
-
