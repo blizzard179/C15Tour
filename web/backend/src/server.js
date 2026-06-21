@@ -6,6 +6,8 @@ import tripsRouter from "./routes/tripRoutes.js";
 import stepsRouter from "./routes/stepRoutes.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import attachLiveAudioSignaling from "./services/liveAudioSignalingService.js";
+import { createProxyMiddleware } from 'http-proxy-middleware';
+
 
 const app = express();
 
@@ -22,6 +24,11 @@ app.get("/", (_req, res) => res.json({ message: "C15Tour API" }));
 app.get("/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/trips", tripsRouter);
 app.use("/api", stepsRouter);
+app.use('/api/valhalla', createProxyMiddleware({
+  target: 'https://valhalla1.openstreetmap.de',
+  changeOrigin: true,
+  pathRewrite: { '^/api/valhalla': '' }
+}));
 app.use(errorHandler);
 
 const port = process.env.PORT || 3000;

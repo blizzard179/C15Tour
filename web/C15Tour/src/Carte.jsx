@@ -17,7 +17,8 @@ import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 
 const CONVOYS_STORAGE_KEY = 'c15tour_convoys_v1';
 const LAST_CONVOY_STORAGE_KEY = 'c15tour_last_convoy_id';
-const BACKEND_BASE_URL = 'http://localhost:3000';
+// en dev : const BACKEND_BASE_URL = 'http://localhost:3000';
+const BACKEND_BASE_URL = import.meta.env.VITE_API_URL ?? '';
 const MAP_IMAGE_STORAGE_KEY = 'c15tour_map_image_base64';
 
 // Styles pour le popup personnalisÃ©
