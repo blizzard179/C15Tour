@@ -38,8 +38,8 @@ const mergeGeneralSettings = (input) => ({
   }
 });
 
-const BACKEND_BASE_URL = "http://localhost:3000";
-const MOBILE_DEEP_LINK_BASE = "c15tourmobile://join";
+// en dev : const BACKEND_BASE_URL = 'http://localhost:3000';
+const BACKEND_BASE_URL = import.meta.env.VITE_API_URL ?? '';const MOBILE_DEEP_LINK_BASE = "c15tourmobile://join";
 const SEGMENT_COLOR_PALETTE = ["#4A6CF7", "#2AA876", "#FF9F1C", "#E63946", "#7B61FF", "#0096C7"];
 
 export default function CardConvoi({
