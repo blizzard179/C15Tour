@@ -16,6 +16,29 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
+## Prepare Android Studio build copy
+
+Use this command before building the APK in Android Studio:
+
+```bash
+npm run prepare:android-build
+```
+
+Run it from Git Bash. The command runs `scripts/prepare-android-build.sh`, clears `D:\C15TourForBuildAPK` on every run, then copies only what is needed for the Android build:
+
+- `mobile/c15tour-mobile`
+- `shared`
+
+Generated folders such as Expo output, Gradle output, CMake output and previous APK build artifacts are not copied.
+
+After the command finishes, open this folder in Android Studio:
+
+```text
+D:\C15TourForBuildAPK\mobile\c15tour-mobile\android
+```
+
+Then select the `release` build variant and generate the APK from Android Studio.
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)

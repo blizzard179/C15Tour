@@ -1,7 +1,7 @@
 import * as Audio from "expo-audio";
 import { Alert, Linking } from "react-native";
 
-export default async function checkAudioPermission() {
+export async function checkAudioPermission() {
     try {
         const permission = await Audio.getRecordingPermissionsAsync();
 
@@ -41,3 +41,7 @@ export default async function checkAudioPermission() {
         return false; 
     }
 }
+
+export default {
+    checkAudioPermission
+};

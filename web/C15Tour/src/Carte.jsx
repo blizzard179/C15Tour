@@ -1,8 +1,8 @@
-import './css/carte.css'
+﻿import './css/carte.css'
 import './css/leaflet.css';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useLayoutEffect, useRef, useState, useEffect } from 'react';
+import { useLayoutEffect, useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import RoutingMachine from './helper/RoutingMachine';
 import ClickHandler from './helper/ClickHandler';
 import FlyTo from './helper/FlyTo';
@@ -18,113 +18,127 @@ import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 const CONVOYS_STORAGE_KEY = 'c15tour_convoys_v1';
 const LAST_CONVOY_STORAGE_KEY = 'c15tour_last_convoy_id';
 const BACKEND_BASE_URL = 'http://localhost:3000';
+const MAP_IMAGE_STORAGE_KEY = 'c15tour_map_image_base64';
 
-// Styles pour le popup personnalisé
+// Styles pour le popup personnalisÃ©
 const popupStyles = `
   .custom-popup {
-    padding: 12px;
-    min-width: 200px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+    padding: 10px 12px;
+    min-width: 230px;
+    background: #f8f8f8;
+    border: 2px solid #d670a8;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    color: #b14080;
+    font-family: 'Montserrat', sans-serif;
   }
   .popup-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #f0f0f0;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .popup-title-wrap {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
   }
   .popup-title {
     font-weight: 600;
-    color: #333;
+    color: #BB487C;
+    font-size: 16px;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .popup-subtitle {
+    font-style: italic;
+    color: #d28bb3;
     font-size: 14px;
+    margin-top: 2px;
   }
-  .popup-actions {
+  .popup-top-actions {
     display: flex;
-    gap: 8px;
-    margin-top: 12px;
+    gap: 6px;
+    flex-shrink: 0;
   }
-  .popup-action-btn {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-size: 12px;
-    color: #4A6CF7;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .popup-action-btn:hover {
-    background: #f8f9fa;
-    border-color: #4A6CF7;
-  }
-  .popup-config-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #6c757d;
-    padding: 4px;
-    border-radius: 4px;
+  .popup-icon-btn {
     display: flex;
     align-items: center;
     justify-content: center;
+    background: #fff;
+    border: 1px solid #efc2da;
+    border-radius: 999px;
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+    color: #BB487C;
+    cursor: pointer;
     transition: all 0.2s;
   }
-  .popup-config-btn:hover {
-    color: #4A6CF7;
-    background-color: #f8f9fa;
+  .popup-icon-btn:hover {
+    background: #f8f9fa;
+    border-color: #BB487C;
+  }
+  .popup-line {
+    color: #b14080;
+    font-size: 17px;
+    line-height: 1.2;
+    margin-top: 3px;
+  }
+  .popup-coords {
+    color: #b14080;
+    font-size: 22px;
+    line-height: 1.1;
+    margin-top: 2px;
+    font-weight: 500;
+  }
+  .popup-pin {
+    color: #d670a8;
+    margin-right: 4px;
   }
 `;
 
 // Composant de popup personnalisé
-const CustomPopup = ({ index, name, address }) => {
+const CustomPopup = ({ index, name, address, lat, lng }) => {
+  const displayCoords = Number.isFinite(lat) && Number.isFinite(lng)
+    ? `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+    : '';
+
   return `
     <div class="custom-popup">
       <div class="popup-header">
-        <div>
+        <div class="popup-title-wrap">
           <div class="popup-title">${name || `Etape ${index + 1}`}</div>
-          ${address ? `<div class="popup-address">${address}</div>` : ''}
+          <div class="popup-subtitle"></div>
         </div>
-        <button class="popup-config-btn" onclick="event.stopPropagation(); window.configClickHandler(${index})">
-          <img src="${Pin}" alt="Configurer" width="16" height="16" />
-        </button>
+        <div class="popup-top-actions">
+          <button class="popup-icon-btn" onclick="event.stopPropagation(); window.configClickHandler(${index})" title="Editer">?</button>
+          <button class="popup-icon-btn" onclick="event.stopPropagation(); window.detailsClickHandler(${index})" title="Ajouter">+</button>
+        </div>
       </div>
-      <div class="popup-actions">
-        <button class="popup-action-btn" onclick="event.stopPropagation(); window.itineraireClickHandler(${index})">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="#4A6CF7"/>
-            <path d="M13 7H11V13H17V11H13V7Z" fill="#4A6CF7"/>
-          </svg>
-          Itinéraire
-        </button>
-        <button class="popup-action-btn" onclick="event.stopPropagation(); window.detailsClickHandler(${index})">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="#4A6CF7"/>
-            <path d="M12.31 11.14C10.54 10.28 9.5 9.8 9.5 8.5C9.5 7.4 10.4 6.5 11.5 6.5C12.6 6.5 13.5 7.4 13.5 8.5H15.5C15.5 6.3 13.7 4.5 11.5 4.5C9.3 4.5 7.5 6.3 7.5 8.5C7.5 10.92 9.5 11.86 11.19 12.61C13.12 13.47 14.5 14.1 14.5 15.5C14.5 16.6 13.6 17.5 12.5 17.5C11.4 17.5 10.5 16.6 10.5 15.5H8.5C8.5 17.7 10.3 19.5 12.5 19.5C14.7 19.5 16.5 17.7 16.5 15.5C16.5 13.08 14.5 12.14 12.81 11.39L12.31 11.14Z" fill="#4A6CF7"/>
-          </svg>
-          Détails
-        </button>
-      </div>
+      ${address ? `<div class="popup-line"><span class="popup-pin">?</span>${address}</div>` : ''}
+      ${displayCoords ? `<div class="popup-coords">${displayCoords}</div>` : ''}
     </div>
   `;
 };
-
 function Carte() {
 
     const [waypoints, setWaypoints] = useState([]);
     const [waypointNames, setWaypointNames] = useState([]);
+    const [stepConfigs, setStepConfigs] = useState({});
     const [searchQuery, setSearchQuery] = useState('');
     const mapRef = useRef();
     const importInputRef = useRef();
     const [editingWaypointIndex, setEditingWaypointIndex] = useState(null);
     const [routeDurationMinutes, setRouteDurationMinutes] = useState(null);
+    const [routeLegDurationsMinutes, setRouteLegDurationsMinutes] = useState([]);
+    const [routeLegDistancesKm, setRouteLegDistancesKm] = useState([]);
     const [routeCoordinates, setRouteCoordinates] = useState([]);
     const [showConvoySelector, setShowConvoySelector] = useState(true);
+    const [isConvoySelectorOpen, setIsConvoySelectorOpen] = useState(false);
     const [savedConvoys, setSavedConvoys] = useState([]);
     const [currentConvoyId, setCurrentConvoyId] = useState(null);
     const [currentConvoyName, setCurrentConvoyName] = useState('Nom du convoi');
@@ -142,6 +156,86 @@ function Carte() {
             reductionPercent: 20
         }
     });
+    const [segmentConfig, setSegmentConfig] = useState([]);
+    const [imageExportBase64, setImageExportBase64] = useState(() => {
+      try { return localStorage.getItem(MAP_IMAGE_STORAGE_KEY) || null; } catch { return null; }
+    });
+
+    const haversineKm = (a, b) => {
+      const toRad = (value) => (value * Math.PI) / 180;
+      const lat1 = Number(a?.[0]);
+      const lon1 = Number(a?.[1]);
+      const lat2 = Number(b?.[0]);
+      const lon2 = Number(b?.[1]);
+      if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return 0;
+
+      const earthRadiusKm = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const s1 = Math.sin(dLat / 2);
+      const s2 = Math.sin(dLon / 2);
+      const h =
+        s1 * s1 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * s2 * s2;
+      return 2 * earthRadiusKm * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+    };
+
+    const totalDistanceKm = useMemo(() => {
+      if (!Array.isArray(routeCoordinates) || routeCoordinates.length < 2) return null;
+      let total = 0;
+      for (let i = 1; i < routeCoordinates.length; i += 1) {
+        total += haversineKm(routeCoordinates[i - 1], routeCoordinates[i]);
+      }
+      return total > 0 ? total : null;
+    }, [routeCoordinates]);
+
+    const configuredSpeedKmH = useMemo(() => {
+      const value = Number(generalSettings?.speed?.generalSpeedKmH);
+      return Number.isFinite(value) && value > 0 ? value : null;
+    }, [generalSettings]);
+
+    const totalMinutesFromSpeed = useMemo(() => {
+      if (!Number.isFinite(totalDistanceKm) || !Number.isFinite(configuredSpeedKmH)) return null;
+      let minutes = (totalDistanceKm / configuredSpeedKmH) * 60;
+      const isReduced = Boolean(generalSettings?.speed?.autoReductionEnabled);
+      if (isReduced) {
+        const reduction = Math.max(0, Number(generalSettings?.speed?.reductionPercent) || 0);
+        minutes *= 1 + reduction / 100;
+      }
+      const breakMinutes = waypoints.reduce((total, waypoint, index) => {
+        const configuredBreak = Number(stepConfigs[index]?.breakTime);
+        if (Number.isFinite(configuredBreak) && configuredBreak > 0) {
+          return total + configuredBreak;
+        }
+
+        const hasStop = waypoint?.step_is_stop ?? waypoint?.isStop ?? false;
+        const loadedBreak = Number(waypoint?.step_stop_duration ?? waypoint?.stopDuration);
+        return total + (hasStop && Number.isFinite(loadedBreak) && loadedBreak > 0 ? loadedBreak : 0);
+      }, 0);
+      return Math.max(0, Math.round(minutes) + breakMinutes);
+    }, [totalDistanceKm, configuredSpeedKmH, generalSettings, stepConfigs, waypoints]);
+
+    const areSegmentConfigsEqual = (a = [], b = []) => {
+      if (!Array.isArray(a) || !Array.isArray(b)) return false;
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i += 1) {
+        const left = a[i] || {};
+        const right = b[i] || {};
+        if (
+          Number.parseInt(left.stepNbSections, 10) !== Number.parseInt(right.stepNbSections, 10) ||
+          Number.parseInt(left.segmentRank, 10) !== Number.parseInt(right.segmentRank, 10) ||
+          (left.segmentColor || '') !== (right.segmentColor || '')
+        ) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    const handleSegmentConfigChange = useCallback((newConfig) => {
+      const normalized = Array.isArray(newConfig) ? newConfig : [];
+      setSegmentConfig((prev) => (areSegmentConfigsEqual(prev, normalized) ? prev : normalized));
+    }, []);
 
     const moveItem = (items, fromIndex, toIndex) => {
         if (!Array.isArray(items)) return items;
@@ -155,10 +249,38 @@ function Carte() {
       try {
         const raw = localStorage.getItem(CONVOYS_STORAGE_KEY);
         const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
+        if (!Array.isArray(parsed)) return [];
+
+        const seenShareKeys = new Set();
+        return parsed.map((convoy) => {
+          const shareKey = convoy.backendTripId || convoy.shareTrip?.trip_id || convoy.shareTrip?.trip_user_code || null;
+          if (!shareKey) return convoy;
+
+          if (seenShareKeys.has(shareKey)) {
+            return {
+              ...convoy,
+              backendTripId: null,
+              shareTrip: null
+            };
+          }
+
+          seenShareKeys.add(shareKey);
+          return convoy;
+        });
       } catch {
         return [];
       }
+    };
+
+    const getShareTripFromBackendTrip = (trip) => {
+      if (!trip?.trip_user_code || !trip?.trip_admin_code) return null;
+
+      return {
+        trip_id: trip.trip_id,
+        trip_name: trip.trip_name,
+        trip_user_code: trip.trip_user_code,
+        trip_admin_code: trip.trip_admin_code
+      };
     };
 
     useEffect(() => {
@@ -179,13 +301,14 @@ function Carte() {
     }, [savedConvoys, isStorageLoaded]);
 
     useEffect(() => {
-      // Si un convoi est chargé, on ferme le panneau de sélection
-      // pour réactiver immédiatement l'overlay principal.
+      // Si un convoi est chargÃ©, on ferme le panneau de sÃ©lection
+      // pour rÃ©activer immÃ©diatement l'overlay principal.
       if (!showConvoySelector) return;
+      if (isConvoySelectorOpen) return;
       if (currentConvoyId || waypoints.length > 0) {
         setShowConvoySelector(false);
       }
-    }, [showConvoySelector, currentConvoyId, waypoints.length]);
+    }, [showConvoySelector, isConvoySelectorOpen, currentConvoyId, waypoints.length]);
 
     useEffect(() => {
       if (!currentConvoyId) return;
@@ -194,6 +317,7 @@ function Carte() {
 
     const createNewConvoy = () => {
       const now = new Date();
+      setIsConvoySelectorOpen(false);
       setCurrentConvoyId(null);
       setCurrentConvoyName(`Convoi ${now.toLocaleString('fr-FR')}`);
       setWaypoints([]);
@@ -201,6 +325,86 @@ function Carte() {
       setRouteCoordinates([]);
       setRouteDurationMinutes(null);
       setShowConvoySelector(false);
+    };
+
+    const captureMapScreenshot = async () => {
+      try {
+        const map = mapRef.current;
+        if (!map) return;
+
+        const size = map.getSize();
+        const canvas = document.createElement('canvas');
+        canvas.width = size.x;
+        canvas.height = size.y;
+        const ctx = canvas.getContext('2d');
+
+        // Fond par défaut
+        ctx.fillStyle = '#e8e8e8';
+        ctx.fillRect(0, 0, size.x, size.y);
+
+        // Dessiner les tuiles en les recalculant depuis leur URL (z/x/y → lat/lng → px)
+        const tileImgs = map.getContainer().querySelectorAll(
+          '.leaflet-tile-pane img.leaflet-tile:not(.leaflet-tile-loading)'
+        );
+        await Promise.all(Array.from(tileImgs).map(imgEl => new Promise(resolve => {
+          const match = imgEl.src.match(/\/(\d+)\/(\d+)\/(\d+)\.png/);
+          if (!match) { resolve(); return; }
+          const z = Number(match[1]), x = Number(match[2]), y = Number(match[3]);
+          const n = Math.pow(2, z);
+          const tileLat = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI;
+          const tileLng = (x / n) * 360 - 180;
+          const pt = map.latLngToContainerPoint(L.latLng(tileLat, tileLng));
+          const tileSize = 256 * Math.pow(2, map.getZoom() - z);
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => { ctx.drawImage(img, pt.x, pt.y, tileSize, tileSize); resolve(); };
+          img.onerror = resolve;
+          img.src = imgEl.src;
+        })));
+
+        // Dessiner le tracé de route depuis routeCoordinates (format [[lat,lng], ...])
+        if (Array.isArray(routeCoordinates) && routeCoordinates.length >= 2) {
+          ctx.strokeStyle = '#4A6CF7';
+          ctx.lineWidth = 4;
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          routeCoordinates.forEach(([lat, lng], i) => {
+            const pt = map.latLngToContainerPoint(L.latLng(lat, lng));
+            if (i === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+          });
+          ctx.stroke();
+        }
+
+        // Dessiner les marqueurs des étapes
+        waypoints.forEach((point, index) => {
+          let lat, lng;
+          if (Array.isArray(point)) { [lat, lng] = point; }
+          else if (point?.lat !== undefined) { lat = point.lat; lng = point.lng ?? point.lon; }
+          else return;
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+          const pt = map.latLngToContainerPoint(L.latLng(lat, lng));
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y - 8, 9, 0, Math.PI * 2);
+          ctx.fillStyle = '#d670a8';
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 10px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(index + 1), pt.x, pt.y - 8);
+        });
+
+        const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+        setImageExportBase64(base64);
+        try { localStorage.setItem(MAP_IMAGE_STORAGE_KEY, base64); } catch { /* quota */ }
+      } catch (error) {
+        console.warn('Capture de la carte impossible:', error);
+      }
     };
 
     const saveCurrentConvoyLocal = () => {
@@ -217,13 +421,15 @@ function Carte() {
                   name: currentConvoyName || convoy.name,
                   waypoints,
                   waypointNames,
+                  stepConfigs,
                   generalSettings,
                   updatedAt: nowIso
                 }
-              : convoy
+            : convoy
           )
         );
-        return true;
+        captureMapScreenshot();
+        return currentConvoyId;
       }
 
       const id = `${Date.now()}`;
@@ -232,6 +438,7 @@ function Carte() {
         name: currentConvoyName || `Convoi ${new Date().toLocaleString('fr-FR')}`,
         waypoints,
         waypointNames,
+        stepConfigs,
         generalSettings,
         updatedAt: nowIso
       };
@@ -240,14 +447,40 @@ function Carte() {
       setCurrentConvoyId(id);
       setCurrentConvoyName(convoy.name);
       localStorage.setItem(LAST_CONVOY_STORAGE_KEY, id);
-      return true;
+      captureMapScreenshot();
+      return id;
+    };
+
+    const handleTripPersisted = (trip, convoyId = currentConvoyId) => {
+      const shareTrip = getShareTripFromBackendTrip(trip);
+      if (!shareTrip || !convoyId) return;
+
+      const nowIso = new Date().toISOString();
+      setSavedConvoys((prev) =>
+        prev.map((convoy) =>
+          convoy.id === convoyId
+            ? {
+                ...convoy,
+                backendTripId: shareTrip.trip_id,
+                shareTrip,
+                updatedAt: nowIso
+              }
+            : convoy
+        )
+      );
+    };
+
+    const handlePersistConvoyOnServer = (tripId) => {
+      setCurrentConvoyId(tripId);
     };
 
     const openConvoy = (convoy) => {
+      setIsConvoySelectorOpen(false);
       setCurrentConvoyId(convoy.id);
       setCurrentConvoyName(convoy.name || 'Nom du convoi');
       setWaypoints(Array.isArray(convoy.waypoints) ? convoy.waypoints : []);
       setWaypointNames(Array.isArray(convoy.waypointNames) ? convoy.waypointNames : []);
+      setStepConfigs(convoy.stepConfigs && typeof convoy.stepConfigs === 'object' ? convoy.stepConfigs : {});
       setGeneralSettings(convoy.generalSettings || generalSettings);
       localStorage.setItem(LAST_CONVOY_STORAGE_KEY, convoy.id);
       setShowConvoySelector(false);
@@ -261,8 +494,25 @@ function Carte() {
       }
     };
 
+    const openConvoySelector = () => {
+      setIsConvoySelectorOpen(true);
+      setShowConvoySelector(true);
+      setCurrentConvoyId(null);
+      setCurrentConvoyName('Nom du convoi');
+      setWaypoints([]);
+      setWaypointNames([]);
+      setStepConfigs({});
+      setRouteCoordinates([]);
+      setRouteDurationMinutes(null);
+      setEditingWaypointIndex(null);
+      setSearchQuery('');
+    };
+
     const lastConvoyId = localStorage.getItem(LAST_CONVOY_STORAGE_KEY);
     const lastConvoy = savedConvoys.find((c) => c.id === lastConvoyId) || savedConvoys[0] || null;
+    const currentSavedConvoy = currentConvoyId
+      ? savedConvoys.find((convoy) => convoy.id === currentConvoyId) || null
+      : null;
 
     const parseGpxText = (gpxText, sourceFileName = '') => {
       const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
@@ -280,7 +530,7 @@ function Carte() {
           {
             lat: Number(trkptNodes[0].getAttribute('lat')),
             lng: Number(trkptNodes[0].getAttribute('lon')),
-            display_name: 'Depart'
+            display_name: 'Départ'
           },
           {
             lat: Number(trkptNodes[trkptNodes.length - 1].getAttribute('lat')),
@@ -352,6 +602,7 @@ function Carte() {
         if (waypoints.length < 2) {
             setRouteDurationMinutes(null);
             setRouteCoordinates([]);
+            setRouteLegDurationsMinutes([]);
         }
     }, [waypoints.length]);
 
@@ -428,6 +679,64 @@ function Carte() {
       return true;
     };
 
+    const exportCurrentRouteAsPdf = async () => {
+      if (!currentConvoyId) {
+        alert('Le convoi doit être sauvegardé avant d\'exporter en PDF');
+        return false;
+      }
+
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${currentConvoyId}/exports/pdf`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            mapImage: imageExportBase64 || null
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Backend error:', errorText);
+          alert(`Erreur lors de l'export PDF: Trajet non sauvegardé en base de données ou erreur serveur`);
+          return false;
+        }
+
+        const blob = await response.blob();
+
+        // Vérifier que c'est vraiment un PDF
+        if (blob.type !== 'application/pdf') {
+          console.error('Invalid content type:', blob.type);
+          alert('Le serveur n\'a pas retourné un PDF valide');
+          return false;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const nowIso = new Date().toISOString();
+        const timestamp = nowIso.replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '_');
+        const convoyNameForExport = (currentConvoyName || waypointNames[0] || 'Trajet C15Tour').trim();
+        const sanitizedBaseName = convoyNameForExport
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .replace(/[^a-zA-Z0-9_-]+/g, '_')
+          .replace(/^_+|_+$/g, '')
+          .replace(/_+/g, '_');
+        a.href = url;
+        a.download = `${sanitizedBaseName || `trajet_${timestamp}`}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        return true;
+      } catch (error) {
+        console.error('Error exporting PDF:', error);
+        alert(`Erreur lors de l'export PDF: ${error.message}`);
+        return false;
+      }
+    };
+
     const handleUpdateWaypoint = (index, newName, newCoords = null) => {
         if (newCoords) {
             setWaypoints(prev => {
@@ -456,33 +765,6 @@ function Carte() {
         popupAnchor: [0, -28]
     });
 
-    useLayoutEffect(() => {
-        const updateOverlayLayout = () => {
-            const leftPanel = leftPanelRef.current;
-            const searchLayer = searchLayerRef.current;
-            if (!leftPanel || !searchLayer) return;
-
-            const leftRect = leftPanel.getBoundingClientRect();
-            const searchRect = searchLayer.getBoundingClientRect();
-
-            const safetyGap = 40;
-            const mustStack = leftRect.right + safetyGap >= searchRect.left;
-            setIsConvoyBelowSearch((prev) => (prev === mustStack ? prev : mustStack));
-        };
-
-        updateOverlayLayout();
-        const observer = new ResizeObserver(updateOverlayLayout);
-
-        if (leftPanelRef.current) observer.observe(leftPanelRef.current);
-        if (searchLayerRef.current) observer.observe(searchLayerRef.current);
-        window.addEventListener('resize', updateOverlayLayout);
-
-        return () => {
-            observer.disconnect();
-            window.removeEventListener('resize', updateOverlayLayout);
-        };
-    }, []);
-
     useEffect(() => {
         // Ajout des styles
         if (!document.getElementById('popup-styles')) {
@@ -492,20 +774,20 @@ function Carte() {
           document.head.appendChild(styleElement);
         }
 
-        // Définir les gestionnaires d'événements globaux
+        // DÃ©finir les gestionnaires d'Ã©vÃ©nements globaux
         window.configClickHandler = (index) => {
           console.log('Configuration du point', index);
           // Ajoutez ici la logique pour ouvrir la configuration
         };
 
         window.itineraireClickHandler = (index) => {
-          console.log('Itinéraire vers le point', index);
-          // Ajoutez ici la logique pour l'itinéraire
+          console.log('ItinÃ©raire vers le point', index);
+          // Ajoutez ici la logique pour l'itinÃ©raire
         };
 
         window.detailsClickHandler = (index) => {
-          console.log('Détails du point', index);
-          // Ajoutez ici la logique pour afficher les détails
+          console.log('DÃ©tails du point', index);
+          // Ajoutez ici la logique pour afficher les dÃ©tails
         };
 
         return () => {
@@ -525,7 +807,7 @@ function Carte() {
                 ref={mapRef}
             >
                 {/* <button onClick={() => setWaypoints([])}>
-                    Réinitialiser
+                    RÃ©initialiser
                 </button>
                 <button onClick={() =>
                     setWaypoints(prev => prev.slice(0, -1))
@@ -539,12 +821,16 @@ function Carte() {
                     attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
                 {/* Gestion des clics sur la carte */}
-                <ClickHandler setWaypoints={setWaypoints} />
+                <ClickHandler onMapClick={(latlng) => {
+                    if (showConvoySelector) return;
+                    setWaypoints(prev => [...prev, latlng]);
+                    setWaypointNames(prev => [...prev, '']);
+                }} />
                 {waypoints.map((point, index) => {
                     const waypointName = waypointNames[index] || '';
                     let lat, lng, displayName;
 
-                    // Gestion des différents formats de points
+                    // Gestion des diffÃ©rents formats de points
                     if (Array.isArray(point)) {
                         [lat, lng] = point;
                         displayName = point.display_name || `Point ${index + 1}`;
@@ -565,7 +851,7 @@ function Carte() {
                     const position = [parseFloat(lat), parseFloat(lng)];
                     
                     if (isNaN(position[0]) || isNaN(position[1])) {
-                        console.error('Coordonnées invalides pour le point:', point);
+                        console.error('CoordonnÃ©es invalides pour le point:', point);
                         return null;
                     }
                     
@@ -581,7 +867,9 @@ function Carte() {
                                         __html: CustomPopup({ 
                                             index,
                                             name: waypointName,
-                                            address: displayName
+                                            address: displayName,
+                                            lat: position[0],
+                                            lng: position[1]
                                         }) 
                                     }} 
                                 />
@@ -590,14 +878,17 @@ function Carte() {
                     );
                 })}
                 
-                {/* Gestion du routage avec des coordonnées valides - s'affiche automatiquement dès 2 points */}
+                {/* Gestion du routage avec des coordonnÃ©es valides - s'affiche automatiquement dÃ¨s 2 points */}
                 {waypoints.length >= 2 && (
                   <RoutingControl 
                     waypoints={waypoints}
                     map={mapRef.current}
                     onRouteDurationChange={setRouteDurationMinutes}
+                    onRouteLegDurationsChange={setRouteLegDurationsMinutes}
+                    onRouteLegDistancesChange={setRouteLegDistancesKm}
                     onRouteGeometryChange={setRouteCoordinates}
                     routePreferences={generalSettings}
+                    segmentConfig={segmentConfig}
                   />
                 )}
 
@@ -651,14 +942,14 @@ function Carte() {
                             if (convoy) openConvoy(convoy);
                           }}
                         >
-                          SELECTIONNER
+                          SÉLECTIONNER
                         </button>
                       </div>
 
                       <div className="selector-or">OU</div>
                       <div className="create-convoy-row">
                         <button className="convoy-selector-btn primary" type="button" onClick={createNewConvoy}>
-                          + CREER UN CONVOI
+                          + CRÉER UN CONVOI
                         </button>
                         <button
                           className="convoy-selector-btn"
@@ -681,25 +972,31 @@ function Carte() {
               </div>
             )}
             <div className={`overlay-container ${showConvoySelector ? 'overlay-container--inactive' : ''}`}>
+                <RoadsTour />
                 <div className="search-bar-layer">
                 <ResearchBar 
                     value={searchQuery}
                     onChange={setSearchQuery}
-                    onSelect={(suggestion, index = null) => {
+                    onSelect={(suggestion) => {
+                        if (showConvoySelector) return;
                         const { lat, lon, display_name } = suggestion;
                         const position = {
                             lat: parseFloat(lat),
                             lng: parseFloat(lon),
                             display_name: display_name
                         };
-                        
+
                         mapRef.current.flyTo([position.lat, position.lng], 15);
                         
-                        const addressParts = display_name.split(',');
-                        const cityName = addressParts[0] + (addressParts[1] ? `, ${addressParts[1]}` : '');
+                        const addressParts = display_name.split(',').map((part) => part.trim()).filter(Boolean);
+                        const firstPart = addressParts[0] || '';
+                        const secondPart = addressParts[1] || '';
+                        const cityName = secondPart && firstPart.toLowerCase() !== secondPart.toLowerCase()
+                          ? `${firstPart}, ${secondPart}`
+                          : firstPart;
                         
                         if (editingWaypointIndex !== null) {
-                            // Mise à jour d'un waypoint existant
+                            // Mise Ã  jour d'un waypoint existant
                             setWaypoints(prev => {
                                 const updated = [...prev];
                                 updated[editingWaypointIndex] = position;
@@ -720,28 +1017,47 @@ function Carte() {
                     }}
                 />
                 </div>
-                <div className="left-panel">
-                <ConvoyCard 
-                    initialName={currentConvoyName}
-                    waypoints={waypoints} 
-                    waypointNames={waypointNames}
+                {!showConvoySelector && (
+                  <div className="left-panel">
+                  <ConvoyCard 
+                      initialName={currentConvoyName}
+                      waypoints={waypoints} 
+                      waypointNames={waypointNames}
+                      initialStepConfigs={stepConfigs}
+                      initialBackendTripId={currentSavedConvoy?.backendTripId || currentSavedConvoy?.shareTrip?.trip_id || null}
                     routeDurationMinutes={routeDurationMinutes}
+                    routeLegDurationsMinutes={routeLegDurationsMinutes}
+                    routeLegDistancesKm={routeLegDistancesKm}
+                    routeDistanceKm={totalDistanceKm}
                     generalSettings={generalSettings}
-                    onUpdateWaypoint={(index, newName, newCoords = null) => {
-                        // Mise à jour du nom 
+                    onUpdateWaypoint={(index, newName, newCoords = null, metadata = null) => {
+                        // Mise Ã  jour du nom 
                         setWaypointNames(prev => {
                             const updated = [...prev];
                             updated[index] = newName || `Etape ${index + 1}`;
                             return updated;
                         });
                         
-                        // Si de nouvelles coordonnées sont fournies, on les met à jour
+                        // Si de nouvelles coordonnÃ©es sont fournies, on les met Ã  jour
                         if (newCoords) {
                             setWaypoints(prev => {
                                 const updated = [...prev];
                                 updated[index] = newCoords;
                                 return updated;
                             });
+                        }
+                        if (metadata && typeof metadata === 'object') {
+                          setStepConfigs(prev => {
+                            const next = { ...prev };
+                            if (metadata.step_is_stop !== undefined || metadata.step_stop_duration !== undefined) {
+                              next[index] = {
+                                ...next[index],
+                                hasBreak: Boolean(metadata.step_is_stop),
+                                breakTime: metadata.step_is_stop ? Number(metadata.step_stop_duration || 0) : 0
+                              };
+                            }
+                            return next;
+                          });
                         }
                     }}
                     onDeleteWaypoint={(index) => {
@@ -755,10 +1071,31 @@ function Carte() {
                             updated.splice(index, 1);
                             return updated;
                         });
+                        setStepConfigs(prev => {
+                          const next = {};
+                          Object.keys(prev).forEach((key) => {
+                            const k = Number(key);
+                            if (k < index) next[k] = prev[k];
+                            if (k > index) next[k - 1] = prev[k];
+                          });
+                          return next;
+                        });
                     }}
                     onReorderWaypoints={(fromIndex, toIndex) => {
                         setWaypoints(prev => moveItem(prev, fromIndex, toIndex));
                         setWaypointNames(prev => moveItem(prev, fromIndex, toIndex));
+                        setStepConfigs(prev => {
+                           if (Object.keys(prev).length === 0) return prev;
+                           const length = Object.keys(prev).length;
+                           const order = Array.from({ length: Math.max(length, waypoints.length) }, (_, i) => i);
+                           const [moved] = order.splice(fromIndex, 1);
+                           order.splice(toIndex, 0, moved);
+                           const next = {};
+                           order.forEach((oldIndex, newIndex) => {
+                             if (prev[oldIndex] !== undefined) next[newIndex] = prev[oldIndex];
+                           });
+                           return next;
+                        });
                         if (editingWaypointIndex !== null) {
                             if (editingWaypointIndex === fromIndex) {
                                 setEditingWaypointIndex(toIndex);
@@ -774,8 +1111,14 @@ function Carte() {
                     }}
                     canExportGpx={routeCoordinates.length >= 2}
                     onExportGpx={exportCurrentRouteAsGpx}
+                    canExportPdf={Boolean(currentConvoyId)}
+                    onExportPdf={exportCurrentRouteAsPdf}
                     canSaveConvoy={waypoints.length >= 2}
                     onSaveConvoy={saveCurrentConvoyLocal}
+                    onPersistConvoy={handlePersistConvoyOnServer}
+                    onBackToConvoySelector={openConvoySelector}
+                    shareTrip={currentSavedConvoy?.shareTrip || null}
+                    onTripPersisted={handleTripPersisted}
                     onConvoyNameChange={(newName) => {
                       setCurrentConvoyName(newName);
                       if (!currentConvoyId) return;
@@ -788,14 +1131,26 @@ function Carte() {
                         )
                       );
                     }}
+                    onSegmentConfigChange={handleSegmentConfigChange}
                     onStartEditingCoords={(index) => {
                         setEditingWaypointIndex(index);
                         setSearchQuery(waypointNames[index] || '');
                         document.querySelector('.ResearchBarInput')?.focus();
                     }}
-                />
-                </div>
+                  />
+                  </div>
+                )}
             </div>
+            {!showConvoySelector && (
+              <div className="route-total-card">
+                <div className="route-total-title">TOTAL</div>
+                <div className="route-total-values">
+                  <span>{Number.isFinite(totalDistanceKm) ? `${totalDistanceKm.toFixed(1)} KM` : '-- KM'}</span>
+                  <span>{Number.isFinite(configuredSpeedKmH) ? `${Math.round(configuredSpeedKmH)} KM/H` : '-- KM/H'}</span>
+                  <span>{Number.isFinite(totalMinutesFromSpeed) ? `${totalMinutesFromSpeed} MIN` : '-- MIN'}</span>
+                </div>
+              </div>
+            )}
         </div>
 
     );
@@ -834,8 +1189,44 @@ const decodePolyline6 = (encoded) => {
   return coordinates;
 };
 
+const measurePathDistanceKm = (coordinates) => {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return null;
+
+  const toRad = (value) => (value * Math.PI) / 180;
+  let total = 0;
+
+  for (let i = 1; i < coordinates.length; i += 1) {
+    const lat1 = Number(coordinates[i - 1]?.[0]);
+    const lon1 = Number(coordinates[i - 1]?.[1]);
+    const lat2 = Number(coordinates[i]?.[0]);
+    const lon2 = Number(coordinates[i]?.[1]);
+    if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) continue;
+
+    const earthRadiusKm = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const s1 = Math.sin(dLat / 2);
+    const s2 = Math.sin(dLon / 2);
+    const h =
+      s1 * s1 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * s2 * s2;
+    total += 2 * earthRadiusKm * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  }
+
+  return total > 0 ? total : null;
+};
+
 // Composant pour gerer le routage 
-const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometryChange, routePreferences }) => {
+const RoutingControl = ({
+  waypoints,
+  map,
+  onRouteDurationChange,
+  onRouteLegDurationsChange,
+  onRouteLegDistancesChange,
+  onRouteGeometryChange,
+  routePreferences,
+  segmentConfig = []
+}) => {
   useEffect(() => {
     if (!map || waypoints.length < 2) return;
 
@@ -855,7 +1246,51 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometry
     const useTolls = routeTypePrefs.avoidFastRoad === false ? 0 : 0.5;
 
     const abortController = new AbortController();
-    let routeLayer = null;
+    const routeLayers = [];
+    const defaultPalette = ['#4A6CF7', '#2AA876', '#FF9F1C', '#E63946', '#7B61FF', '#0096C7'];
+    const transitionColor = '#111111';
+
+    const getRankAtIndex = (index) => {
+      const value = Number.parseInt(segmentConfig[index]?.segmentRank, 10);
+      if (!Number.isFinite(value) || value < 1) return null;
+      return value;
+    };
+
+    const drawColoredSections = (legCoordinates) => {
+      if (!Array.isArray(legCoordinates) || legCoordinates.length < 1) return;
+
+      legCoordinates.forEach((legLatLngs, legIndex) => {
+        if (!Array.isArray(legLatLngs) || legLatLngs.length < 2) return;
+        const segmentRank = getRankAtIndex(legIndex) ?? 1;
+        const endPointRank = getRankAtIndex(legIndex + 1) ?? segmentRank;
+        const isTransitionLeg = segmentRank !== endPointRank;
+        const sectionCount = isTransitionLeg
+          ? 1
+          : Math.max(1, Number.parseInt(segmentConfig[legIndex]?.stepNbSections, 10) || 1);
+        const rankColor =
+          segmentConfig.find((config) => Math.max(1, Number.parseInt(config?.segmentRank, 10) || 1) === segmentRank)?.segmentColor;
+        const baseColor = isTransitionLeg
+          ? transitionColor
+          : (rankColor || segmentConfig[legIndex]?.segmentColor || defaultPalette[(segmentRank - 1) % defaultPalette.length]);
+        const pointsPerSection = Math.max(2, Math.ceil(legLatLngs.length / sectionCount));
+
+        for (let sectionIndex = 0; sectionIndex < sectionCount; sectionIndex += 1) {
+          const start = Math.max(0, sectionIndex * pointsPerSection - (sectionIndex > 0 ? 1 : 0));
+          const end = Math.min(legLatLngs.length, (sectionIndex + 1) * pointsPerSection);
+          const sectionPoints = legLatLngs.slice(start, end);
+          if (sectionPoints.length < 2) continue;
+          const polyline = L.polyline(sectionPoints, {
+            color: baseColor,
+            weight: isTransitionLeg ? 5 : 4 + (sectionIndex % 2),
+            opacity: isTransitionLeg ? 0.9 : 0.7 + (sectionIndex % 2) * 0.2,
+            lineCap: 'butt',
+            lineJoin: 'round',
+            className: 'animate-route'
+          }).addTo(map);
+          routeLayers.push(polyline);
+        }
+      });
+    };
 
     const fetchRoute = async () => {
       try {
@@ -884,8 +1319,15 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometry
           const data = await response.json();
           const legs = data?.trip?.legs || [];
           const summary = data?.trip?.summary;
+          const legDurations = legs.map((leg) => {
+            const seconds = leg?.summary?.time;
+            if (typeof seconds === 'number' && !Number.isNaN(seconds)) {
+              return Math.max(0, Math.round(seconds / 60));
+            }
+            return null;
+          });
 
-          const latLngs = legs.flatMap((leg) => {
+          const legLatLngs = legs.map((leg) => {
             const shape = leg?.shape;
 
             if (Array.isArray(shape)) {
@@ -896,15 +1338,13 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometry
 
             return decodePolyline6(shape);
           });
+          const latLngs = legLatLngs.flat();
 
           if (latLngs.length > 1) {
-            routeLayer = L.polyline(latLngs, {
-              color: '#4A6CF7',
-              weight: 4,
-              opacity: 0.8,
-              className: 'animate-route'
-            }).addTo(map);
+            drawColoredSections(legLatLngs);
           }
+          onRouteLegDurationsChange?.(legDurations);
+          onRouteLegDistancesChange?.(legLatLngs.map(measurePathDistanceKm));
           onRouteGeometryChange?.(latLngs);
 
           const totalTimeSeconds = summary?.time;
@@ -919,28 +1359,63 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometry
         // Fallback OSRM si Valhalla indisponible
         const osrmCoords = waypointCoords.map((p) => `${p.lon},${p.lat}`).join(';');
         const osrmResponse = await fetch(
-          `https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=full&geometries=polyline6&alternatives=false&steps=false`,
+          `https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=false&geometries=polyline6&alternatives=false&steps=true`,
           { signal: abortController.signal }
         );
 
         if (!osrmResponse.ok) {
           onRouteDurationChange?.(null);
+          onRouteLegDurationsChange?.([]);
+          onRouteLegDistancesChange?.([]);
           onRouteGeometryChange?.([]);
           return;
         }
 
         const osrmData = await osrmResponse.json();
         const route = osrmData?.routes?.[0];
-        const latLngs = decodePolyline6(route?.geometry || '');
+        const osrmLegs = route?.legs || [];
+        const legDurations = osrmLegs.map((leg) => {
+          const seconds = leg?.duration;
+          if (typeof seconds === 'number' && !Number.isNaN(seconds)) {
+            return Math.max(0, Math.round(seconds / 60));
+          }
+          return null;
+        });
+
+        // Build per-leg coordinates from steps geometry (exact waypoint boundaries)
+        const legLatLngs = osrmLegs.map((leg) => {
+          const steps = leg?.steps || [];
+          const coords = [];
+          steps.forEach((step, stepIdx) => {
+            const stepCoords = decodePolyline6(step?.geometry || '');
+            // Skip first point of each step (except first step) to avoid duplicates
+            const start = stepIdx > 0 ? 1 : 0;
+            for (let k = start; k < stepCoords.length; k++) {
+              coords.push(stepCoords[k]);
+            }
+          });
+          return coords;
+        }).filter((coords) => coords.length >= 2);
+
+        const latLngs = legLatLngs.flat();
 
         if (latLngs.length > 1) {
-          routeLayer = L.polyline(latLngs, {
-            color: '#4A6CF7',
-            weight: 4,
-            opacity: 0.8,
-            className: 'animate-route'
-          }).addTo(map);
+          if (legLatLngs.length > 0) {
+            drawColoredSections(legLatLngs);
+          } else {
+            const fallbackLayer = L.polyline(latLngs, {
+              color: '#4A6CF7',
+              weight: 4,
+              opacity: 0.8,
+              lineCap: 'butt',
+              lineJoin: 'round',
+              className: 'animate-route'
+            }).addTo(map);
+            routeLayers.push(fallbackLayer);
+          }
         }
+        onRouteLegDurationsChange?.(legDurations);
+        onRouteLegDistancesChange?.(legLatLngs.map(measurePathDistanceKm));
         onRouteGeometryChange?.(latLngs);
 
         const totalTimeSeconds = route?.duration;
@@ -952,6 +1427,8 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometry
       } catch (error) {
         if (error?.name !== 'AbortError') {
           onRouteDurationChange?.(null);
+          onRouteLegDurationsChange?.([]);
+          onRouteLegDistancesChange?.([]);
           onRouteGeometryChange?.([]);
         }
       }
@@ -962,14 +1439,27 @@ const RoutingControl = ({ waypoints, map, onRouteDurationChange, onRouteGeometry
     return () => {
       abortController.abort();
       onRouteDurationChange?.(null);
+      onRouteLegDurationsChange?.([]);
+      onRouteLegDistancesChange?.([]);
       onRouteGeometryChange?.([]);
-      if (routeLayer && map.hasLayer(routeLayer)) {
-        map.removeLayer(routeLayer);
-      }
+      routeLayers.forEach((layer) => {
+        if (layer && map.hasLayer(layer)) map.removeLayer(layer);
+      });
     };
-  }, [map, waypoints, onRouteDurationChange, onRouteGeometryChange, routePreferences]);
+  }, [
+    map,
+    waypoints,
+    onRouteDurationChange,
+    onRouteLegDurationsChange,
+    onRouteLegDistancesChange,
+    onRouteGeometryChange,
+    routePreferences,
+    segmentConfig
+  ]);
 
   return null;
 };
 
 export default Carte;
+
+

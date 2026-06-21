@@ -41,8 +41,10 @@ html,
 
 /* Style pour CardConvoi */
 .convoyCard {
-  width: clamp(240px, 28vw, 340px);
+  width: clamp(240px, 28vw, 360px);
   max-width: 100%;
+  height: 100%;
+  max-height: 100%;
   border: 2px solid #c24a8b;
   border-radius: 14px;
   background: #fff;
@@ -51,6 +53,8 @@ html,
   overflow: hidden;
   position: relative;
   font-family: Montserrat, sans-serif;
+  display: flex;
+  flex-direction: column;
 }
 
 /* En-tête du convoi */
@@ -67,17 +71,23 @@ html,
 }
 
 .convoyTitle {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   font-weight: 700;
   color: #c24a8b;
   font-size: 16px;
   padding: 4px 0;
   margin: 0;
   line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .convoyNameInput {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  box-sizing: border-box;
   border: 2px solid #e7b4cf;
   border-radius: 8px;
   padding: 8px 12px;
@@ -99,6 +109,11 @@ html,
 .convoyBody {
   padding: 14px;
   padding-top: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
 }
 
 /* Masquer la rangée de titre redondante */
@@ -111,6 +126,7 @@ html,
   align-items: center;
   justify-content: space-between;
   padding: 8px 0;
+  flex-shrink: 0;
 }
 
 .convoySectionLeft {
@@ -121,7 +137,7 @@ html,
 
 .label {
   font-weight: 800;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .timeEdit {
@@ -156,14 +172,17 @@ html,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
 }
 
 .timeInputWrapper .timeInput {
   position: absolute;
+  inset: 0;
   opacity: 0;
   width: 100%;
   height: 100%;
   cursor: pointer;
+  z-index: 2;
 }
 
 .timeDisplay {
@@ -205,8 +224,8 @@ html,
 
 .steps-list {
   width: 100%;
-  max-height: 200px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   padding: 0;
   margin: 0;
   list-style: none;
@@ -216,9 +235,11 @@ html,
   position: relative;
   display: flex;
   align-items: center;
-  padding: 10px 40px 10px 0;
+  padding: 10px 0;
   border-bottom: 1px solid #f0f0f0;
   min-height: 44px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .step-item:last-child {
@@ -302,8 +323,9 @@ html,
 .convoyActions {
   display: flex;
   justify-content: space-between;
-  margin-top: 80px;
+  margin-top: 10px;
   padding-top: 10px;
+  flex-shrink: 0;
 }
 
 .iconBtn {
@@ -314,6 +336,15 @@ html,
   font-size: 16px;
   padding: 6px;
   line-height: 1;
+}
+
+.convoyBackBtn {
+  flex: 0 0 auto;
+}
+
+.convoyBackBtn img {
+  width: 18px;
+  height: 18px;
 }
 
 /* Style pour ResearchBar */
@@ -341,13 +372,21 @@ html,
   padding: 0;
   margin: 0;
   list-style: none;
+  overflow: visible;
+}
+
+.steps-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .step-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 12px 0;
   border-bottom: 1px solid #f0f0f0;
   width: 100%;
   box-sizing: border-box;
@@ -393,6 +432,146 @@ html,
   font-size: 0.8rem;
   color: #666;
   margin-top: 2px;
+}
+
+.segment-block {
+  margin: 8px 0 12px;
+}
+
+.segment-block.is-drop-target {
+  background: rgba(177, 64, 128, 0.06);
+  border-radius: 10px;
+}
+
+.segment-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #b14080;
+  margin: 4px 0 8px;
+}
+
+.segment-color-square {
+  width: 30px;
+  height: 30px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.segment-rows {
+  display: grid;
+  grid-template-columns: 6px 1fr;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.segment-vertical-bar {
+  width: 6px;
+  border-radius: 2px;
+  height: 100%;
+}
+
+.segment-rows-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.segment-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px dashed #caa0b8;
+  background: #fff;
+  color: #b14080;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segment-add-btn:hover {
+  background: #fff6fb;
+}
+
+.segment-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.add-segment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px dashed #caa0b8;
+  background: #fff;
+  color: #b14080;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-segment-btn:hover {
+  background: #fff6fb;
+}
+
+.segment-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.segment-actions-row .add-segment-btn {
+  margin-top: 0;
+}
+
+.remove-segment-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px dashed #caa0b8;
+  background: #fff;
+  color: #b14080;
+  border-radius: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.remove-segment-btn:hover:not(:disabled) {
+  background: #fff6fb;
+}
+
+.remove-segment-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Responsive overrides for segment list */
+.step-content {
+  width: 100%;
+  min-width: 0;
+}
+
+.step-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.segment-rows {
+  min-width: 0;
+}
+
+.segment-rows-list {
+  min-width: 0;
 }
 
 .step-drag-btn {
@@ -497,6 +676,7 @@ html,
   border-radius: 6px;
   font-size: 1rem;
   transition: border-color 0.2s, box-shadow 0.2s;
+  color: #bb487c;
 }
 
 .config-input:focus {
@@ -555,7 +735,7 @@ html,
 }
 
 .validate-btn {
-  background: #4a6cf7;
+  background: #b14080;
   color: white;
   border: none;
   padding: 8px 16px;
@@ -566,7 +746,7 @@ html,
 }
 
 .validate-btn:hover {
-  background: #3a5ce4;
+  background: #8a3362;
 }
 
 /* Ajustement pour les petits écrans à tester*/
@@ -574,6 +754,7 @@ html,
   .waypoint-config-popup {
     width: 95%;
     padding: 16px;
+    max-height: 84vh;
   }
   
   .popup-actions {
@@ -594,6 +775,22 @@ html,
   .delete-btn {
     width: 100%;
     justify-content: center;
+  }
+}
+
+@media (max-height: 760px) {
+  .waypoint-config-popup {
+    max-height: 80vh;
+    padding: 14px;
+  }
+
+  .waypoint-config-popup h3 {
+    margin-bottom: 12px;
+    font-size: 1.05rem;
+  }
+
+  .waypoint-config-popup .form-group {
+    margin-bottom: 10px;
   }
 }
 
@@ -703,81 +900,104 @@ html,
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 2000;
+  z-index: 2300;
 }
 
 .waypoint-config-popup {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  width: 90%;
-  max-width: 400px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  width: min(90vw, 520px);
+  background: #f8f8f8;
+  border: 2px solid #c24a8b;
+  border-radius: 20px;
+  padding: 26px 34px 22px;
+  color: #b14080;
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2);
   position: relative;
 }
 
 .waypoint-config-popup h3 {
-  margin: 0 0 20px;
-  color: #333;
-  font-size: 1.2rem;
-  font-weight: 600;
-  text-align: center;
+  margin: 0 0 16px;
+  color: #b14080;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: left;
+  text-transform: uppercase;
 }
 
 .waypoint-config-popup .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 14px;
   width: 100%;
 }
 
 .waypoint-config-popup label {
   display: block;
-  margin-bottom: 6px;
-  font-size: 0.9rem;
-  color: #555;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #b14080;
   font-weight: 500;
 }
 
 .waypoint-config-popup .config-input {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 1rem;
+  padding: 8px 12px;
+  border: 1px solid #d1d1d1;
+  border-radius: 8px;
+  background: #fff;
+  color: #b14080;
+  font-size: 16px;
   transition: border-color 0.2s, box-shadow 0.2s;
   box-sizing: border-box;
 }
 
 .waypoint-config-popup .config-input:focus {
   outline: none;
-  border-color: #4a6cf7;
-  box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.2);
+  border-color: #c24a8b;
+  box-shadow: 0 0 0 3px rgba(194, 74, 139, 0.2);
+}
+
+.waypoint-config-popup .checkbox-group {
+  margin-bottom: 0;
+  color: #b14080;
+}
+
+.waypoint-config-popup .config-checkbox {
+  accent-color: #c24a8b;
+  outline: 1px solid #c24a8b;
+  outline-offset: -1px;
 }
 
 .waypoint-config-popup .popup-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid #eee;
+  gap: 10px;
+  margin-top: 16px;
+  border-top: none;
 }
 
 .waypoint-config-popup .delete-btn {
   background: #ffebee;
   color: #d32f2f;
   border: none;
-  border-radius: 6px;
-  padding: 8px 12px;
+  border-radius: 999px;
+  padding: 8px 16px;
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.9rem;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
 }
 
 .waypoint-config-popup .delete-btn:hover {
   background: #ffcdd2;
+}
+
+.waypoint-config-popup .delete-btn::before {
+  content: "✗ ";
 }
 
 .waypoint-config-popup .delete-btn img {
@@ -792,12 +1012,10 @@ html,
 
 .waypoint-config-popup .cancel-btn,
 .waypoint-config-popup .validate-btn {
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 600;
   padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
 .waypoint-config-popup .cancel-btn {
@@ -811,13 +1029,21 @@ html,
 }
 
 .waypoint-config-popup .validate-btn {
-  background: #4a6cf7;
+  background: #b14080;
   color: white;
   border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .waypoint-config-popup .validate-btn:hover {
-  background: #3a5ce4;
+  background: #8a3362;
+}
+
+.waypoint-config-popup .validate-btn::before {
+  content: "✓ ";
 }
 
 /* Styles pour la case à cocher et son conteneur */
@@ -843,8 +1069,8 @@ html,
 
 .break-time-label {
   margin-left: 10px;
-  color: #666;
-  font-size: 0.9rem;
+  color: #BB487C;
+    font-size: 1rem;
 }
 
 /* Amélioration de la largeur des étapes */
@@ -885,6 +1111,12 @@ input[type="number"] {
   line-height: 1;
   color: #b14080;
   font-weight: 900;
+}
+
+.general-settings-popup input[type="checkbox"] {
+  accent-color: #c24a8b;
+  width: 16px;
+  height: 16px;
 }
 
 .settings-section {
@@ -944,13 +1176,110 @@ input[type="number"] {
 .general-settings-actions .delete-btn,
 .general-settings-actions .validate-btn {
   border-radius: 999px;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   padding: 8px 16px;
+}
+
+.general-settings-actions--settings .delete-btn::before {
+  content: "✗ ";
+}
+
+.general-settings-actions--settings .validate-btn::before {
+  content: "✓ ";
 }
 
 .export-popup {
   max-width: 420px;
+}
+
+.export-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-back-btn::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: url("../../../../shared/global_assets/pictos/Back.svg") center / contain no-repeat;
+  mask: url("../../../../shared/global_assets/pictos/Back.svg") center / contain no-repeat;
+}
+
+.share-popup {
+  max-width: 720px;
+}
+
+.share-popup h5 {
+  width: 70px;
+  flex: 0 0 70px;
+  margin: 0;
+}
+
+.share-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.share-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e8c9db;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.share-card h4 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #b14080;
+}
+
+.share-code-block {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.share-code-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #b14080;
+}
+
+.share-code {
+  font-size: 20px;
+  font-weight: 900;
+  color: #8f2f66;
+}
+
+.share-qr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-link {
+  color: #8f2f66;
+  font-size: 12px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.share-empty {
+  margin: 0;
+  color: #8f2f66;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .export-row {
@@ -982,10 +1311,24 @@ input[type="number"] {
   font-weight: 600;
 }
 
+.persist-message {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #b14080;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .share-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .convoy-selector-overlay {
   position: fixed;
-  top: 20px;
-  left: 20px;
+  top: var(--map-panel-top);
+  bottom: auto;
+  left: var(--map-panel-left);
   z-index: 2500;
   padding: 0;
 }
@@ -1010,7 +1353,7 @@ input[type="number"] {
 }
 
 .selector-section-title {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   margin: 4px 0 8px;
 }
@@ -1032,7 +1375,7 @@ input[type="number"] {
 }
 
 .last-convoy-meta span {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -1040,7 +1383,8 @@ input[type="number"] {
 }
 
 .last-convoy-meta small {
-  font-size: 10px;
+  font-size: 14px;
+  font-weight: 500;
   color: #9b6b87;
 }
 
@@ -1050,8 +1394,8 @@ input[type="number"] {
   background: #fff;
   color: #b14080;
   padding: 6px 12px;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1086,7 +1430,7 @@ input[type="number"] {
   border: 1px solid #e1cfda;
   border-radius: 6px;
   padding: 5px 8px;
-  font-size: 11px;
+  font-size: 14px;
   color: #6a5e67;
   background: #fff;
 }
@@ -1094,7 +1438,7 @@ input[type="number"] {
 .selector-or {
   text-align: center;
   color: #b17b96;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
   margin: 8px 0;
 }
@@ -1139,6 +1483,8 @@ input[type="number"] {
   position: relative;
   width: 100%;
   height: 100vh;
+  --map-panel-left: 20px;
+  --map-panel-top: 88px;
 }
 
 /* Conteneur des éléments superposés */
@@ -1175,21 +1521,20 @@ input[type="number"] {
 /* Overlay layout */
 .left-panel {
   position: fixed;
-  top: max(20px, env(safe-area-inset-top));
-  left: 50px;
+  top: var(--map-panel-top);
+  bottom: 16px;
+  left: var(--map-panel-left);
   z-index: 1200;
-}
-
-.left-panel.left-panel-below {
-  top: calc(max(20px, env(safe-area-inset-top)) + 60px);
-  left: 15px;
+  display: flex;
+  flex-direction: column;
 }
 
 .search-bar-layer {
   position: fixed;
   top: max(20px, env(safe-area-inset-top));
-  left: auto;
-  right: calc(var(--map-right-ui-space) + env(safe-area-inset-right) + var(--search-right-offset));
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
   width: min(
     var(--search-max-width),
     calc(100vw - var(--map-left-ui-space) - var(--map-right-ui-space) - 32px)
@@ -1233,13 +1578,59 @@ input[type="number"] {
   object-fit: contain;
 }
 
+.route-total-card {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1600;
+  min-width: 220px;
+  background: rgba(245, 245, 245, 0.96);
+  border: 2px solid #c24a8b;
+  border-radius: 16px;
+  padding: 8px 14px 10px;
+  color: #b14080;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+.route-total-title {
+  text-align: center;
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.route-total-values {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .route-total-card {
+    right: 10px;
+    bottom: 10px;
+    min-width: 180px;
+    padding: 8px 10px;
+  }
+
+  .route-total-title {
+    font-size: 16px;
+  }
+
+  .route-total-values {
+    font-size: 11px;
+    gap: 8px;
+  }
+}
+
 @media (max-width: 1024px) {
   .convoyCard {
     width: clamp(220px, 36vw, 300px);
-  }
-
-  .left-panel {
-    left: 44px;
+    max-height: calc(100vh - 24px);
   }
 
   .ResearchBarInput {
@@ -1248,6 +1639,11 @@ input[type="number"] {
 }
 
 @media (max-width: 760px) {
+  .map-container {
+    --map-panel-left: 10px;
+    --map-panel-top: 66px;
+  }
+
   .overlay-container {
     --map-left-ui-space: 56px;
     --roads-tour-right-offset: 10px;
@@ -1256,21 +1652,52 @@ input[type="number"] {
 
   .search-bar-layer {
     top: max(10px, env(safe-area-inset-top));
+    left: 10px;
+    right: 10px;
+    transform: none;
+    width: auto;
   }
 
   .left-panel {
-    top: max(66px, calc(env(safe-area-inset-top) + 56px));
-    left: 10px;
     right: 10px;
   }
 
-  .left-panel.left-panel-below {
-    top: max(66px, calc(env(safe-area-inset-top) + 56px));
+  .convoy-selector-overlay {
+    right: 10px;
+  }
+
+  .convoy-selector-panel {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .convoyCard {
     width: 100%;
     max-width: 100%;
+    max-height: calc(100vh - 82px);
+  }
+
+  .convoyBody {
+    padding: 10px;
+    padding-top: 0;
+  }
+
+  .segment-heading {
+    font-size: 16px;
+    gap: 8px;
+  }
+
+  .segment-color-square {
+    width: 24px;
+    height: 24px;
+  }
+
+  .step-drag-btn,
+  .step-config-btn,
+  .step-delete-btn {
+    padding: 6px;
+    margin-left: 4px;
   }
 
   .roads-tour-badge {
@@ -1291,12 +1718,12 @@ input[type="number"] {
 }
 
 @media (max-width: 420px) {
-  .overlay-container {
-    --map-left-ui-space: 52px;
+  .map-container {
+    --map-panel-top: 66px;
   }
 
-  .left-panel {
-    top: max(62px, calc(env(safe-area-inset-top) + 52px));
+  .overlay-container {
+    --map-left-ui-space: 52px;
   }
 
   .convoyHeader {
@@ -1305,6 +1732,10 @@ input[type="number"] {
 
   .convoyNameInput {
     padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .convoyTitle {
     font-size: 13px;
   }
 

@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/valhalla': {
-        target: 'https://valhalla1.openstreetmap.de',
+        target: 'https://valhalla.github.io/valhalla/api/',
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path.replace(/^\/api\/valhalla/, '')
@@ -19,5 +19,11 @@ export default defineConfig({
     alias: {
       '@shared': path.resolve(__dirname, '../../shared')
     }
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.js',
+    css: true
   }
 })
