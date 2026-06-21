@@ -1,9 +1,11 @@
 import exportService from '../services/exportService.js';
 
-// GET /api/trip/:tripId/exports/pdf
+// POST /api/trip/:tripId/exports/pdf
 const exportToPDF = async (req, res, next) => {
   try {
-    const pdfBuffer = await exportService.exportToPDF(req.params.tripId);
+    const mapImageBase64 = req.body?.mapImage || null;
+    const mapImageBuffer = mapImageBase64 ? Buffer.from(mapImageBase64, 'base64') : null;
+    const pdfBuffer = await exportService.exportToPDF(req.params.tripId, mapImageBuffer);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="trip-${req.params.tripId}.pdf"`);

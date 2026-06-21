@@ -1,7 +1,6 @@
 import PDFDocument from 'pdfkit';
 import prisma from '../config/database.js';
 
-// TODO: avoir un screen de la map en plus des infos du trip pour le PDF
 
 // Utilitaires pour calculer les temps
 const calculateSegmentTravelTime = (trip, totalSegments) => {
@@ -103,7 +102,7 @@ const formatTime = (date) => {
 };
 
 // Export PDF
-const exportToPDF = async (tripId) => {
+const exportToPDF = async (tripId, mapImageBuffer = null) => {
   const trip = await prisma.trip.findUnique({
     where: { trip_id: parseInt(tripId) },
     include: {
@@ -119,7 +118,7 @@ const exportToPDF = async (tripId) => {
 
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument();
+      const doc = new PDFDocument({ margin: 50 });
       const chunks = [];
 
       doc.on('data', chunk => chunks.push(chunk));
@@ -190,13 +189,31 @@ const exportToPDF = async (tripId) => {
         doc.moveDown(0.5);
       });
 
-      // Pied de page
-      doc.fontSize(8).text(
-        `Généré le ${new Date().toLocaleString('fr-FR')}`,
-        50,
-        doc.page.height - 50,
-        { align: 'center' }
-      );
+      // Page dédiée à la carte
+      if (mapImageBuffer) {
+        doc.addPage();
+        doc.fontSize(14).text('Carte du trajet', { align: 'center', underline: true });
+        doc.moveDown(0.5);
+        const margin = 40;
+        const pageW = doc.page.width - margin * 2;
+        const pageH = doc.page.height - doc.y - margin - 30;
+        doc.image(mapImageBuffer, margin, doc.y, { fit: [pageW, pageH], align: 'center', valign: 'center' });
+        // Pied de page en bas de la page carte
+        doc.fontSize(8).text(
+          `Généré le ${new Date().toLocaleString('fr-FR')}`,
+          50,
+          doc.page.height - 30,
+          { align: 'center' }
+        );
+      } else {
+        // Pied de page sur la dernière page si pas de carte
+        doc.fontSize(8).text(
+          `Généré le ${new Date().toLocaleString('fr-FR')}`,
+          50,
+          doc.page.height - 30,
+          { align: 'center' }
+        );
+      }
 
       doc.end();
     } catch (error) {
@@ -232,7 +249,7 @@ const exportToGPX = async (tripId) => {
   gpx += `  <rte>\n`;
   gpx += `    <name>${escapeXml(trip.trip_name)}</name>\n`;
 
-  trip.steps.forEach((step, index) => {
+  trip.steps.forEach((step) => {
     gpx += `    <rtept lat="${step.step_latitude}" lon="${step.step_longitude}">\n`;
     gpx += `      <name>${escapeXml(step.step_name)}</name>\n`;
     gpx += `      <desc>${escapeXml(step.step_address)}</desc>\n`;

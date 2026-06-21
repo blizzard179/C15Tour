@@ -16,7 +16,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
 
 app.get("/", (_req, res) => res.json({ message: "C15Tour API" }));
 app.get("/health", (_req, res) => res.json({ ok: true }));
