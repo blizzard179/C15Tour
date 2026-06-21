@@ -822,6 +822,7 @@ function Carte() {
                 />
                 {/* Gestion des clics sur la carte */}
                 <ClickHandler onMapClick={(latlng) => {
+                    if (showConvoySelector) return;
                     setWaypoints(prev => [...prev, latlng]);
                     setWaypointNames(prev => [...prev, '']);
                 }} />
@@ -977,13 +978,14 @@ function Carte() {
                     value={searchQuery}
                     onChange={setSearchQuery}
                     onSelect={(suggestion) => {
+                        if (showConvoySelector) return;
                         const { lat, lon, display_name } = suggestion;
                         const position = {
                             lat: parseFloat(lat),
                             lng: parseFloat(lon),
                             display_name: display_name
                         };
-                        
+
                         mapRef.current.flyTo([position.lat, position.lng], 15);
                         
                         const addressParts = display_name.split(',').map((part) => part.trim()).filter(Boolean);
