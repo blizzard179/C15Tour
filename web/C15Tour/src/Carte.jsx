@@ -18,6 +18,7 @@ import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 const CONVOYS_STORAGE_KEY = 'c15tour_convoys_v1';
 const LAST_CONVOY_STORAGE_KEY = 'c15tour_last_convoy_id';
 const BACKEND_BASE_URL = 'http://localhost:3000';
+const MAP_IMAGE_STORAGE_KEY = 'c15tour_map_image_base64';
 
 // Styles pour le popup personnalisÃ©
 const popupStyles = `
@@ -156,6 +157,9 @@ function Carte() {
         }
     });
     const [segmentConfig, setSegmentConfig] = useState([]);
+    const [imageExportBase64, setImageExportBase64] = useState(() => {
+      try { return localStorage.getItem(MAP_IMAGE_STORAGE_KEY) || null; } catch { return null; }
+    });
 
     const haversineKm = (a, b) => {
       const toRad = (value) => (value * Math.PI) / 180;
@@ -323,6 +327,86 @@ function Carte() {
       setShowConvoySelector(false);
     };
 
+    const captureMapScreenshot = async () => {
+      try {
+        const map = mapRef.current;
+        if (!map) return;
+
+        const size = map.getSize();
+        const canvas = document.createElement('canvas');
+        canvas.width = size.x;
+        canvas.height = size.y;
+        const ctx = canvas.getContext('2d');
+
+        // Fond par défaut
+        ctx.fillStyle = '#e8e8e8';
+        ctx.fillRect(0, 0, size.x, size.y);
+
+        // Dessiner les tuiles en les recalculant depuis leur URL (z/x/y → lat/lng → px)
+        const tileImgs = map.getContainer().querySelectorAll(
+          '.leaflet-tile-pane img.leaflet-tile:not(.leaflet-tile-loading)'
+        );
+        await Promise.all(Array.from(tileImgs).map(imgEl => new Promise(resolve => {
+          const match = imgEl.src.match(/\/(\d+)\/(\d+)\/(\d+)\.png/);
+          if (!match) { resolve(); return; }
+          const z = Number(match[1]), x = Number(match[2]), y = Number(match[3]);
+          const n = Math.pow(2, z);
+          const tileLat = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI;
+          const tileLng = (x / n) * 360 - 180;
+          const pt = map.latLngToContainerPoint(L.latLng(tileLat, tileLng));
+          const tileSize = 256 * Math.pow(2, map.getZoom() - z);
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => { ctx.drawImage(img, pt.x, pt.y, tileSize, tileSize); resolve(); };
+          img.onerror = resolve;
+          img.src = imgEl.src;
+        })));
+
+        // Dessiner le tracé de route depuis routeCoordinates (format [[lat,lng], ...])
+        if (Array.isArray(routeCoordinates) && routeCoordinates.length >= 2) {
+          ctx.strokeStyle = '#4A6CF7';
+          ctx.lineWidth = 4;
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          routeCoordinates.forEach(([lat, lng], i) => {
+            const pt = map.latLngToContainerPoint(L.latLng(lat, lng));
+            if (i === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+          });
+          ctx.stroke();
+        }
+
+        // Dessiner les marqueurs des étapes
+        waypoints.forEach((point, index) => {
+          let lat, lng;
+          if (Array.isArray(point)) { [lat, lng] = point; }
+          else if (point?.lat !== undefined) { lat = point.lat; lng = point.lng ?? point.lon; }
+          else return;
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+          const pt = map.latLngToContainerPoint(L.latLng(lat, lng));
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y - 8, 9, 0, Math.PI * 2);
+          ctx.fillStyle = '#d670a8';
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 10px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(index + 1), pt.x, pt.y - 8);
+        });
+
+        const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+        setImageExportBase64(base64);
+        try { localStorage.setItem(MAP_IMAGE_STORAGE_KEY, base64); } catch { /* quota */ }
+      } catch (error) {
+        console.warn('Capture de la carte impossible:', error);
+      }
+    };
+
     const saveCurrentConvoyLocal = () => {
       if (!waypoints || waypoints.length < 2) return false;
 
@@ -344,6 +428,7 @@ function Carte() {
             : convoy
           )
         );
+        captureMapScreenshot();
         return currentConvoyId;
       }
 
@@ -362,6 +447,7 @@ function Carte() {
       setCurrentConvoyId(id);
       setCurrentConvoyName(convoy.name);
       localStorage.setItem(LAST_CONVOY_STORAGE_KEY, id);
+      captureMapScreenshot();
       return id;
     };
 
@@ -600,7 +686,15 @@ function Carte() {
       }
 
       try {
-        const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${currentConvoyId}/exports/pdf`);
+        const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${currentConvoyId}/exports/pdf`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            mapImage: imageExportBase64 || null
+          })
+        });
 
         if (!response.ok) {
           const errorText = await response.text();
