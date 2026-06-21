@@ -6,13 +6,16 @@
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/.bin/jest --runInBand",
     "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
+    "start": "node src/index.js",
     "dev": "nodemon src/server.js"
   },
   "jest": {
     "testEnvironment": "node",
     "transform": {},
     "extensionsToTreatAsEsm": [],
-    "testMatch": ["**/__tests__/**/*.test.js"]
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ]
   },
   "keywords": [],
   "author": "",
@@ -23,6 +26,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "http-proxy-middleware": "^4.1.1",
     "joi": "^17.11.0",
     "pdfkit": "^0.13.0",
     "pg": "^8.16.3",

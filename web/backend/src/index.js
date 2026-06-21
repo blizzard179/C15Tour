@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
 import http from 'http';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 import tripRoutes from './routes/tripRoutes.js';
 import stepRoutes from './routes/stepRoutes.js';
 import geocodeRoutes from './routes/geocodeRoutes.js';
@@ -13,7 +14,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
 
 // Routes
 app.get('/', (req, res) => {
@@ -24,6 +25,13 @@ app.use('/api/trips', tripRoutes);
 app.use('/api', stepRoutes);
 app.use('/api/geocode', geocodeRoutes);
 app.use('/api/organizer', organizerRoutes);
+
+// Proxy Valhalla (routing)
+app.use('/api/valhalla', createProxyMiddleware({
+  target: 'https://valhalla1.openstreetmap.de',
+  changeOrigin: true,
+  pathRewrite: { '^/api/valhalla': '' }
+}));
 
 // Error handler
 app.use(errorHandler);
