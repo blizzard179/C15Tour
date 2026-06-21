@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
 import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import tripRoutes from './routes/tripRoutes.js';
 import stepRoutes from './routes/stepRoutes.js';
@@ -9,6 +11,10 @@ import geocodeRoutes from './routes/geocodeRoutes.js';
 import organizerRoutes from './routes/organizerRoutes.js';
 import errorHandler from './middlewares/errorHandler.js';
 import attachLiveAudioSignaling from './services/liveAudioSignalingService.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DIST_PATH = path.join(__dirname, '../../C15Tour/dist');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,6 +41,12 @@ app.use('/api/valhalla', createProxyMiddleware({
 
 // Error handler
 app.use(errorHandler);
+
+// Frontend statique (production)
+app.use(express.static(DIST_PATH));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(DIST_PATH, 'index.html'));
+});
 
 const server = http.createServer(app);
 
