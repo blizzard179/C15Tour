@@ -4,7 +4,7 @@ import 'dotenv/config';
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createProxyMiddleware } from 'http-proxy-middleware';
+import axios from 'axios';
 import tripRoutes from './routes/tripRoutes.js';
 import stepRoutes from './routes/stepRoutes.js';
 import geocodeRoutes from './routes/geocodeRoutes.js';
@@ -32,11 +32,18 @@ app.use('/api/geocode', geocodeRoutes);
 app.use('/api/organizer', organizerRoutes);
 
 // Proxy Valhalla (routing)
-app.use('/api/valhalla', createProxyMiddleware({
-  target: 'https://valhalla1.openstreetmap.de',
-  changeOrigin: true,
-  pathRewrite: { '^/api/valhalla': '' }
-}));
+app.post('/api/valhalla/route', async (req, res) => {
+  try {
+    const response = await axios.post(
+      'https://valhalla1.openstreetmap.de/route',
+      req.body,
+      { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+    );
+    res.json(response.data);
+  } catch {
+    res.status(503).json({ error: 'Valhalla unavailable' });
+  }
+});
 
 // Error handler
 app.use(errorHandler);
