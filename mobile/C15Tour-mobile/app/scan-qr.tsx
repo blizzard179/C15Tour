@@ -12,6 +12,7 @@ type ParsedQrCode = {
   code: string;
 };
 
+// Décode une valeur de query string (gère aussi le "+" comme espace, convention historique des URL)
 function decodeQueryValue(value: string) {
   try {
     return decodeURIComponent(value.replace(/\+/g, ' '));
@@ -20,6 +21,8 @@ function decodeQueryValue(value: string) {
   }
 }
 
+// Extrait les paramètres "?role=...&code=..." du contenu brut du QR code, sans
+// dépendre d'un parseur d'URL complet (le payload scanné n'est pas forcément une URL valide)
 function extractQueryParams(payload: string) {
   const queryStart = payload.indexOf('?');
   const query = queryStart >= 0 ? payload.slice(queryStart + 1) : payload;
@@ -49,6 +52,7 @@ function normalizeRole(value: string | undefined): ShareRole | null {
   return null;
 }
 
+// Valide et normalise le contenu scanné en {role, code} exploitables, ou null si invalide
 function parseQrPayload(payload: string): ParsedQrCode | null {
   const params = extractQueryParams(payload.trim());
   const role = normalizeRole(params.role?.toLowerCase());
@@ -61,11 +65,14 @@ function parseQrPayload(payload: string): ParsedQrCode | null {
   return { role, code };
 }
 
+// Écran de scan du QR code de partage d'un convoi (affiché dans la popup de
+// partage du frontend web). Une fois un QR code valide détecté, redirige vers
+// l'écran /join avec les mêmes paramètres qu'un lien profond classique.
 export default function ScanQrScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
-  const [canScan, setCanScan] = useState(true);
+  const [canScan, setCanScan] = useState(true); // évite de traiter plusieurs scans en rafale
 
   const handleBarcodeScanned = ({ data }: BarcodeScanningResult) => {
     if (!canScan) {
@@ -90,6 +97,7 @@ export default function ScanQrScreen() {
     });
   };
 
+  // La permission caméra est encore en cours de résolution
   if (!permission) {
     return (
       <View style={styles.centered}>
@@ -98,6 +106,7 @@ export default function ScanQrScreen() {
     );
   }
 
+  // Permission refusée : on affiche un écran explicatif avec un bouton pour la redemander
   if (!permission.granted) {
     return (
       <View style={[styles.permissionContainer, { paddingTop: insets.top + 24 }]}>

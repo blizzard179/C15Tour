@@ -8,6 +8,10 @@ import { useAppTheme } from "@/context/theme";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
+// Formulaire de connexion : choix du rôle (participant/leader) et saisie du
+// code de partage correspondant, ou scan direct d'un QR code. Duplique la
+// logique de résolution du trajet également présente dans app/join.tsx
+// (chemin emprunté lors d'un lien profond plutôt qu'une saisie manuelle).
 function LoginBody() {
     const [active, setActive] = useState<'participant' | 'leader' | ''>('participant');
     const [participantCode, setParticipantCode] = useState('');
@@ -18,6 +22,8 @@ function LoginBody() {
     const { colorScheme } = useAppTheme();
     const isDark = colorScheme === 'dark';
 
+    // Résout le code saisi en un trajet via le backend, puis authentifie
+    // l'utilisateur avec le rôle choisi avant de rediriger vers l'écran de chargement
     const handleLogin = async () => {
         if (!active) {
             Alert.alert('Erreur', 'Veuillez choisir un rôle.');

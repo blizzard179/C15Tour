@@ -12,6 +12,7 @@ import PlusIcon from "@shared/global_assets/pictos/Plus.svg";
 import CloseIcon from "@shared/global_assets/pictos/Close.svg";
 import MenuIcon from "@shared/global_assets/pictos/Menu.svg";
 
+// Réglages par défaut appliqués si aucune préférence n'a encore été définie
 const DEFAULT_GENERAL_SETTINGS = {
   segmentsCount: 1,
   routeType: {
@@ -26,6 +27,8 @@ const DEFAULT_GENERAL_SETTINGS = {
   }
 };
 
+// Fusionne les réglages fournis avec les valeurs par défaut, pour toujours
+// disposer d'un objet complet même si certaines clés manquent (ex: ancien convoi sauvegardé)
 const mergeGeneralSettings = (input) => ({
   segmentsCount: Math.max(1, Number.parseInt(input?.segmentsCount, 10) || 1),
   routeType: {
@@ -39,9 +42,13 @@ const mergeGeneralSettings = (input) => ({
 });
 
 // en dev : const BACKEND_BASE_URL = 'http://localhost:3000';
-const BACKEND_BASE_URL = import.meta.env.VITE_API_URL ?? '';const MOBILE_DEEP_LINK_BASE = "c15tourmobile://join";
+const BACKEND_BASE_URL = import.meta.env.VITE_API_URL ?? ''; // URL de l'API backend (vide = même origine)
+const MOBILE_DEEP_LINK_BASE = "c15tourmobile://join"; // schéma de lien profond vers l'application mobile (rejoindre un convoi)
 const SEGMENT_COLOR_PALETTE = ["#4A6CF7", "#2AA876", "#FF9F1C", "#E63946", "#7B61FF", "#0096C7"];
 
+// Carte latérale affichant le détail du convoi en cours d'édition : nom, heure de
+// départ, liste des étapes (regroupées par segments), et actions (paramètres,
+// partage, sauvegarde, export). Gère aussi toute la synchronisation avec le backend.
 export default function CardConvoi({
   initialName = "Nom du convoi",
   initialStartTime = "00:00",
@@ -73,8 +80,8 @@ export default function CardConvoi({
 }) {
   const [name, setName] = useState(initialName);
   const [startTime, setStartTime] = useState(initialStartTime);
-  const [isEdited, setIsEdited] = useState(false);
-  const [configPopup, setConfigPopup] = useState(null);
+  const [isEdited, setIsEdited] = useState(false); // passe à true dès qu'au moins une étape a été ajoutée
+  const [configPopup, setConfigPopup] = useState(null); // index de l'étape dont le popup de configuration est ouvert
   const [editData, setEditData] = useState({
     name: "",
     arrivalTime: "00:00",
@@ -84,24 +91,25 @@ export default function CardConvoi({
     segmentColor: SEGMENT_COLOR_PALETTE[0],
     segmentRank: 1
   });
-  const [isEditing, setIsEditing] = useState(false);
-  const [isEditingTime, setIsEditingTime] = useState(false);
-  const [stepsConfig, setStepsConfig] = useState({});
+  const [isEditing, setIsEditing] = useState(false); // édition du nom du convoi
+  const [isEditingTime, setIsEditingTime] = useState(false); // édition de l'heure de départ
+  const [stepsConfig, setStepsConfig] = useState({}); // configuration par étape (pause, segment, couleur...), indexée par position
   const [tempTime, setTempTime] = useState(initialStartTime);
-  const [draggedIndex, setDraggedIndex] = useState(null);
-  const [dragOverIndex, setDragOverIndex] = useState(null);
-  const [dragOverSegmentRank, setDragOverSegmentRank] = useState(null);
-  const [pendingAddSegment, setPendingAddSegment] = useState(null);
+  const [draggedIndex, setDraggedIndex] = useState(null); // index de l'étape en cours de glissement
+  const [dragOverIndex, setDragOverIndex] = useState(null); // index de l'étape survolée pendant le glissement
+  const [dragOverSegmentRank, setDragOverSegmentRank] = useState(null); // segment survolé pendant le glissement
+  const [pendingAddSegment, setPendingAddSegment] = useState(null); // segment ciblé quand on ajoute une étape via "+ Ajouter une étape"
   const [isGeneralSettingsOpen, setIsGeneralSettingsOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [exportSaveMessage, setExportSaveMessage] = useState("");
   const [persistMessage, setPersistMessage] = useState("");
-  const [backendTripId, setBackendTripId] = useState(initialBackendTripId);
-  const [shareTrip, setShareTrip] = useState(savedShareTrip);
-  const [generalSettingsDraft, setGeneralSettingsDraft] = useState(mergeGeneralSettings(generalSettings));
-  const [isNameButtonLocked, setIsNameButtonLocked] = useState(false);
+  const [backendTripId, setBackendTripId] = useState(initialBackendTripId); // id du trajet une fois enregistré côté serveur
+  const [shareTrip, setShareTrip] = useState(savedShareTrip); // codes de partage (admin/participant) une fois le trajet enregistré
+  const [generalSettingsDraft, setGeneralSettingsDraft] = useState(mergeGeneralSettings(generalSettings)); // brouillon modifié dans la popup de paramètres généraux
+  const [isNameButtonLocked, setIsNameButtonLocked] = useState(false); // anti double-clic sur le bouton nom
 
+  // Valeurs par défaut d'une configuration d'étape non encore personnalisée
   const createDefaultEditDataItem = () => ({
     name: "",
     arrivalTime: "00:00",
@@ -111,6 +119,8 @@ export default function CardConvoi({
 
   const getEditDataItem = (index) => editData[index] || createDefaultEditDataItem();
 
+  // Récupère la config de pause d'une étape telle qu'elle a été chargée depuis le
+  // backend/localStorage (avant toute modification via le popup de configuration)
   const getStepLoadConfig = (index) => {
     const waypoint = waypoints[index] || {};
     const hasStop = waypoint.step_is_stop ?? waypoint.isStop ?? false;
@@ -121,6 +131,8 @@ export default function CardConvoi({
     };
   };
 
+  // Temps de pause effectif d'une étape : priorité à la configuration modifiée
+  // par l'utilisateur, sinon celle chargée initialement
   const getStepBreakTime = (index) => {
     const configured = stepsConfig[index];
     if (configured && Number.isFinite(configured.breakTime)) {
@@ -135,6 +147,8 @@ export default function CardConvoi({
       [index]: updater(prev[index] || createDefaultEditDataItem())
     }));
 
+  // Fusionne la configuration d'étapes initiale (venant du parent, ex: convoi rechargé)
+  // avec celle déjà présente localement, sans écraser les modifications en cours
   useEffect(() => {
     setStepsConfig(prev => {
       const merged = { ...prev };
@@ -148,13 +162,15 @@ export default function CardConvoi({
   const popupRef = useRef(null);
   const inputRef = useRef(null);
   const timeInputRef = useRef(null);
-  const previousWaypointCountRef = useRef(waypoints.length);
+  const previousWaypointCountRef = useRef(waypoints.length); // permet de détecter l'ajout d'un nouveau waypoint
 
+  // Réglages généraux toujours complets (fusionnés avec les valeurs par défaut)
   const resolvedGeneralSettings = useMemo(
     () => mergeGeneralSettings(generalSettings),
     [generalSettings]
   );
 
+  // Synchronise l'état local avec les props quand le convoi parent change (ex: changement de convoi ouvert)
   useEffect(() => {
     setName(initialName);
   }, [initialName]);
@@ -167,12 +183,14 @@ export default function CardConvoi({
     setShareTrip(savedShareTrip);
   }, [savedShareTrip]);
 
+  // Dès qu'une étape existe, on affiche le détail complet de la carte convoi
   useEffect(() => {
     if (waypoints.length > 0) {
       setIsEdited(true);
     }
   }, [waypoints.length]);
 
+  // Place le focus (et sélectionne le texte) dans le champ nom dès l'entrée en mode édition
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
@@ -180,12 +198,14 @@ export default function CardConvoi({
     }
   }, [isEditing]);
 
+  // Place le focus dans le champ heure dès l'entrée en mode édition
   useEffect(() => {
     if (isEditingTime && timeInputRef.current) {
       timeInputRef.current.focus();
     }
   }, [isEditingTime]);
 
+  // Ferme le popup de configuration d'étape si l'utilisateur clique en dehors
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (popupRef.current && !popupRef.current.contains(event.target)) {
@@ -197,6 +217,10 @@ export default function CardConvoi({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Quand un nouveau waypoint apparaît (ajouté via la recherche d'adresse ou un clic
+  // sur la carte), on lui assigne automatiquement un rang de segment : soit le segment
+  // ciblé explicitement via "+ Ajouter une étape" (pendingAddSegment), avec réordonnancement
+  // si besoin, soit le même segment que l'étape précédente par défaut.
   useEffect(() => {
     const previousCount = previousWaypointCountRef.current;
     const currentCount = waypoints.length;
@@ -258,29 +282,35 @@ export default function CardConvoi({
   }, [waypoints.length, pendingAddSegment]);
 
   const hasWaypoints = waypoints.length > 0;
-  const segmentCount = useMemo(() => Math.max(0, waypoints.length - 1), [waypoints.length]);
+  const segmentCount = useMemo(() => Math.max(0, waypoints.length - 1), [waypoints.length]); // nombre de tronçons = nombre d'étapes - 1
   const configuredSegmentsCount = useMemo(
     () => Math.max(1, Number.parseInt(resolvedGeneralSettings.segmentsCount, 10) || 1),
     [resolvedGeneralSettings.segmentsCount]
   );
 
+  // Nombre de sous-sections (pour l'affichage en pointillé alterné) configuré pour une étape
   const getStepSegmentSections = (index) => {
     const rawValue = stepsConfig[index]?.stepNoSections;
     const parsed = Number.parseInt(rawValue, 10);
     return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
   };
 
+  // Rang du segment (groupe d'étapes) auquel appartient une étape donnée
   const getStepSegmentRank = (index) => {
     const rawValue = stepsConfig[index]?.segmentRank;
     const parsed = Number.parseInt(rawValue, 10);
     return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
   };
 
+  // Couleur du segment : celle configurée explicitement, sinon une couleur de la palette
+  // choisie automatiquement selon le rang, pour que chaque segment reste visuellement distinct
   const getStepSegmentColor = (index) => {
     const rank = getStepSegmentRank(index);
     return stepsConfig[index]?.segmentColor || SEGMENT_COLOR_PALETTE[(rank - 1) % SEGMENT_COLOR_PALETTE.length];
   };
 
+  // Propage la configuration des segments (sections, couleur, rang) au composant parent
+  // Carte.jsx, pour qu'il puisse dessiner le tracé de la route avec ces couleurs
   useEffect(() => {
     if (typeof onSegmentConfigChange !== "function") return;
     if (pendingAddSegment) return;
@@ -297,6 +327,9 @@ export default function CardConvoi({
     return `${waypoints.length} etapes`;
   }, [waypoints.length]);
 
+  // Durée totale du trajet, recalculée à partir de la distance réelle et de la vitesse
+  // configurée par l'utilisateur (avec application éventuelle d'une réduction automatique),
+  // ou à défaut à partir de la durée renvoyée par le moteur de routage.
   const getAdjustedRouteDurationMinutes = () => {
     const speed = Number(resolvedGeneralSettings.speed.generalSpeedKmH);
     if (speed > 0 && Number.isFinite(routeDistanceKm) && routeDistanceKm >= 0) {
@@ -322,6 +355,9 @@ export default function CardConvoi({
     return Math.max(0, Math.round(adjusted));
   };
 
+  // Durée de trajet estimée pour un tronçon donné (entre deux étapes consécutives),
+  // en utilisant la distance/durée réelle du tronçon si disponible, sinon en répartissant
+  // équitablement la durée totale entre tous les tronçons.
   const getSegmentTravelTime = (index) => {
     const speed = Number(resolvedGeneralSettings.speed.generalSpeedKmH);
     const routeLegDistance = routeLegDistancesKm[index];
@@ -359,6 +395,8 @@ export default function CardConvoi({
     return 30;
   };
 
+  // Durée totale de conduite (hors pauses), en sommant chaque tronçon sauf si aucun
+  // tronçon n'a de durée personnalisée : on utilise alors directement la durée globale ajustée
   const getTotalTravelTime = () => {
     if (segmentCount === 0) return 0;
 
@@ -378,6 +416,7 @@ export default function CardConvoi({
     return total;
   };
 
+  // Heure d'arrivée finale = heure de départ + temps de trajet total + toutes les pauses
   const calculateArrivalTime = () => {
     if (!startTime || startTime === "--:--") return "--:--";
     if (waypoints.length <= 1) return startTime;
@@ -396,6 +435,7 @@ export default function CardConvoi({
     return `${String(arrivalHours).padStart(2, "0")}:${String(arrivalMinutes).padStart(2, "0")}`;
   };
 
+  // Heure d'arrivée estimée à une étape intermédiaire donnée
   const calculateWaypointTime = (index) => {
     if (!startTime || startTime === "--:--") return "--:--";
     if (index === 0 || waypoints.length === 1) return startTime;
@@ -416,6 +456,7 @@ export default function CardConvoi({
     return `${String(waypointHours).padStart(2, "0")}:${String(waypointMinutes).padStart(2, "0")}`;
   };
 
+  // Valide le nouveau nom du convoi (ignoré si vide) et notifie le parent
   const handleNameSubmit = () => {
     const trimmedName = name.trim();
     if (trimmedName !== "") {
@@ -426,6 +467,8 @@ export default function CardConvoi({
     }
   };
 
+  // Verrouille temporairement le bouton nom pour éviter un double-clic qui
+  // enchaînerait immédiatement édition puis validation (ou l'inverse)
   const lockNameButtonTemporarily = () => {
     setIsNameButtonLocked(true);
     if (nameButtonLockTimeoutRef.current) {
@@ -437,6 +480,7 @@ export default function CardConvoi({
     }, 1500);
   };
 
+  // Bouton unique qui bascule entre "éditer" et "valider" selon l'état courant
   const handleNameButtonClick = () => {
     if (isNameButtonLocked) return;
 
@@ -449,6 +493,7 @@ export default function CardConvoi({
     lockNameButtonTemporarily();
   };
 
+  // Prépare le champ heure temporaire avant d'entrer en mode édition
   const startTimeEdit = () => {
     let [hours, minutes] = startTime.split(":");
     hours = (hours || "00").padStart(2, "0");
@@ -459,6 +504,7 @@ export default function CardConvoi({
     setTempTime(formattedTime);
   };
 
+  // Valide la nouvelle heure de départ saisie
   const handleTimeSubmit = () => {
     let [hours, minutes] = tempTime.split(":");
     hours = (hours || "00").padStart(2, "0");
@@ -470,6 +516,7 @@ export default function CardConvoi({
     setIsEditingTime(false);
   };
 
+  // Ouvre le sélecteur natif d'heure (ou simule un clic si showPicker n'est pas supporté par le navigateur)
   const openTimePicker = () => {
     const input = timeInputRef.current;
     if (!input) return;
@@ -482,6 +529,7 @@ export default function CardConvoi({
     input.click();
   };
 
+  // Donne le focus à la barre de recherche pour permettre l'ajout d'une nouvelle étape
   const handleAddWaypointClick = () => {
     const searchInput = document.querySelector(".ResearchBarInput");
     if (searchInput) {
@@ -490,6 +538,8 @@ export default function CardConvoi({
     }
   };
 
+  // Ouvre (ou ferme si déjà ouvert) le popup de configuration d'une étape, en
+  // préremplissant les champs avec la configuration actuelle (modifiée ou chargée)
   const handleConfigClick = (index, e) => {
     e.stopPropagation();
     const currentConfig = stepsConfig[index] || {};
@@ -514,6 +564,8 @@ export default function CardConvoi({
     }));
   };
 
+  // Mémorise le segment ciblé puis ouvre la recherche : le prochain waypoint ajouté
+  // sera automatiquement rattaché à ce segment (cf. useEffect sur waypoints.length)
   const handleAddWaypointToSegment = (rank) => {
     setPendingAddSegment({
       rank,
@@ -522,6 +574,8 @@ export default function CardConvoi({
     handleAddWaypointClick();
   };
 
+  // Valide le popup de configuration d'une étape : enregistre la config locale
+  // et notifie le parent (Carte.jsx) du nouveau nom / état de pause
   const handleSaveConfig = (e) => {
     e.stopPropagation();
     if (configPopup === null) return;
@@ -551,6 +605,8 @@ export default function CardConvoi({
     setConfigPopup(null);
   };
 
+  // Supprime une étape et décale les index des configurations associées
+  // (edit data, steps config) pour rester cohérent avec la nouvelle liste
   const handleDeleteWaypointAtIndex = (index, e) => {
     e.stopPropagation();
     onDeleteWaypoint?.(index);
@@ -580,6 +636,7 @@ export default function CardConvoi({
     }
   };
 
+  // Réordonne la configuration des étapes en accord avec un déplacement de waypoint (drag & drop)
   const reorderStepsConfig = (fromIndex, toIndex) => {
     setStepsConfig((prev) => {
       const length = waypoints.length;
@@ -597,6 +654,7 @@ export default function CardConvoi({
     });
   };
 
+  // --- Glisser-déposer des étapes pour les réordonner ou changer leur segment ---
   const handleDragStart = (index, e) => {
     setDraggedIndex(index);
     setDragOverIndex(index);
@@ -611,6 +669,7 @@ export default function CardConvoi({
     if (dragOverIndex !== index) setDragOverIndex(index);
   };
 
+  // Étape déposée sur une autre étape : réordonnancement à l'intérieur/entre les segments
   const handleDrop = (targetIndex, e) => {
     e.preventDefault();
     const sourceIndex = draggedIndex;
@@ -630,6 +689,7 @@ export default function CardConvoi({
     setDragOverSegmentRank(null);
   };
 
+  // Suit le segment survolé pendant un glissement, pour l'indication visuelle de la zone de dépôt
   const handleSegmentDragOver = (rank, e) => {
     e.preventDefault();
     if (dragOverSegmentRank !== rank) {
@@ -637,6 +697,7 @@ export default function CardConvoi({
     }
   };
 
+  // Étape déposée directement sur l'en-tête d'un segment : bascule cette étape dans ce segment
   const handleDropOnSegment = (rank, e) => {
     e.preventDefault();
     const sourceIndex = draggedIndex;
@@ -655,6 +716,7 @@ export default function CardConvoi({
     }));
   };
 
+  // Ajoute un nouveau segment vide (incrémente simplement le nombre de segments configuré)
   const handleAddSegment = () => {
     const newCount = configuredSegmentsCount + 1;
     onGeneralSettingsChange?.({
@@ -663,6 +725,8 @@ export default function CardConvoi({
     });
   };
 
+  // Supprime le dernier segment : les étapes qui y étaient rattachées sont
+  // rabattues sur le nouveau dernier segment pour ne perdre aucune étape
   const handleRemoveSegment = () => {
     if (configuredSegmentsCount <= 1) return;
     const newCount = configuredSegmentsCount - 1;
@@ -685,6 +749,7 @@ export default function CardConvoi({
     });
   };
 
+  // Ouvre la popup de paramètres généraux avec un brouillon initialisé sur les valeurs actuelles
   const openGeneralSettings = () => {
     setGeneralSettingsDraft(mergeGeneralSettings(resolvedGeneralSettings));
     setIsGeneralSettingsOpen(true);
@@ -694,6 +759,8 @@ export default function CardConvoi({
     setIsGeneralSettingsOpen(false);
   };
 
+  // Valide le brouillon des paramètres généraux : les rangs de segment existants sont
+  // ramenés dans les bornes valides si le nombre de segments a été réduit
   const saveGeneralSettings = () => {
     const normalizedSegmentsCount = Math.max(1, Number.parseInt(generalSettingsDraft.segmentsCount, 10) || 1);
     setStepsConfig((prev) => {
@@ -719,6 +786,7 @@ export default function CardConvoi({
   const getParticipantShareCode = (trip = shareTrip) =>
     trip?.trip_user_code || trip?.trip_participant_code || "";
 
+  // Le partage n'est possible que si le trajet a déjà été enregistré côté serveur (codes générés)
   const hasShareCodes = () => Boolean(shareTrip?.trip_admin_code && getParticipantShareCode());
 
   const openShareModal = () => {
@@ -753,6 +821,8 @@ export default function CardConvoi({
     onExportPdf?.();
   };
 
+  // Sauvegarde le convoi dans le localStorage du navigateur (sans appel au backend),
+  // utile pour ne pas perdre le travail en cours même sans connexion
   const handleSaveConvoyLocally = async () => {
     if (!waypoints || waypoints.length < 2) {
       setExportSaveMessage("Impossible d'enregistrer localement : au moins 2 étapes requises.");
@@ -776,6 +846,8 @@ export default function CardConvoi({
 
   const PERSIST_TRIP_STORAGE_KEY = "C15Tour.pendingTrip";
 
+  // Conserve temporairement le dernier payload de trajet envoyé/à envoyer au backend
+  // (utile pour diagnostiquer ou rejouer un envoi qui aurait échoué)
   const saveTripPayloadLocally = (payload) => {
     try {
       localStorage.setItem(
@@ -790,6 +862,7 @@ export default function CardConvoi({
     }
   };
 
+  // Efface le brouillon local une fois l'enregistrement confirmé côté serveur
   const clearPendingTripPayload = () => {
     try {
       localStorage.removeItem(PERSIST_TRIP_STORAGE_KEY);
@@ -798,6 +871,7 @@ export default function CardConvoi({
     }
   };
 
+  // Construit l'objet "trip" (métadonnées du trajet) attendu par l'API backend
   const buildTripPayload = () => {
     const trimmedName = name.trim() || initialName || "Convoi";
     let tripStartTime = null;
@@ -827,6 +901,8 @@ export default function CardConvoi({
     };
   };
 
+  // Retrouve une adresse lisible à partir de coordonnées GPS (géocodage inverse),
+  // utilisé pour les étapes qui n'ont qu'une position sans libellé (ex: clic sur la carte)
   const reverseGeocodeAddress = async (lat, lng) => {
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return null;
@@ -847,6 +923,8 @@ export default function CardConvoi({
     }
   };
 
+  // Détermine l'adresse à afficher/enregistrer pour une étape, avec repli progressif :
+  // adresse déjà connue > géocodage inverse > coordonnées brutes > nom de la recherche
   const getStepAddress = async (waypoint, index) => {
     if (waypoint.address) {
       return waypoint.address;
@@ -865,6 +943,8 @@ export default function CardConvoi({
     return waypoint.display_name || waypoint.name || waypointNames[index] || "";
   };
 
+  // Construit la liste des étapes ("steps") au format attendu par l'API backend,
+  // en résolvant d'abord les adresses manquantes en parallèle
   const buildStepsPayload = async () => {
     const stepAddresses = await Promise.all(
       waypoints.map((waypoint, index) => getStepAddress(waypoint, index))
@@ -892,6 +972,7 @@ export default function CardConvoi({
     });
   };
 
+  // --- Appels API pour la persistance des étapes d'un trajet côté backend ---
   const fetchExistingTripSteps = async (tripId) => {
     const response = await fetch(`${BACKEND_BASE_URL}/api/trips/${tripId}/steps`);
     if (!response.ok) {
@@ -951,6 +1032,7 @@ export default function CardConvoi({
     return response.json();
   };
 
+  // Crée toutes les étapes d'un trajet fraîchement enregistré (première sauvegarde)
   const persistTripSteps = async (tripId) => {
     const steps = await buildStepsPayload();
     for (const step of steps) {
@@ -958,6 +1040,9 @@ export default function CardConvoi({
     }
   };
 
+  // Synchronise les étapes d'un trajet déjà existant avec l'état local actuel :
+  // met à jour les étapes en commun, crée les nouvelles, supprime celles en trop,
+  // puis renvoie l'ordre final au backend pour conserver la cohérence du trajet.
   const syncTripSteps = async (tripId) => {
     const existingSteps = await fetchExistingTripSteps(tripId);
     const steps = await buildStepsPayload();
@@ -986,6 +1071,10 @@ export default function CardConvoi({
     }
   };
 
+  // Enregistre (ou met à jour) le convoi côté serveur : sauvegarde locale d'abord,
+  // puis création/mise à jour du trajet et de ses étapes via l'API. En cas d'échec
+  // de la persistance des étapes lors d'une première création, on supprime le trajet
+  // orphelin créé côté serveur pour éviter de laisser un trajet sans aucune étape.
   const handlePersistConvoy = async () => {
     setPersistMessage("");
     if (!waypoints || waypoints.length < 2) {
@@ -1080,6 +1169,7 @@ export default function CardConvoi({
     }
   };
 
+  // Affiche le popup de configuration d'une étape (nom, heure d'arrivée, pause) si ouvert
   const renderWaypointConfig = (index) => {
     if (configPopup !== index) return null;
     const currentEditData = getEditDataItem(index);
@@ -1158,11 +1248,11 @@ export default function CardConvoi({
     );
   };
 
+  // Affiche la popup des paramètres généraux du trajet (segments, type de route, vitesse)
   const renderGeneralSettings = () => {
     if (!isGeneralSettingsOpen) return null;
 
     return (
-      // parameters generaux
       <div className="general-settings-overlay" onClick={closeGeneralSettings}>
         <div className="general-settings-popup" onClick={(e) => e.stopPropagation()}>
           <h3>PARAMETRES GENERAUX</h3>
@@ -1306,6 +1396,8 @@ export default function CardConvoi({
     );
   };
 
+  // Affiche la popup de partage : codes et QR codes pour rejoindre le convoi
+  // en tant qu'organisateur ou participant depuis l'application mobile
   const renderShareModal = () => {
     if (!isShareModalOpen) return null;
     const participantCode = getParticipantShareCode();
@@ -1377,6 +1469,7 @@ export default function CardConvoi({
     );
   };
 
+  // Affiche la popup d'export : téléchargement PDF/GPX et sauvegarde locale
   const renderExportModal = () => {
     if (!isExportOpen) return null;
 
@@ -1436,6 +1529,8 @@ export default function CardConvoi({
     );
   };
 
+  // --- Rendu principal : en-tête (nom du convoi), corps (départ, étapes, arrivée),
+  // boutons d'action et popups (paramètres, partage, export) ---
   return (
     <div className="convoyCard">
       <div className="convoyHeader">
@@ -1537,7 +1632,8 @@ export default function CardConvoi({
             ) : (
               <div className="steps-list">
                 {(() => {
-                  // Build consecutive runs of same-segment waypoints in route order
+                  // Regroupe les étapes consécutives appartenant au même segment (dans
+                  // l'ordre du trajet), puis ajoute les segments configurés mais encore vides
                   const runs = [];
                   waypoints.forEach((_, index) => {
                     const rank = getStepSegmentRank(index);

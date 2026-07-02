@@ -6,6 +6,8 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+// Résout une couleur selon le thème courant : priorité à la couleur explicite
+// passée en prop (light/dark), sinon repli sur la palette par défaut (constants/theme.ts)
 export function useThemeColor(
   props: { light?: string; dark?: string },
   colorName: keyof typeof Colors.light & keyof typeof Colors.dark

@@ -1,5 +1,7 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 
+// Génère la spécification OpenAPI/Swagger à partir des commentaires JSDoc
+// présents dans les fichiers de routes (voir apis ci-dessous)
 const options = {
   definition: {
     openapi: '3.0.0',

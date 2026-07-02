@@ -1,5 +1,8 @@
 import exportService from '../services/exportService.js';
 
+// Contrôleurs d'export d'un trajet : délèguent la génération du fichier au
+// service dédié et renvoient directement le binaire (PDF/GPX) en réponse HTTP.
+
 // POST /api/trip/:tripId/exports/pdf
 const exportToPDF = async (req, res, next) => {
   try {

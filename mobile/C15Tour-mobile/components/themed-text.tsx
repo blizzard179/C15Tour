@@ -8,6 +8,8 @@ export type ThemedTextProps = TextProps & {
   type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
 };
 
+// Composant Text qui adapte automatiquement sa couleur au thème clair/sombre
+// (issu du template Expo par défaut, toujours utilisé par plusieurs écrans)
 export function ThemedText({
   style,
   lightColor,

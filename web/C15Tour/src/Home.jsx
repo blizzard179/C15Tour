@@ -5,9 +5,12 @@ import damier from '@shared/global_assets/damier_accueil.svg';
 import logoAccueil from '@shared/global_assets/logo_accueil.svg';
 import carIcon from '@shared/global_assets/cars.svg';
 
+// Écran d'accueil / splash screen affiché au lancement de l'application.
+// Affiche le logo et une animation de voiture, puis redirige automatiquement
+// vers la carte après quelques secondes (ou immédiatement si l'utilisateur clique).
 function Home() {
     const navigate = useNavigate();
-    const carRef = useRef(null);
+    const carRef = useRef(null); // référence vers l'image de la voiture animée
 
     // Image de fond (damier)
     useEffect(() => {
@@ -28,16 +31,17 @@ function Home() {
         const car = carRef.current;
         if (!car) return;
 
-        // Position de départ
+        // Position de départ : voiture hors écran à gauche (image inversée avec scaleX(-1))
         car.style.transform = 'translateX(-100%) scaleX(-1)';
 
-        // Premier passage
+        // Premier passage : la voiture traverse l'écran de gauche à droite en 3 secondes
         setTimeout(() => {
             car.style.transition = 'transform 3s linear';
             car.style.transform = 'translateX(calc(100% + 50px)) scaleX(-1)';
         }, 100);
 
-        // Boucle
+        // Boucle : on replace la voiture à gauche sans transition (instantané),
+        // puis on relance l'animation de traversée, en continu toutes les 3.2 secondes
         const interval = setInterval(() => {
             car.style.transition = 'none';
             car.style.transform = 'translateX(-100%) scaleX(-1)';

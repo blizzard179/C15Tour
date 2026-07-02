@@ -5,6 +5,8 @@ const getDashboard = async () => {
   // Calculer les KPIs
   const totalTrips = await prisma.trip.count();
 
+  // Un trajet est considéré "actif" si son heure de départ est déjà passée
+  // (approximation simple : on ne sait pas ici s'il est déjà arrivé à destination)
   const activeTrips = await prisma.trip.count({
     where: {
       trip_start_time: {

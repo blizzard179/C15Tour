@@ -7,6 +7,10 @@ import { validateTrip, validateTelemetry } from '../middlewares/validation.js';
 
 const router = express.Router();
 
+// Important : les routes spécifiques (/last, /search, /code/:userCode,
+// /admin/:adminCode) doivent être déclarées AVANT la route générique /:id,
+// sinon Express les ferait matcher par /:id (ex: "last" serait interprété comme un id).
+
 /**
  * @swagger
  * components:

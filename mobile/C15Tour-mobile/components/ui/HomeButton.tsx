@@ -4,6 +4,8 @@ import { router } from 'expo-router';
 import HomeIcon from '../../../../shared/global_assets/pictos/Home.svg';
 import { useAuth } from '@/context/auth';
 
+// Bouton de la barre supérieure de l'écran carte : quitte le convoi courant
+// (déconnexion) et retourne à l'écran de connexion
 export default function HomeButton() {
   const { logout } = useAuth();
 

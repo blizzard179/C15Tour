@@ -4,6 +4,9 @@ import { type ComponentProps } from 'react';
 
 type Props = Omit<ComponentProps<typeof Link>, 'href'> & { href: Href & string };
 
+// Composant fourni par le template Expo par défaut (ouvre les liens externes
+// dans un navigateur intégré plutôt que le navigateur système). Non utilisé
+// actuellement ailleurs dans l'application.
 export function ExternalLink({ href, ...rest }: Props) {
   return (
     <Link

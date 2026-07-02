@@ -1,5 +1,8 @@
 import prisma from '../config/database.js';
 
+// Logique métier des trajets (trips) : génération des codes de partage
+// (participant/admin), CRUD complet et recherche, via Prisma.
+
 // Générer un code aléatoire
 const generateCode = (length) => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -10,7 +13,9 @@ const generateCode = (length) => {
   return code;
 };
 
-// Générer un code unique
+// Génère un code aléatoire garanti unique en base, en retirant tant qu'une
+// collision est détectée. isUserCode distingue le code participant (trip_user_code)
+// du code organisateur/admin (trip_admin_code), car ils vivent dans deux colonnes distinctes.
 const generateUniqueCode = async (length, isUserCode) => {
   let code;
   let exists = true;
@@ -95,8 +100,8 @@ const createTrip = async (data) => {
   const userCode = await generateUniqueCode(6, true);
   const adminCode = await generateUniqueCode(8, false);
 
-  // Cohérence reduction
-
+  // Cohérence du champ réduction : un taux n'a de sens que si la réduction
+  // automatique est activée, sinon on le force à 0 pour éviter un état incohérent
   const isReduced = data.trip_is_reduced ?? false;
   let tripReduction = data.trip_reduction ?? 0;
   if (isReduced && tripReduction == 0){

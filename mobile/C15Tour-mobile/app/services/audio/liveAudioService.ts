@@ -2,6 +2,17 @@ import { setAudioModeAsync } from 'expo-audio';
 import { NativeModules, Platform } from 'react-native';
 import { API_BASE_URL } from '@/constants/api';
 
+// Client audio en direct type "talkie-walkie" pour le convoi, basé sur WebRTC.
+// Le "leader" (organisateur) diffuse son micro vers tous les "participants" via
+// une connexion peer-to-peer distincte pour chacun (topologie en étoile, pas de
+// SFU/serveur média : chaque connexion audio est directe entre deux appareils).
+// Le serveur (voir web/backend/src/services/liveAudioSignalingService.js) ne sert
+// que de relais de signalisation (échange des offres/réponses SDP et des candidats
+// ICE) : il ne transporte jamais l'audio lui-même.
+//
+// Nécessite un module natif WebRTC (react-native-webrtc) qui n'est pas disponible
+// dans Expo Go : l'app doit être lancée via un dev client ou un build natif.
+
 declare const require: (moduleName: string) => any;
 
 export type LiveAudioStatus =
@@ -73,8 +84,12 @@ type LiveAudioSessionOptions = {
   onStateChange: (state: LiveAudioState) => void;
 };
 
+// Serveur STUN public de Google, utilisé pour découvrir l'adresse IP publique de
+// chaque appareil et établir la connexion peer-to-peer même derrière un NAT
 const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
 
+// Construit l'URL du WebSocket de signalisation à partir de l'URL HTTP de l'API
+// (http(s):// devient ws(s)://), en ciblant le même endpoint /live-audio que le backend
 const toLiveAudioSocketUrl = (tripId: number | string, role: LiveAudioRole) => {
   const baseUrl = API_BASE_URL.replace(/\/+$/, '').replace(/^http/i, 'ws');
   return `${baseUrl}/live-audio?tripId=${encodeURIComponent(String(tripId))}&role=${role}`;
@@ -90,6 +105,9 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 
 let cachedWebRTC: WebRTCModule | null = null;
 
+// Charge paresseusement le module natif react-native-webrtc (uniquement quand
+// une session audio démarre) et vérifie sa disponibilité. Échoue explicitement
+// avec un message clair si l'app tourne dans Expo Go (module natif absent).
 const loadWebRTC = () => {
   if (cachedWebRTC) return cachedWebRTC;
 
@@ -112,21 +130,25 @@ const loadWebRTC = () => {
   }
 };
 
+// Représente une session audio en direct pour un trajet donné, avec un rôle
+// (leader ou participant). Encapsule la connexion WebSocket de signalisation et
+// une ou plusieurs connexions WebRTC pair-à-pair (une par participant côté leader,
+// une seule vers le leader côté participant).
 export class LiveAudioSession {
   private readonly tripId: number | string;
   private readonly role: LiveAudioRole;
   private readonly onStateChange: (state: LiveAudioState) => void;
-  private socket: WebSocket | null = null;
-  private clientId: string | null = null;
-  private localStream: MediaStreamLike | null = null;
-  private remoteStream: MediaStreamLike | null = null;
-  private remoteAudioElement: HTMLAudioElement | null = null;
-  private peerConnections = new Map<string, PeerConnectionLike>();
-  private knownParticipants = new Set<string>();
-  private knownLeaders = new Set<string>();
-  private callState: LeaderCallState = 'idle';
-  private isParticipantPaused = false;
-  private isStopped = false;
+  private socket: WebSocket | null = null; // connexion au serveur de signalisation
+  private clientId: string | null = null; // identifiant attribué par le serveur à la connexion
+  private localStream: MediaStreamLike | null = null; // flux micro local (leader uniquement)
+  private remoteStream: MediaStreamLike | null = null; // flux audio reçu du leader (participant uniquement)
+  private remoteAudioElement: HTMLAudioElement | null = null; // élément <audio> caché servant à lire le flux distant
+  private peerConnections = new Map<string, PeerConnectionLike>(); // connexions WebRTC actives, indexées par id de pair
+  private knownParticipants = new Set<string>(); // participants connus de la room (côté leader)
+  private knownLeaders = new Set<string>(); // leaders connus de la room (côté participant)
+  private callState: LeaderCallState = 'idle'; // état d'appel courant (leader uniquement)
+  private isParticipantPaused = false; // le participant a-t-il mis l'écoute en pause
+  private isStopped = false; // la session a été arrêtée, ignorer les évènements tardifs (socket.onclose, etc.)
   private webRTC: WebRTCModule | null = null;
 
   constructor(options: LiveAudioSessionOptions) {
@@ -135,6 +157,9 @@ export class LiveAudioSession {
     this.onStateChange = options.onStateChange;
   }
 
+  // Démarre la session en tant que leader : capture le micro puis se connecte
+  // au serveur de signalisation. Les tracks audio sont activées/désactivées
+  // selon l'état initial (live/muted) sans jamais recréer le flux micro.
   async startLeader(initialState: Exclude<LeaderCallState, 'idle'>) {
     const webRTC = this.ensureWebRTCAvailable();
     this.isStopped = false;
@@ -160,6 +185,8 @@ export class LiveAudioSession {
     this.connectSocket();
   }
 
+  // Démarre la session en tant que participant : pas de capture micro, on se
+  // contente de se connecter et d'attendre l'offre WebRTC d'un leader
   async startParticipant() {
     this.ensureWebRTCAvailable();
     this.isStopped = false;
@@ -178,6 +205,9 @@ export class LiveAudioSession {
     this.connectSocket();
   }
 
+  // Change l'état d'appel du leader (idle/live/muted) : active/coupe le micro
+  // localement, informe les participants via le canal de signalisation, et
+  // initie une offre WebRTC vers chaque participant connu si l'appel démarre
   setLeaderCallState(state: LeaderCallState) {
     if (this.role !== 'leader') return;
 
@@ -210,6 +240,8 @@ export class LiveAudioSession {
     }
   }
 
+  // Met en pause l'écoute côté participant, sans fermer la connexion WebRTC
+  // (reste prêt à reprendre instantanément, cf. resumeParticipantAudio)
   pauseParticipantAudio() {
     if (this.role !== 'participant') return;
 
@@ -222,6 +254,7 @@ export class LiveAudioSession {
     });
   }
 
+  // Reprend l'écoute après une pause
   async resumeParticipantAudio() {
     if (this.role !== 'participant') return;
 
@@ -240,6 +273,9 @@ export class LiveAudioSession {
     });
   }
 
+  // Arrête complètement la session : ferme toutes les connexions WebRTC et le
+  // WebSocket, coupe le flux micro local et restaure le mode audio par défaut
+  // du téléphone (pour ne pas garder le micro "réservé" une fois l'appel terminé)
   stop() {
     this.isStopped = true;
 
@@ -283,6 +319,8 @@ export class LiveAudioSession {
     return this.webRTC;
   }
 
+  // Ouvre la connexion WebSocket vers le serveur de signalisation et branche les
+  // gestionnaires d'évènements (message reçu, erreur, fermeture)
   private connectSocket() {
     this.socket = new WebSocket(toLiveAudioSocketUrl(this.tripId, this.role));
 
@@ -325,6 +363,9 @@ export class LiveAudioSession {
     };
   }
 
+  // Dispatch des messages de signalisation reçus. Le message "joined" (accueil
+  // initial du serveur avec la liste des pairs déjà présents) est géré ici pour
+  // les deux rôles ; le reste est délégué à handleLeaderMessage/handleParticipantMessage.
   private handleSignalingMessage(message: SignalingMessage) {
     if (message.type === 'joined') {
       this.clientId = message.clientId ?? null;
@@ -353,6 +394,9 @@ export class LiveAudioSession {
     this.handleParticipantMessage(message);
   }
 
+  // Messages traités côté leader : suivi des participants qui rejoignent/quittent
+  // la room (avec envoi automatique d'une offre WebRTC si l'appel est en cours),
+  // et réception des réponses (answer) et candidats ICE de chaque participant
   private handleLeaderMessage(message: SignalingMessage) {
     if (message.type === 'participant-joined' && message.participantId) {
       this.knownParticipants.add(message.participantId);
@@ -394,6 +438,9 @@ export class LiveAudioSession {
     }
   }
 
+  // Messages traités côté participant : suivi du leader disponible, réception
+  // de son état d'appel, de son offre WebRTC (à laquelle on répond par une
+  // "answer"), et des candidats ICE
   private handleParticipantMessage(message: SignalingMessage) {
     if (message.type === 'leader-available' && message.leaderId) {
       this.knownLeaders.add(message.leaderId);
@@ -432,6 +479,8 @@ export class LiveAudioSession {
     }
   }
 
+  // Met à jour le statut affiché côté participant en fonction de l'état d'appel
+  // annoncé par le leader (idle/muted/live), en tenant compte d'une éventuelle pause locale
   private handleCallState(state?: LeaderCallState) {
     if (state === 'idle') {
       this.emit({
@@ -463,6 +512,9 @@ export class LiveAudioSession {
     }
   }
 
+  // Crée (ou réutilise) la connexion WebRTC vers un participant, y attache les
+  // tracks du micro local (sans les dupliquer si déjà présentes), puis génère et
+  // envoie une offre SDP via le canal de signalisation
   private async createLeaderOffer(participantId: string) {
     const localStream = this.localStream;
     if (!localStream || this.callState !== 'live') return;
@@ -493,6 +545,8 @@ export class LiveAudioSession {
     }
   }
 
+  // Répond à l'offre SDP reçue du leader : applique sa description distante,
+  // génère une réponse (answer) et la renvoie via le canal de signalisation
   private async handleOffer(leaderId: string, sdp: SessionDescriptionPayload) {
     const peerConnection = this.getOrCreatePeer(leaderId);
     const webRTC = this.ensureWebRTCAvailable();
@@ -515,6 +569,9 @@ export class LiveAudioSession {
     }
   }
 
+  // Récupère la connexion WebRTC existante vers un pair, ou en crée une nouvelle
+  // avec ses gestionnaires d'évènements (candidats ICE à transmettre, track
+  // audio reçue côté participant, changement d'état de connexion)
   private getOrCreatePeer(peerId: string) {
     const existingPeer = this.peerConnections.get(peerId);
     if (existingPeer) return existingPeer;
@@ -560,6 +617,9 @@ export class LiveAudioSession {
     return peerConnection;
   }
 
+  // Attache le flux audio distant à un élément <audio> caché pour qu'il soit
+  // réellement joué (nécessaire sur web ; sur natif, react-native-webrtc route
+  // généralement l'audio automatiquement, mais ceci reste inoffensif)
   private attachRemoteAudio(stream: MediaStreamLike) {
     if (typeof document === 'undefined') return;
 
@@ -593,6 +653,8 @@ export class LiveAudioSession {
     this.peerConnections.delete(peerId);
   }
 
+  // Envoie un message de signalisation, en l'ignorant silencieusement si le
+  // socket n'est pas (ou plus) ouvert
   private send(message: SignalingMessage) {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
 

@@ -3,6 +3,9 @@ import { useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet-routing-machine'
 
+// Composant alternatif de calcul d'itinéraire basé sur le plugin Leaflet Routing
+// Machine (via l'API publique OSRM). Non utilisé par Carte.jsx, qui implémente son
+// propre calcul de routage (RoutingControl) avec support Valhalla + repli OSRM.
 function RoutingMachine({ waypoints }) {
   const map = useMap()
 

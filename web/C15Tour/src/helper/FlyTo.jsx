@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { useMap } from 'react-leaflet'
 
+// Composant sans rendu visuel qui centre automatiquement la carte (avec une
+// animation) sur le dernier waypoint ajouté, dès que la liste de waypoints change.
 function FlyTo({ waypoints }) {
   const map = useMap()
 

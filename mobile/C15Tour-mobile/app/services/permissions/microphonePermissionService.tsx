@@ -1,6 +1,8 @@
 import * as Audio from "expo-audio";
 import { Alert, Linking } from "react-native";
 
+// Vérifie/demande la permission microphone (utilisé avant de démarrer un appel
+// en tant que leader, voir handleCallToggle dans app/(tabs)/explore.tsx)
 export async function checkAudioPermission() {
     try {
         const permission = await Audio.getRecordingPermissionsAsync();

@@ -120,24 +120,27 @@ const telemetrySchema = Joi.object({
   })
 });
 
-// Middleware de validation
+// Fabrique de middleware Express : valide le corps de la requête selon le schéma
+// Joi fourni. En cas d'erreur, renvoie un 400 avec un message par champ en faute
+// (abortEarly: false pour collecter toutes les erreurs, pas seulement la première).
+// En cas de succès, remplace req.body par la valeur validée/normalisée (valeurs par défaut appliquées).
 const validate = (schema) => {
   return (req, res, next) => {
     const { error, value } = schema.validate(req.body, { abortEarly: false });
-    
+
     if (error) {
       const errors = error.details.reduce((acc, detail) => {
         acc[detail.path.join('.')] = detail.message;
         return acc;
       }, {});
-      
+
       return res.status(400).json({
         status: 400,
         error: 'Validation Failed',
         errors
       });
     }
-    
+
     req.body = value;
     next();
   };

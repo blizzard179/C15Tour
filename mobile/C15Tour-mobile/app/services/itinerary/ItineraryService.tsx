@@ -1,5 +1,10 @@
 import { API_BASE_URL } from '@/constants/api';
 
+// Service de calcul d'itinéraire et de guidage côté mobile : récupère les étapes
+// et l'itinéraire global d'un trajet depuis le backend (Valhalla/OSRM via
+// routingService), puis calcule en direct (via l'API publique OSRM) la distance
+// et les instructions de guidage vers la prochaine étape au fil du déplacement.
+
 export type Coordinates = {
   latitude: number;
   longitude: number;
@@ -35,12 +40,14 @@ export type GuidanceResult = {
 
 const OSRM_BASE_URL = 'https://router.project-osrm.org/route/v1/driving';
 
+// Convertit une distance en mètres en kilomètres arrondis à 2 décimales
 function toKm(meters: unknown) {
   return typeof meters === 'number' && Number.isFinite(meters)
     ? Number((meters / 1000).toFixed(2))
     : null;
 }
 
+// Récupère la liste des étapes d'un trajet depuis le backend
 export async function fetchTripSteps(tripId: number | string) {
   const response = await fetch(`${API_BASE_URL}/api/trips/${tripId}/steps`);
   if (!response.ok) {
@@ -51,6 +58,9 @@ export async function fetchTripSteps(tripId: number | string) {
   return Array.isArray(data) ? (data as TripStep[]) : [];
 }
 
+// Demande au backend de calculer l'itinéraire complet du trajet (distance,
+// durée, tracé), via l'endpoint POST /api/trips/:tripId/compute (voir
+// web/backend/src/services/routingService.js côté serveur)
 export async function computeTripRoute(tripId: number | string): Promise<RouteResult> {
   const response = await fetch(`${API_BASE_URL}/api/trips/${tripId}/compute`, {
     method: 'POST'
@@ -74,6 +84,9 @@ export async function computeTripRoute(tripId: number | string): Promise<RouteRe
   };
 }
 
+// Calcule la distance routière (en km) entre deux points via l'API publique
+// OSRM, appelée en direct depuis le mobile (pas besoin de passer par le backend
+// ici, contrairement au calcul d'itinéraire complet d'un trajet enregistré)
 export async function computeOsrmDistance(from: Coordinates, to: Coordinates) {
   const url = `${OSRM_BASE_URL}/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=false`;
   const response = await fetch(url);
@@ -85,6 +98,8 @@ export async function computeOsrmDistance(from: Coordinates, to: Coordinates) {
   return toKm(data?.routes?.[0]?.distance);
 }
 
+// Traduit une "manoeuvre" OSRM (type + modificateur directionnel) en une
+// instruction de guidage lisible en français
 function buildInstruction(step: any) {
   if (!step?.maneuver) return null;
 
@@ -131,6 +146,10 @@ function buildInstruction(step: any) {
   }
 }
 
+// Calcule l'instruction de guidage vers une cible (prochaine étape) : distance
+// jusqu'à la prochaine manoeuvre, distance totale restante, et le tracé à suivre.
+// Appelé en continu pendant le déplacement (voir le useEffect "updateGuidance"
+// dans app/(tabs)/explore.tsx) pour simuler un guidage GPS "turn-by-turn".
 export async function computeGuidance(from: Coordinates, to: Coordinates): Promise<GuidanceResult> {
   const url = `${OSRM_BASE_URL}/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=full&steps=true&geometries=geojson`;
   const response = await fetch(url);
@@ -142,9 +161,12 @@ export async function computeGuidance(from: Coordinates, to: Coordinates): Promi
   const route = data?.routes?.[0];
   const leg = route?.legs?.[0];
   const steps = Array.isArray(leg?.steps) ? leg.steps : [];
+  // On ignore la toute première étape "depart" (elle ne décrit pas une manoeuvre
+  // à venir) pour trouver la prochaine instruction réellement utile à afficher
   const stepIndex = steps.findIndex((candidate) => candidate?.maneuver?.type && candidate.maneuver.type !== 'depart');
   const resolvedIndex = stepIndex >= 0 ? stepIndex : (steps.length > 0 ? 0 : -1);
   const step = resolvedIndex >= 0 ? steps[resolvedIndex] : null;
+  // Distance cumulée jusqu'à cette prochaine manoeuvre (somme des étapes précédentes)
   const distanceToNextManeuverMeters = resolvedIndex <= 0
     ? (typeof steps?.[0]?.distance === 'number' ? steps[0].distance : null)
     : steps
@@ -164,6 +186,8 @@ export async function computeGuidance(from: Coordinates, to: Coordinates): Promi
   };
 }
 
+// Distance restante jusqu'au point de départ du trajet (première étape),
+// pertinent avant même d'avoir rejoint le convoi
 export async function computeDistanceToStart(currentLocation: Coordinates | null, steps: TripStep[]) {
   if (!currentLocation || steps.length === 0) {
     return null;
@@ -182,6 +206,9 @@ export async function computeDistanceToStart(currentLocation: Coordinates | null
   return computeOsrmDistance(currentLocation, to);
 }
 
+// Récupère le nom de la rue la plus proche d'une position (géocodage inverse
+// via Nominatim), avec repli progressif sur des libellés plus larges (quartier,
+// ville...) si aucun nom de rue précis n'est disponible
 export async function reverseGeocodeStreetName(location: Coordinates) {
   const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${location.latitude}&lon=${location.longitude}`;
   const response = await fetch(url, {

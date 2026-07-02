@@ -1,6 +1,9 @@
 import axios from 'axios';
 import prisma from '../config/database.js';
 
+// Calcule l'itinéraire complet d'un trajet déjà enregistré en base (utilisé par
+// l'application mobile). Distinct du proxy Valhalla utilisé par le frontend web
+// pour un calcul d'itinéraire "en direct" pendant l'édition d'un convoi.
 // Utilisation de l'API OSRM (gratuite, pas de clé nécessaire)
 const OSRM_BASE_URL = 'https://router.project-osrm.org';
 

@@ -1,5 +1,8 @@
 import prisma from '../config/database.js';
 
+// Logique métier de la télémétrie : historique des positions GPS envoyées
+// par l'application mobile pendant un trajet (suivi en direct du convoi).
+
 // Enregistrer une position GPS
 const createTelemetry = async (tripId, data) => {
   // Vérifier que le trip existe

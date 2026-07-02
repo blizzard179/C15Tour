@@ -10,6 +10,9 @@ type ThemeContextType = {
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
+// Thème clair/sombre de l'application : suit le thème du système par défaut,
+// mais peut être forcé manuellement par l'utilisateur (toggleTheme), auquel cas
+// cette préférence explicite prend le pas sur le thème système.
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   const systemTheme = useSystemColorScheme();
   const [override, setOverride] = useState<ColorScheme | null>(null);
@@ -30,6 +33,7 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Hook d'accès au thème courant, à utiliser dans tout composant enfant de AppThemeProvider
 export function useAppTheme() {
   const ctx = useContext(ThemeContext);
   if (!ctx) throw new Error('useAppTheme must be used within AppThemeProvider');

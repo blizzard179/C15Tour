@@ -1,5 +1,8 @@
 import telemetryService from '../services/telemetryService.js';
 
+// Contrôleurs de télémétrie : enregistrement et lecture des positions GPS
+// envoyées par l'application mobile pendant un trajet, utilisées pour le suivi en direct.
+
 // POST /api/trip/:tripId/telemetry
 const createTelemetry = async (req, res, next) => {
   try {

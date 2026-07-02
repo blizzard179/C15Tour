@@ -10,8 +10,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '@/context/auth';
 import { AppThemeProvider, useAppTheme } from '@/context/theme';
 
+// Couleur de fond native affichée avant même que React ait fini de monter (évite un flash blanc/noir)
 void SystemUI.setBackgroundColorAsync('#FFFFFF');
 
+// Déclare la pile de navigation racine (expo-router) : écrans d'authentification
+// (index, login, join, scan-qr), le groupe d'onglets principal (tabs), et un écran modal.
 function ThemedNavigator() {
   const { colorScheme } = useAppTheme();
 
@@ -30,6 +33,8 @@ function ThemedNavigator() {
   );
 }
 
+// Racine de l'application : empile les providers globaux (gestes tactiles, zones
+// sécurisées, thème personnalisé, authentification) autour du navigateur.
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
