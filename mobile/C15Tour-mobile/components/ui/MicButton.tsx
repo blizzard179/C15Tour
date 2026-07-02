@@ -7,6 +7,8 @@ type MicButtonProps = {
   onPress?: () => void;
 };
 
+// Bouton d'ouverture/fermeture du panneau micro (visible uniquement pour
+// l'organisateur du convoi, voir app/(tabs)/explore.tsx)
 export default function MicButton({
   isActive = false,
   onPress,

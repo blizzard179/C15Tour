@@ -22,6 +22,9 @@ const BASE_LOGO_SIZE = 220;
 const TOP_SAFE_AREA = 60;   // approx status bar height
 const LOGO_PADDING = 16;    // min gap between logo edge and screen top / sheet top
 
+// Écran de connexion : logo animé qui se redimensionne selon la position d'un
+// "bottom sheet" contenant le formulaire (ScrollUp), avec une indication visuelle
+// (flèches clignotantes) invitant l'utilisateur à faire glisser le panneau vers le haut.
 export default function LoginScreen() {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const previousSheetIndexRef = useRef(1);
@@ -54,6 +57,8 @@ export default function LoginScreen() {
     [hideScrollHint, isDark]
   );
 
+  // Recalcule en continu la taille et la position du logo pour qu'il reste
+  // toujours centré dans l'espace disponible entre le haut de l'écran et le bottom sheet
   const logoStyle = useAnimatedStyle(() => {
     // Available vertical space between the status bar and the sheet's top edge
     const available = animatedPosition.value - TOP_SAFE_AREA;
@@ -90,6 +95,7 @@ export default function LoginScreen() {
     ],
   }));
 
+  // Fait clignoter (va-et-vient) l'indication de balayage vers le haut, en boucle infinie
   useEffect(() => {
     scrollHintProgress.value = 0;
     scrollHintProgress.value = withRepeat(
@@ -102,10 +108,14 @@ export default function LoginScreen() {
     );
   }, [scrollHintProgress]);
 
+  // Verrouille l'orientation en portrait pour cet écran
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
   }, []);
 
+  // Étend le bottom sheet en plein écran quand le clavier apparaît (pour que les
+  // champs de saisie restent visibles), puis le ramène à sa position précédente
+  // à la fermeture du clavier
   useEffect(() => {
     const keyboardShowSubscription = Keyboard.addListener('keyboardDidShow', () => {
       isKeyboardOpenRef.current = true;

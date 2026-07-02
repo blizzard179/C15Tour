@@ -1,5 +1,9 @@
 import tripService from '../services/tripService.js';
 
+// Contrôleurs CRUD des trajets (trips) : création, lecture (par id, code
+// participant ou code admin), recherche, modification, suppression et
+// régénération du code participant.
+
 // GET /api/trips
 const getAllTrips = async (req, res, next) => {
   try {

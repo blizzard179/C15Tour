@@ -8,10 +8,13 @@ import { useAuth } from '@/context/auth';
 
 type Role = 'participant' | 'leader';
 
+// Les paramètres d'URL peuvent être une chaîne unique ou un tableau (si répétés) ;
+// on ne garde que la première valeur dans tous les cas
 function getSingleParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+// Normalise le rôle reçu dans l'URL (tolère aussi les variantes françaises)
 function normalizeRole(value: string | string[] | undefined): Role | null {
   const role = getSingleParam(value);
 
@@ -26,11 +29,16 @@ function normalizeRole(value: string | string[] | undefined): Role | null {
   return null;
 }
 
+// Les codes de partage sont stockés/comparés en majuscules côté backend
 function normalizeCode(value: string | string[] | undefined) {
   const code = getSingleParam(value)?.trim();
   return code ? code.toUpperCase() : null;
 }
 
+// Écran de destination du lien profond (deep link) `c15tourmobile://join?role=...&code=...`,
+// généré par le frontend web (QR code affiché dans la popup de partage d'un convoi)
+// ou saisi via l'écran de scan QR (scan-qr.tsx). Récupère le trajet correspondant
+// au code, authentifie l'utilisateur avec le rôle approprié, puis redirige vers la carte.
 export default function JoinScreen() {
   const params = useLocalSearchParams<{ role?: string; code?: string }>();
   const router = useRouter();
@@ -51,6 +59,8 @@ export default function JoinScreen() {
         return;
       }
 
+      // Le code participant et le code admin identifient le même trajet mais via
+      // deux endpoints distincts côté backend (deux colonnes différentes en base)
       const endpoint =
         role === 'participant'
           ? `${API_BASE_URL}/api/trips/code/${encodeURIComponent(code)}`
@@ -78,6 +88,8 @@ export default function JoinScreen() {
 
     joinTrip();
 
+    // Évite d'appeler login()/navigate() si le composant a été démonté
+    // avant la fin de la requête (changement d'écran pendant le chargement)
     return () => {
       isCancelled = true;
     };

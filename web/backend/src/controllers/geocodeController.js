@@ -1,5 +1,9 @@
 import geocodeService from '../services/geocodeService.js';
 
+// Contrôleurs de géocodage : recherche d'adresse et géocodage inverse,
+// utilisés notamment par l'application mobile (qui n'appelle pas directement
+// les API publiques Nominatim/Photon comme le fait le frontend web).
+
 // GET /api/geocode/search?q=...
 const searchAddress = async (req, res, next) => {
   try {

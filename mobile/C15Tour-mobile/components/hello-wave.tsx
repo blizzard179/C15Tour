@@ -1,5 +1,7 @@
 import Animated from 'react-native-reanimated';
 
+// Composant fourni par le template Expo par défaut : émoji main qui s'anime en
+// "coucou". Non utilisé actuellement dans l'application.
 export function HelloWave() {
   return (
     <Animated.Text

@@ -2,6 +2,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { StyleSheet } from "react-native";
 
+// Titre fixe affiché en haut du bottom sheet de connexion (visible même replié)
 function LoginHeader() {
     return (
         <ThemedView style={styles.headerContainer}>

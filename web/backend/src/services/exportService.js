@@ -1,8 +1,15 @@
 import PDFDocument from 'pdfkit';
 import prisma from '../config/database.js';
 
+// Génère les exports d'un trajet en PDF (feuille de route) et GPX (fichier de
+// navigation). Les calculs de temps ci-dessous ré-implémentent côté serveur la
+// même logique que le frontend (web/C15Tour/src/components/CardConvoi.jsx),
+// afin que le PDF exporté reflète les mêmes heures d'arrivée que celles affichées à l'écran.
 
-// Utilitaires pour calculer les temps
+// Estime le temps de trajet (minutes) d'un tronçon : ici on ne dispose pas de la
+// distance réelle calculée par le moteur de routage, donc on part d'une durée de
+// référence de 90 min à 50 km/h, ajustée à la vitesse configurée et à une éventuelle
+// réduction automatique, puis répartie également entre tous les tronçons du trajet.
 const calculateSegmentTravelTime = (trip, totalSegments) => {
   if (!trip.trip_speed || trip.trip_speed <= 0) {
     return 30;
@@ -22,6 +29,7 @@ const calculateSegmentTravelTime = (trip, totalSegments) => {
   return Math.round(estimatedMinutes);
 };
 
+// Durée de pause configurée pour une étape (0 si ce n'est pas un arrêt)
 const getStepBreakTime = (step) => {
   if (step.step_is_stop && step.step_stop_duration) {
     return parseInt(step.step_stop_duration);
@@ -29,6 +37,7 @@ const getStepBreakTime = (step) => {
   return 0;
 };
 
+// Heure d'arrivée estimée à une étape intermédiaire donnée (départ + trajets + pauses précédentes)
 const calculateWaypointTime = (trip, stepIndex, steps) => {
   if (!trip.trip_start_time || !steps || steps.length === 0) {
     return null;
@@ -62,6 +71,7 @@ const calculateWaypointTime = (trip, stepIndex, steps) => {
   }
 };
 
+// Heure d'arrivée finale au dernier point du trajet (départ + tous les trajets + toutes les pauses)
 const calculateArrivalTime = (trip, steps) => {
   if (!trip.trip_start_time || !steps || steps.length === 0) {
     return null;
@@ -90,6 +100,7 @@ const calculateArrivalTime = (trip, steps) => {
   }
 };
 
+// Formate une date en heure "HH:MM"
 const formatTime = (date) => {
   try {
     const hours = String(date.getHours()).padStart(2, '0');
@@ -101,7 +112,10 @@ const formatTime = (date) => {
   }
 };
 
-// Export PDF
+// Génère la feuille de route PDF d'un trajet : informations générales, préférences
+// de route, détail de chaque étape avec heure d'arrivée estimée, et une page dédiée
+// à la capture de carte fournie par le frontend (mapImageBuffer), si disponible.
+// Construit le PDF en streaming en mémoire (Buffer) plutôt que sur disque.
 const exportToPDF = async (tripId, mapImageBuffer = null) => {
   const trip = await prisma.trip.findUnique({
     where: { trip_id: parseInt(tripId) },
@@ -222,7 +236,9 @@ const exportToPDF = async (tripId, mapImageBuffer = null) => {
   });
 };
 
-// Export GPX
+// Génère un fichier GPX (format XML de navigation) contenant les étapes du
+// trajet sous forme de route (<rte>), construit manuellement plutôt qu'avec
+// une librairie XML dédiée (format volontairement simple)
 const exportToGPX = async (tripId) => {
   const trip = await prisma.trip.findUnique({
     where: { trip_id: parseInt(tripId) },

@@ -1,6 +1,9 @@
 import { SymbolView, SymbolViewProps, SymbolWeight } from 'expo-symbols';
 import { StyleProp, ViewStyle } from 'react-native';
 
+// Composant fourni par le template Expo par défaut : icônes natives SF Symbols
+// sur iOS (résolu automatiquement par Metro à la place de icon-symbol.tsx sur
+// cette plateforme). Non utilisé actuellement dans l'application.
 export function IconSymbol({
   name,
   size = 24,

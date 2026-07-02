@@ -1,3 +1,6 @@
+// Middleware Express centralisant la gestion des erreurs : traduit les erreurs
+// personnalisées (avec un champ "status") et les codes d'erreur Prisma connus
+// en réponses HTTP cohérentes, avec un repli générique en 500 pour le reste.
 const errorHandler = (err, req, res, next) => {
   console.error('Error:', err);
 

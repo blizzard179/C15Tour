@@ -1,6 +1,10 @@
 import { Alert, Linking } from "react-native";
 import * as Location from "expo-location";
 
+// Vérifie/demande la permission de localisation, avec des messages adaptés selon
+// que l'utilisateur peut encore être re-sollicité ou doit passer par les réglages
+// système. Non utilisé actuellement : app/services/locations/locationService.tsx
+// gère lui-même sa propre demande de permission au moment de l'usage.
 export async function checkLocationPermission() {
     try{
         const permission = await Location.getForegroundPermissionsAsync();

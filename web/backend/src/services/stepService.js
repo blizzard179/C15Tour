@@ -1,5 +1,8 @@
 import prisma from '../config/database.js';
 
+// Logique métier des étapes (steps) : CRUD complet, avec maintien automatique
+// d'un ordre (step_order) contigu et sans doublon au sein d'un même trajet.
+
 // Récupérer toutes les étapes d'un trip
 const getStepsByTripId = async (tripId) => {
   // Vérifier que le trip existe
@@ -51,7 +54,8 @@ const createStep = async (tripId, data) => {
     throw { status: 404, message: 'Trip non trouvé' };
   }
 
-  // Trouver l'ordre maximum actuel
+  // Par défaut, la nouvelle étape est ajoutée à la fin (ordre max + 1),
+  // sauf si un ordre précis est explicitement fourni par l'appelant
   const maxOrderResult = await prisma.step.aggregate({
     where: { step_trip_id: parseInt(tripId) },
     _max: { step_order: true }
@@ -150,8 +154,9 @@ const deleteStep = async (id) => {
   const deletedOrder = step.step_order;
   
   await prisma.step.delete({ where: { step_id: parseInt(id) } });
-  
-  // Réorganiser les ordres des étapes restantes
+
+  // Décale d'un cran les étapes qui suivaient celle supprimée, pour que
+  // step_order reste une séquence contiguë (1, 2, 3...) sans trou
   await prisma.step.updateMany({
     where: {
       step_trip_id: tripId,
@@ -172,7 +177,7 @@ const reorderSteps = async (tripId, stepIds) => {
     throw { status: 404, message: 'Trip non trouvé' };
   }
   
-  // Mettre à jour l'ordre de chaque étape
+  // Le nouvel ordre est simplement la position de chaque id dans le tableau reçu
   for (let i = 0; i < stepIds.length; i++) {
     await prisma.step.update({
       where: { step_id: parseInt(stepIds[i]) },

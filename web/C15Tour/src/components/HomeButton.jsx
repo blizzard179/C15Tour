@@ -1,5 +1,6 @@
 import React from 'react';
 
+// Bouton de retour à l'écran d'accueil (rechargement complet de la page vers "/")
 const HomeButton = () => {
     const handleClick = () => {
         window.location.href = '/';

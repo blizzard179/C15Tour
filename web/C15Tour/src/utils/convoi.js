@@ -1,3 +1,8 @@
+// Fonctions utilitaires partagées pour la gestion des convois et de leurs réglages
+// (durée du trajet, réglages généraux, formatage des heures). Duplique certaines
+// fonctions internes de CardConvoi.jsx sous forme exportable/réutilisable.
+
+// Réglages par défaut appliqués si aucune préférence n'a encore été définie
 export const DEFAULT_GENERAL_SETTINGS = {
   segmentsCount: 1,
   routeType: {
@@ -14,6 +19,7 @@ export const DEFAULT_GENERAL_SETTINGS = {
 
 export const SEGMENT_COLOR_PALETTE = ["#4A6CF7", "#2AA876", "#FF9F1C", "#E63946", "#7B61FF", "#0096C7"];
 
+// Fusionne les réglages fournis avec les valeurs par défaut pour garantir un objet complet
 export const mergeGeneralSettings = (input) => ({
   segmentsCount: Math.max(1, Number.parseInt(input?.segmentsCount, 10) || 1),
   routeType: {
@@ -26,6 +32,8 @@ export const mergeGeneralSettings = (input) => ({
   }
 });
 
+// Durée totale ajustée (minutes) à partir de la distance et de la vitesse configurée
+// (avec réduction automatique éventuelle), ou à défaut à partir de la durée du moteur de routage
 export const getAdjustedRouteDurationMinutes = (resolvedGeneralSettings, routeDistanceKm, routeDurationMinutes) => {
   const speed = Number(resolvedGeneralSettings.speed.generalSpeedKmH);
   if (speed > 0 && Number.isFinite(routeDistanceKm) && routeDistanceKm >= 0) {
@@ -47,18 +55,21 @@ export const getAdjustedRouteDurationMinutes = (resolvedGeneralSettings, routeDi
   return Math.max(0, Math.round(adjusted));
 };
 
+// Convertit un nombre total de minutes en heure affichable "HH:MM" (modulo 24h)
 export const formatTime = (totalMinutes) => {
   const hours = Math.floor(totalMinutes / 60) % 24;
   const minutes = totalMinutes % 60;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 };
 
+// Convertit une heure "HH:MM" en nombre total de minutes depuis minuit
 export const parseTime = (timeStr) => {
   if (!timeStr || timeStr === "--:--") return null;
   const [hours, minutes] = timeStr.split(":").map(Number);
   return hours * 60 + minutes;
 };
 
+// Libellé du nombre d'étapes, accordé au singulier/pluriel
 export const stepsText = (waypointCount) => {
   if (waypointCount === 0) return "Aucune etape ajoutee";
   if (waypointCount === 1) return "1 etape";

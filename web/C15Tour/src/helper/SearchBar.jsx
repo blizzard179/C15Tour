@@ -1,5 +1,8 @@
 import { useState } from 'react'
 
+// Version simplifiée de la barre de recherche d'adresse (validation au submit,
+// un seul service Nominatim). Non utilisée par l'application actuelle, qui
+// s'appuie sur components/ResearchBar.jsx (recherche en direct, plusieurs services en repli).
 function SearchBar({ onSelect }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])

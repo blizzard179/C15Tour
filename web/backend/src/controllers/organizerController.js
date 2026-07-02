@@ -1,5 +1,7 @@
 import organizerService from '../services/organizerService.js';
 
+// Contrôleur du tableau de bord organisateur (vue d'ensemble des trajets)
+
 // GET /api/organizer/dashboard
 const getDashboard = async (req, res, next) => {
   try {

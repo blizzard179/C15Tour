@@ -4,6 +4,9 @@ import SpeedIcon from '../../../../shared/global_assets/pictos/Speed.svg';
 
 const SPEED_DEFAULT_VALUE = 50;
 
+// Affiche la vitesse moyenne configurée pour le convoi courant. Non utilisé
+// actuellement dans l'écran carte (app/(tabs)/explore.tsx), qui affiche plutôt
+// cette information dans le panneau d'itinéraire (ScrollUpItinerary).
 export default function ConvoySpeed() {
   const { trip } = useAuth();
 

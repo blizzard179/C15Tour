@@ -18,6 +18,9 @@ type Props = PropsWithChildren<{
   headerBackgroundColor: { dark: string; light: string };
 }>;
 
+// Composant fourni par le template Expo par défaut : ScrollView avec un en-tête
+// à effet de parallaxe (zoom/translation selon le défilement). Non utilisé
+// actuellement dans l'application.
 export default function ParallaxScrollView({
   children,
   headerImage,

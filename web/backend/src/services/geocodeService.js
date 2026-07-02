@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-// Utilisation de l'API Nominatim d'OpenStreetMap 
+// Service de géocodage côté serveur (recherche d'adresse et géocodage inverse),
+// utilisé notamment par l'application mobile qui ne fait pas ces appels en direct.
+// Utilisation de l'API Nominatim d'OpenStreetMap
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
 
 // Recherche d'adresse (géocodage direct)

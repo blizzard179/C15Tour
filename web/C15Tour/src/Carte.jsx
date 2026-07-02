@@ -15,13 +15,14 @@ import L from 'leaflet';
 import 'leaflet-routing-machine';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 
-const CONVOYS_STORAGE_KEY = 'c15tour_convoys_v1';
-const LAST_CONVOY_STORAGE_KEY = 'c15tour_last_convoy_id';
+// Clés utilisées pour la persistance dans le localStorage du navigateur
+const CONVOYS_STORAGE_KEY = 'c15tour_convoys_v1'; // liste de tous les convois enregistrés localement
+const LAST_CONVOY_STORAGE_KEY = 'c15tour_last_convoy_id'; // id du dernier convoi ouvert/édité
 // en dev : const BACKEND_BASE_URL = 'http://localhost:3000';
-const BACKEND_BASE_URL = import.meta.env.VITE_API_URL ?? '';
-const MAP_IMAGE_STORAGE_KEY = 'c15tour_map_image_base64';
+const BACKEND_BASE_URL = import.meta.env.VITE_API_URL ?? ''; // URL de l'API backend (vide = même origine)
+const MAP_IMAGE_STORAGE_KEY = 'c15tour_map_image_base64'; // capture d'écran de la carte encodée en base64, utilisée pour l'export PDF
 
-// Styles pour le popup personnalisÃ©
+// Styles pour le popup personnalisé
 const popupStyles = `
   .custom-popup {
     padding: 10px 12px;
@@ -102,7 +103,9 @@ const popupStyles = `
   }
 `;
 
-// Composant de popup personnalisé
+// Composant de popup personnalisé : génère le HTML affiché quand on clique
+// sur un marqueur de la carte (nom de l'étape, adresse, coordonnées, boutons d'action).
+// Retourne une chaîne HTML brute car Leaflet n'utilise pas le rendu React pour ses popups.
 const CustomPopup = ({ index, name, address, lat, lng }) => {
   const displayCoords = Number.isFinite(lat) && Number.isFinite(lng)
     ? `${lat.toFixed(6)}, ${lng.toFixed(6)}`
@@ -125,26 +128,35 @@ const CustomPopup = ({ index, name, address, lat, lng }) => {
     </div>
   `;
 };
+// Composant principal de la carte interactive : gestion des étapes (waypoints),
+// du calcul d'itinéraire, des convois sauvegardés localement et des exports (GPX/PDF).
 function Carte() {
 
-    const [waypoints, setWaypoints] = useState([]);
-    const [waypointNames, setWaypointNames] = useState([]);
-    const [stepConfigs, setStepConfigs] = useState({});
-    const [searchQuery, setSearchQuery] = useState('');
-    const mapRef = useRef();
-    const importInputRef = useRef();
-    const [editingWaypointIndex, setEditingWaypointIndex] = useState(null);
+    // --- États liés au trajet en cours d'édition ---
+    const [waypoints, setWaypoints] = useState([]); // liste des points du trajet (coordonnées)
+    const [waypointNames, setWaypointNames] = useState([]); // noms affichés pour chaque point
+    const [stepConfigs, setStepConfigs] = useState({}); // configuration par étape (pause, segment, etc.)
+    const [searchQuery, setSearchQuery] = useState(''); // texte tapé dans la barre de recherche d'adresse
+    const mapRef = useRef(); // référence vers l'instance Leaflet de la carte
+    const importInputRef = useRef(); // référence vers l'input file caché pour l'import GPX
+    const [editingWaypointIndex, setEditingWaypointIndex] = useState(null); // index du waypoint en cours de modification via la recherche
+
+    // --- États liés au calcul d'itinéraire (durée, distance, tracé) ---
     const [routeDurationMinutes, setRouteDurationMinutes] = useState(null);
-    const [routeLegDurationsMinutes, setRouteLegDurationsMinutes] = useState([]);
-    const [routeLegDistancesKm, setRouteLegDistancesKm] = useState([]);
-    const [routeCoordinates, setRouteCoordinates] = useState([]);
-    const [showConvoySelector, setShowConvoySelector] = useState(true);
-    const [isConvoySelectorOpen, setIsConvoySelectorOpen] = useState(false);
-    const [savedConvoys, setSavedConvoys] = useState([]);
-    const [currentConvoyId, setCurrentConvoyId] = useState(null);
+    const [routeLegDurationsMinutes, setRouteLegDurationsMinutes] = useState([]); // durée de chaque tronçon entre deux étapes
+    const [routeLegDistancesKm, setRouteLegDistancesKm] = useState([]); // distance de chaque tronçon
+    const [routeCoordinates, setRouteCoordinates] = useState([]); // ensemble des points du tracé de la route
+
+    // --- États liés à l'écran de sélection de convoi ---
+    const [showConvoySelector, setShowConvoySelector] = useState(true); // affiche l'écran de sélection au démarrage
+    const [isConvoySelectorOpen, setIsConvoySelectorOpen] = useState(false); // true si l'utilisateur a explicitement rouvert le sélecteur
+    const [savedConvoys, setSavedConvoys] = useState([]); // convois sauvegardés dans le localStorage
+    const [currentConvoyId, setCurrentConvoyId] = useState(null); // id du convoi actuellement chargé
     const [currentConvoyName, setCurrentConvoyName] = useState('Nom du convoi');
-    const [selectedConvoyId, setSelectedConvoyId] = useState('');
-    const [isStorageLoaded, setIsStorageLoaded] = useState(false);
+    const [selectedConvoyId, setSelectedConvoyId] = useState(''); // convoi sélectionné dans la liste déroulante
+    const [isStorageLoaded, setIsStorageLoaded] = useState(false); // évite d'écraser le localStorage avant le premier chargement
+
+    // Réglages généraux du trajet : type de route à éviter et vitesse de calcul des durées
     const [generalSettings, setGeneralSettings] = useState({
         routeType: {
             avoidMotorway: true,
@@ -157,11 +169,13 @@ function Carte() {
             reductionPercent: 20
         }
     });
-    const [segmentConfig, setSegmentConfig] = useState([]);
+    const [segmentConfig, setSegmentConfig] = useState([]); // configuration des segments (couleur, rang, nombre de sections) pour l'affichage du tracé
     const [imageExportBase64, setImageExportBase64] = useState(() => {
+      // On tente de récupérer une capture d'écran précédente au chargement, pour permettre un export PDF immédiat
       try { return localStorage.getItem(MAP_IMAGE_STORAGE_KEY) || null; } catch { return null; }
     });
 
+    // Calcule la distance à vol d'oiseau (formule de Haversine) entre deux points [lat, lng]
     const haversineKm = (a, b) => {
       const toRad = (value) => (value * Math.PI) / 180;
       const lat1 = Number(a?.[0]);
@@ -181,6 +195,7 @@ function Carte() {
       return 2 * earthRadiusKm * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
     };
 
+    // Distance totale du trajet, calculée en sommant la distance de chaque segment du tracé
     const totalDistanceKm = useMemo(() => {
       if (!Array.isArray(routeCoordinates) || routeCoordinates.length < 2) return null;
       let total = 0;
@@ -190,11 +205,14 @@ function Carte() {
       return total > 0 ? total : null;
     }, [routeCoordinates]);
 
+    // Vitesse configurée par l'utilisateur (km/h), utilisée pour recalculer la durée du trajet
     const configuredSpeedKmH = useMemo(() => {
       const value = Number(generalSettings?.speed?.generalSpeedKmH);
       return Number.isFinite(value) && value > 0 ? value : null;
     }, [generalSettings]);
 
+    // Durée totale estimée (en minutes) à partir de la distance, de la vitesse configurée,
+    // d'une éventuelle réduction automatique, et des temps de pause à chaque étape.
     const totalMinutesFromSpeed = useMemo(() => {
       if (!Number.isFinite(totalDistanceKm) || !Number.isFinite(configuredSpeedKmH)) return null;
       let minutes = (totalDistanceKm / configuredSpeedKmH) * 60;
@@ -216,6 +234,8 @@ function Carte() {
       return Math.max(0, Math.round(minutes) + breakMinutes);
     }, [totalDistanceKm, configuredSpeedKmH, generalSettings, stepConfigs, waypoints]);
 
+    // Compare deux configurations de segments pour éviter des re-rendus inutiles
+    // quand le contenu est identique (même nombre de sections, rang et couleur).
     const areSegmentConfigsEqual = (a = [], b = []) => {
       if (!Array.isArray(a) || !Array.isArray(b)) return false;
       if (a.length !== b.length) return false;
@@ -238,6 +258,7 @@ function Carte() {
       setSegmentConfig((prev) => (areSegmentConfigsEqual(prev, normalized) ? prev : normalized));
     }, []);
 
+    // Déplace un élément d'un tableau de fromIndex vers toIndex (utilisé pour le glisser-déposer des étapes)
     const moveItem = (items, fromIndex, toIndex) => {
         if (!Array.isArray(items)) return items;
         const next = [...items];
@@ -246,6 +267,9 @@ function Carte() {
         return next;
     };
 
+    // Récupère la liste des convois sauvegardés dans le localStorage.
+    // On s'assure qu'une même sauvegarde côté serveur (backendTripId / shareTrip) n'est
+    // jamais partagée par deux convois locaux différents (en cas de duplication accidentelle).
     const parseStoredConvoys = () => {
       try {
         const raw = localStorage.getItem(CONVOYS_STORAGE_KEY);
@@ -273,6 +297,7 @@ function Carte() {
       }
     };
 
+    // Construit les informations de partage (codes participant/admin) à partir d'un trajet renvoyé par le backend
     const getShareTripFromBackendTrip = (trip) => {
       if (!trip?.trip_user_code || !trip?.trip_admin_code) return null;
 
@@ -284,26 +309,30 @@ function Carte() {
       };
     };
 
+    // Chargement initial des convois sauvegardés depuis le localStorage (une seule fois au montage)
     useEffect(() => {
       const convoys = parseStoredConvoys();
       setSavedConvoys(convoys);
       setIsStorageLoaded(true);
     }, []);
 
+    // Présélectionne le premier convoi de la liste dans le menu déroulant si aucun n'est encore choisi
     useEffect(() => {
       if (!selectedConvoyId && savedConvoys.length > 0) {
         setSelectedConvoyId(savedConvoys[0].id);
       }
     }, [savedConvoys, selectedConvoyId]);
 
+    // Persiste la liste des convois dans le localStorage à chaque modification
+    // (mais seulement après le chargement initial pour ne pas écraser les données existantes)
     useEffect(() => {
       if (!isStorageLoaded) return;
       localStorage.setItem(CONVOYS_STORAGE_KEY, JSON.stringify(savedConvoys));
     }, [savedConvoys, isStorageLoaded]);
 
     useEffect(() => {
-      // Si un convoi est chargÃ©, on ferme le panneau de sÃ©lection
-      // pour rÃ©activer immÃ©diatement l'overlay principal.
+      // Si un convoi est chargé, on ferme le panneau de sélection
+      // pour réactiver immédiatement l'overlay principal.
       if (!showConvoySelector) return;
       if (isConvoySelectorOpen) return;
       if (currentConvoyId || waypoints.length > 0) {
@@ -311,11 +340,13 @@ function Carte() {
       }
     }, [showConvoySelector, isConvoySelectorOpen, currentConvoyId, waypoints.length]);
 
+    // Dès qu'un convoi est chargé (id défini), on masque systématiquement le sélecteur
     useEffect(() => {
       if (!currentConvoyId) return;
       setShowConvoySelector(false);
     }, [currentConvoyId]);
 
+    // Réinitialise l'état pour démarrer un nouveau convoi vierge
     const createNewConvoy = () => {
       const now = new Date();
       setIsConvoySelectorOpen(false);
@@ -328,6 +359,10 @@ function Carte() {
       setShowConvoySelector(false);
     };
 
+    // Prend une "capture d'écran" de la carte en redessinant manuellement les tuiles,
+    // le tracé de la route et les marqueurs sur un canvas (utilisé ensuite pour l'export PDF).
+    // On ne peut pas utiliser une simple capture DOM car les tuiles OpenStreetMap posent
+    // des soucis de CORS ; on les redessine donc nous-mêmes à partir de leurs coordonnées.
     const captureMapScreenshot = async () => {
       try {
         const map = mapRef.current;
@@ -408,6 +443,8 @@ function Carte() {
       }
     };
 
+    // Sauvegarde (ou met à jour) le convoi courant dans le localStorage.
+    // Nécessite au moins 2 étapes pour constituer un trajet valide.
     const saveCurrentConvoyLocal = () => {
       if (!waypoints || waypoints.length < 2) return false;
 
@@ -452,6 +489,8 @@ function Carte() {
       return id;
     };
 
+    // Appelé quand un trajet vient d'être enregistré côté serveur : on relie
+    // le convoi local aux informations de partage (codes admin/participant) retournées.
     const handleTripPersisted = (trip, convoyId = currentConvoyId) => {
       const shareTrip = getShareTripFromBackendTrip(trip);
       if (!shareTrip || !convoyId) return;
@@ -471,10 +510,12 @@ function Carte() {
       );
     };
 
+    // Associe le convoi courant à l'id renvoyé par le backend lors de sa création
     const handlePersistConvoyOnServer = (tripId) => {
       setCurrentConvoyId(tripId);
     };
 
+    // Charge un convoi sauvegardé (waypoints, noms, configuration) dans l'état courant
     const openConvoy = (convoy) => {
       setIsConvoySelectorOpen(false);
       setCurrentConvoyId(convoy.id);
@@ -487,6 +528,7 @@ function Carte() {
       setShowConvoySelector(false);
     };
 
+    // Ouvre directement le dernier convoi consulté (ou le premier disponible à défaut)
     const openLastConvoy = () => {
       const lastId = localStorage.getItem(LAST_CONVOY_STORAGE_KEY);
       const convoy = savedConvoys.find((c) => c.id === lastId) || savedConvoys[0];
@@ -495,6 +537,7 @@ function Carte() {
       }
     };
 
+    // Réaffiche l'écran de sélection de convoi et réinitialise le trajet en cours
     const openConvoySelector = () => {
       setIsConvoySelectorOpen(true);
       setShowConvoySelector(true);
@@ -509,12 +552,17 @@ function Carte() {
       setSearchQuery('');
     };
 
+    // Convoi à proposer en "chargement rapide" sur l'écran de sélection
     const lastConvoyId = localStorage.getItem(LAST_CONVOY_STORAGE_KEY);
     const lastConvoy = savedConvoys.find((c) => c.id === lastConvoyId) || savedConvoys[0] || null;
+    // Convoi correspondant au trajet actuellement affiché (pour retrouver ses infos de partage, etc.)
     const currentSavedConvoy = currentConvoyId
       ? savedConvoys.find((convoy) => convoy.id === currentConvoyId) || null
       : null;
 
+    // Analyse un fichier GPX (format XML) et en extrait les étapes du trajet.
+    // On utilise en priorité les points d'intérêt (<wpt>), sinon on se rabat sur le
+    // premier et le dernier point de la trace GPS (<trkpt>) comme départ/arrivée.
     const parseGpxText = (gpxText, sourceFileName = '') => {
       const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
       const wptNodes = Array.from(xml.querySelectorAll('wpt'));
@@ -546,6 +594,7 @@ function Carte() {
       );
       const names = validWaypoints.map((w, i) => w.display_name || `Etape ${i + 1}`);
       const normalizeName = (value = '') => value.trim().toLowerCase().replace(/\s+/g, ' ');
+      // Détecte les libellés du type "Paris, Paris" (nom dupliqué), peu utiles comme nom de convoi
       const isDuplicatedLabel = (value = '') => {
         const parts = value.split(',').map((part) => normalizeName(part)).filter(Boolean);
         return parts.length === 2 && parts[0] === parts[1];
@@ -556,6 +605,9 @@ function Carte() {
       const firstWaypointName = names[0]?.trim() || '';
       const fileBaseName = sourceFileName.replace(/\.[^/.]+$/, '').trim();
 
+      // Le nom du convoi provient en priorité des métadonnées du GPX, sauf si ce nom
+      // est en réalité le nom de la première étape ou un libellé dupliqué : dans ce
+      // cas on préfère utiliser le nom du fichier importé.
       let convoyName = metadataName || trackName;
       if (
         !convoyName ||
@@ -573,6 +625,8 @@ function Carte() {
       };
     };
 
+    // Gère la sélection d'un fichier GPX par l'utilisateur : lecture, analyse puis
+    // création d'un nouveau convoi importé, directement ouvert à l'écran.
     const handleImportConvoy = async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -599,6 +653,7 @@ function Carte() {
       }
     };
 
+    // Réinitialise les informations de trajet dès qu'il n'y a plus assez d'étapes pour en calculer un
     useEffect(() => {
         if (waypoints.length < 2) {
             setRouteDurationMinutes(null);
@@ -607,6 +662,7 @@ function Carte() {
         }
     }, [waypoints.length]);
 
+    // Échappe les caractères spéciaux XML pour pouvoir insérer du texte libre dans le fichier GPX généré
     const escapeXml = (value = '') =>
       String(value)
         .replace(/&/g, '&amp;')
@@ -615,6 +671,7 @@ function Carte() {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;');
 
+    // Normalise un waypoint (quel que soit son format d'origine) en {lat, lon, name} pour l'export GPX
     const formatWaypointForGpx = (point, index) => {
       if (Array.isArray(point) && point.length >= 2) {
         return { lat: Number(point[0]), lon: Number(point[1]), name: waypointNames[index] || `Etape ${index + 1}` };
@@ -628,6 +685,7 @@ function Carte() {
       return null;
     };
 
+    // Génère un fichier GPX (points d'étapes + tracé complet) et déclenche son téléchargement
     const exportCurrentRouteAsGpx = () => {
       if (!routeCoordinates || routeCoordinates.length < 2) return false;
 
@@ -680,6 +738,8 @@ function Carte() {
       return true;
     };
 
+    // Demande au backend de générer un PDF récapitulatif du trajet (avec capture de la carte)
+    // et déclenche son téléchargement. Le convoi doit avoir été sauvegardé côté serveur au préalable.
     const exportCurrentRouteAsPdf = async () => {
       if (!currentConvoyId) {
         alert('Le convoi doit être sauvegardé avant d\'exporter en PDF');
@@ -738,6 +798,7 @@ function Carte() {
       }
     };
 
+    // Met à jour le nom et/ou les coordonnées d'un waypoint existant à l'index donné
     const handleUpdateWaypoint = (index, newName, newCoords = null) => {
         if (newCoords) {
             setWaypoints(prev => {
@@ -759,6 +820,7 @@ function Carte() {
     const leftPanelRef = useRef(null);
     const searchLayerRef = useRef(null);
 
+    // Icône personnalisée utilisée pour tous les marqueurs de la carte
     const pinIcon = L.icon({
         iconUrl: Pin,
         iconSize: [32, 32],
@@ -767,7 +829,7 @@ function Carte() {
     });
 
     useEffect(() => {
-        // Ajout des styles
+        // Injecte les styles CSS du popup personnalisé une seule fois dans le <head>
         if (!document.getElementById('popup-styles')) {
           const styleElement = document.createElement('style');
           styleElement.id = 'popup-styles';
@@ -775,24 +837,26 @@ function Carte() {
           document.head.appendChild(styleElement);
         }
 
-        // DÃ©finir les gestionnaires d'Ã©vÃ©nements globaux
+        // Définit les gestionnaires d'événements globaux appelés depuis le HTML brut
+        // du popup Leaflet (celui-ci n'étant pas du JSX, on ne peut pas y attacher
+        // directement des gestionnaires React onClick).
         window.configClickHandler = (index) => {
           console.log('Configuration du point', index);
           // Ajoutez ici la logique pour ouvrir la configuration
         };
 
         window.itineraireClickHandler = (index) => {
-          console.log('ItinÃ©raire vers le point', index);
-          // Ajoutez ici la logique pour l'itinÃ©raire
+          console.log('Itinéraire vers le point', index);
+          // Ajoutez ici la logique pour l'itinéraire
         };
 
         window.detailsClickHandler = (index) => {
-          console.log('DÃ©tails du point', index);
-          // Ajoutez ici la logique pour afficher les dÃ©tails
+          console.log('Détails du point', index);
+          // Ajoutez ici la logique pour afficher les détails
         };
 
         return () => {
-          // Nettoyage
+          // Nettoyage : on supprime les gestionnaires globaux au démontage du composant
           delete window.configClickHandler;
           delete window.itineraireClickHandler;
           delete window.detailsClickHandler;
@@ -808,7 +872,7 @@ function Carte() {
                 ref={mapRef}
             >
                 {/* <button onClick={() => setWaypoints([])}>
-                    RÃ©initialiser
+                    Réinitialiser
                 </button>
                 <button onClick={() =>
                     setWaypoints(prev => prev.slice(0, -1))
@@ -816,22 +880,24 @@ function Carte() {
                     Annuler dernier point
                 </button> */}
 
-                {/* Tuile openstreetmap */}
+                {/* Tuiles OpenStreetMap affichées en fond de carte */}
                 <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
-                {/* Gestion des clics sur la carte */}
+                {/* Ajoute un nouveau waypoint à chaque clic sur la carte (sauf pendant la sélection de convoi) */}
                 <ClickHandler onMapClick={(latlng) => {
                     if (showConvoySelector) return;
                     setWaypoints(prev => [...prev, latlng]);
                     setWaypointNames(prev => [...prev, '']);
                 }} />
+                {/* Affiche un marqueur pour chaque étape du trajet */}
                 {waypoints.map((point, index) => {
                     const waypointName = waypointNames[index] || '';
                     let lat, lng, displayName;
 
-                    // Gestion des diffÃ©rents formats de points
+                    // Les waypoints peuvent provenir de sources différentes (clic carte, recherche,
+                    // import GPX...) d'où la gestion de plusieurs formats de données possibles
                     if (Array.isArray(point)) {
                         [lat, lng] = point;
                         displayName = point.display_name || `Point ${index + 1}`;
@@ -852,7 +918,7 @@ function Carte() {
                     const position = [parseFloat(lat), parseFloat(lng)];
                     
                     if (isNaN(position[0]) || isNaN(position[1])) {
-                        console.error('CoordonnÃ©es invalides pour le point:', point);
+                        console.error('Coordonnées invalides pour le point:', point);
                         return null;
                     }
                     
@@ -879,7 +945,7 @@ function Carte() {
                     );
                 })}
                 
-                {/* Gestion du routage avec des coordonnÃ©es valides - s'affiche automatiquement dÃ¨s 2 points */}
+                {/* Calcul et affichage automatique de l'itinéraire dès que 2 étapes valides existent */}
                 {waypoints.length >= 2 && (
                   <RoutingControl 
                     waypoints={waypoints}
@@ -975,7 +1041,9 @@ function Carte() {
             <div className={`overlay-container ${showConvoySelector ? 'overlay-container--inactive' : ''}`}>
                 <RoadsTour />
                 <div className="search-bar-layer">
-                <ResearchBar 
+                {/* Barre de recherche d'adresse : une sélection crée un nouveau waypoint,
+                    ou met à jour celui en cours d'édition (via l'icône crayon de ConvoyCard) */}
+                <ResearchBar
                     value={searchQuery}
                     onChange={setSearchQuery}
                     onSelect={(suggestion) => {
@@ -988,7 +1056,9 @@ function Carte() {
                         };
 
                         mapRef.current.flyTo([position.lat, position.lng], 15);
-                        
+
+                        // On garde les deux premiers segments de l'adresse (ex: "rue, ville") comme
+                        // nom d'étape lisible, en évitant la répétition s'ils sont identiques
                         const addressParts = display_name.split(',').map((part) => part.trim()).filter(Boolean);
                         const firstPart = addressParts[0] || '';
                         const secondPart = addressParts[1] || '';
@@ -997,7 +1067,7 @@ function Carte() {
                           : firstPart;
                         
                         if (editingWaypointIndex !== null) {
-                            // Mise Ã  jour d'un waypoint existant
+                            // Mise à jour d'un waypoint existant
                             setWaypoints(prev => {
                                 const updated = [...prev];
                                 updated[editingWaypointIndex] = position;
@@ -1032,14 +1102,14 @@ function Carte() {
                     routeDistanceKm={totalDistanceKm}
                     generalSettings={generalSettings}
                     onUpdateWaypoint={(index, newName, newCoords = null, metadata = null) => {
-                        // Mise Ã  jour du nom 
+                        // Mise à jour du nom 
                         setWaypointNames(prev => {
                             const updated = [...prev];
                             updated[index] = newName || `Etape ${index + 1}`;
                             return updated;
                         });
                         
-                        // Si de nouvelles coordonnÃ©es sont fournies, on les met Ã  jour
+                        // Si de nouvelles coordonnées sont fournies, on les met à jour
                         if (newCoords) {
                             setWaypoints(prev => {
                                 const updated = [...prev];
@@ -1062,6 +1132,8 @@ function Carte() {
                         }
                     }}
                     onDeleteWaypoint={(index) => {
+                        // Supprime le waypoint et décale les index des configurations
+                        // d'étape suivantes pour rester cohérent avec la nouvelle liste
                         setWaypoints(prev => {
                             const updated = [...prev];
                             updated.splice(index, 1);
@@ -1157,6 +1229,9 @@ function Carte() {
     );
 }
 
+// Décode une polyligne encodée en "precision 6" (format utilisé par Valhalla/OSRM)
+// en une liste de coordonnées [lat, lon]. Chaque point est encodé comme un delta
+// par rapport au point précédent, sur des caractères ASCII décalés de 63.
 const decodePolyline6 = (encoded) => {
   if (!encoded || typeof encoded !== 'string') return [];
   let index = 0;
@@ -1190,6 +1265,8 @@ const decodePolyline6 = (encoded) => {
   return coordinates;
 };
 
+// Calcule la longueur totale (en km) d'un tracé, en sommant la distance
+// à vol d'oiseau entre chaque paire de points consécutifs
 const measurePathDistanceKm = (coordinates) => {
   if (!Array.isArray(coordinates) || coordinates.length < 2) return null;
 
@@ -1217,7 +1294,9 @@ const measurePathDistanceKm = (coordinates) => {
   return total > 0 ? total : null;
 };
 
-// Composant pour gerer le routage 
+// Composant sans rendu visuel qui gère le calcul et l'affichage du routage sur la carte.
+// Il appelle l'API Valhalla (backend), avec un repli sur l'API publique OSRM en cas d'échec,
+// et dessine le tracé sous forme de sections colorées correspondant aux segments configurés.
 const RoutingControl = ({
   waypoints,
   map,
@@ -1231,6 +1310,7 @@ const RoutingControl = ({
   useEffect(() => {
     if (!map || waypoints.length < 2) return;
 
+    // Normalise tous les formats de waypoints possibles en {lat, lon}
     const waypointCoords = waypoints
       .map((point) => {
         if (Array.isArray(point)) return { lat: Number(point[0]), lon: Number(point[1]) };
@@ -1242,6 +1322,8 @@ const RoutingControl = ({
 
     if (waypointCoords.length < 2) return;
 
+    // Traduit les préférences utilisateur (éviter autoroute/voie rapide) en paramètres
+    // de coût pour le moteur de routage (0 = éviter, 0.5 = pas de préférence)
     const routeTypePrefs = routePreferences?.routeType || {};
     const useHighways = routeTypePrefs.avoidMotorway === false ? 0 : 0.5;
     const useTolls = routeTypePrefs.avoidFastRoad === false ? 0 : 0.5;
@@ -1251,12 +1333,16 @@ const RoutingControl = ({
     const defaultPalette = ['#4A6CF7', '#2AA876', '#FF9F1C', '#E63946', '#7B61FF', '#0096C7'];
     const transitionColor = '#111111';
 
+    // Renvoie le rang de segment configuré pour l'étape à l'index donné (ou null si non défini)
     const getRankAtIndex = (index) => {
       const value = Number.parseInt(segmentConfig[index]?.segmentRank, 10);
       if (!Number.isFinite(value) || value < 1) return null;
       return value;
     };
 
+    // Dessine le tracé sur la carte tronçon par tronçon (leg), en le découpant en
+    // sections colorées selon le segment auquel appartient chaque étape. Un tronçon
+    // qui relie deux segments différents ("tronçon de transition") est affiché en noir.
     const drawColoredSections = (legCoordinates) => {
       if (!Array.isArray(legCoordinates) || legCoordinates.length < 1) return;
 
@@ -1293,6 +1379,9 @@ const RoutingControl = ({
       });
     };
 
+    // Interroge le moteur de routage pour calculer l'itinéraire : essaie d'abord
+    // Valhalla (auto-hébergé via le backend), puis se rabat sur l'API publique OSRM
+    // en cas d'échec (service indisponible, erreur réseau, etc.)
     const fetchRoute = async () => {
       try {
         const payload = {
@@ -1357,7 +1446,7 @@ const RoutingControl = ({
           return;
         }
 
-        // Fallback OSRM si Valhalla indisponible
+        // Repli sur l'API publique OSRM si Valhalla est indisponible
         const osrmCoords = waypointCoords.map((p) => `${p.lon},${p.lat}`).join(';');
         const osrmResponse = await fetch(
           `https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=false&geometries=polyline6&alternatives=false&steps=true`,
@@ -1383,13 +1472,14 @@ const RoutingControl = ({
           return null;
         });
 
-        // Build per-leg coordinates from steps geometry (exact waypoint boundaries)
+        // Reconstruit les coordonnées de chaque tronçon à partir de la géométrie de ses
+        // étapes (steps), ce qui donne des limites de tronçon exactement alignées sur les waypoints
         const legLatLngs = osrmLegs.map((leg) => {
           const steps = leg?.steps || [];
           const coords = [];
           steps.forEach((step, stepIdx) => {
             const stepCoords = decodePolyline6(step?.geometry || '');
-            // Skip first point of each step (except first step) to avoid duplicates
+            // On saute le premier point de chaque étape (sauf la toute première) pour éviter les doublons
             const start = stepIdx > 0 ? 1 : 0;
             for (let k = start; k < stepCoords.length; k++) {
               coords.push(stepCoords[k]);
@@ -1437,6 +1527,8 @@ const RoutingControl = ({
 
     fetchRoute();
 
+    // Nettoyage : on annule toute requête en cours et on retire les tracés dessinés
+    // avant de recalculer l'itinéraire (changement de waypoints ou de préférences)
     return () => {
       abortController.abort();
       onRouteDurationChange?.(null);

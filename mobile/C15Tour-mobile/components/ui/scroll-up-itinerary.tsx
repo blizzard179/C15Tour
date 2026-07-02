@@ -22,6 +22,11 @@ type ScrollUpItineraryProps = {
     onSheetChange?: (index: number, position?: number) => void;
 };
 
+// Panneau d'itinéraire replié/dépliable affiché en bas de l'écran carte :
+// vitesse et durée du trajet, distances (jusqu'au départ, jusqu'à la prochaine
+// étape, totale), et l'instruction de guidage courante. Toutes les valeurs
+// numériques peuvent arriver en `number` ou en `string` (JSON du backend), d'où
+// les vérifications de type avant formatage ci-dessous.
 function ScrollUpItinerary({
     speedKmh,
     distanceKm,
@@ -41,6 +46,8 @@ function ScrollUpItinerary({
     const isDark = colorScheme === 'dark';
     const maxDynamicContentSize = Math.round(height * 0.6);
 
+    // Formatage défensif de chaque valeur affichée : "N/A" si absente/invalide,
+    // conversion mètres -> km au-delà de 1000m pour les distances de guidage
     const speedText = typeof speedKmh === 'number'
         ? (Number.isFinite(speedKmh) ? `${speedKmh} km/h` : 'N/A')
         : (speedKmh?.trim() ? `${speedKmh} km/h` : 'N/A');

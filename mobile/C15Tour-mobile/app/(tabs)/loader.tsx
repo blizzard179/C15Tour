@@ -8,9 +8,9 @@ import LogoAccueil from '../../../../shared/global_assets/logo_accueil.svg';
 const damier = require('../../assets/images/damier_accueil_mobile.png');
 const loaderAnimation = require('../../../../shared/global_assets/gif/loadingLoop.gif');
 const loaderAnimationJump = require('../../../../shared/global_assets/gif/loadingJump.gif');
-const LOADER_CYCLE_DURATION_MS = 4500;
-const REDIRECT_DELAY_MS = 5000;
-const LOOP_PROBABILITY = 0.2;
+const LOADER_CYCLE_DURATION_MS = 4500; // durée entre deux tirages du gif affiché
+const REDIRECT_DELAY_MS = 5000; // délai avant redirection automatique vers la carte
+const LOOP_PROBABILITY = 0.2; // 20% de chances d'afficher le gif "boucle" plutôt que "saut"
 
 export type LoaderProfile = 'leader' | 'participant';
 
@@ -19,10 +19,15 @@ type ConvoyLoaderProps = {
   isMapReady?: boolean;
 };
 
+// Tire au hasard l'un des deux gifs d'animation, pour varier l'écran de chargement
 function pickLoaderGif() {
   return Math.random() < LOOP_PROBABILITY ? loaderAnimation : loaderAnimationJump;
 }
 
+// Écran de chargement affiché après authentification (via join.tsx ou au
+// démarrage de l'app), pendant la préparation de la carte. Réutilisable : peut
+// aussi être affiché en tant qu'overlay le temps que la carte finisse de charger
+// (isMapReady), sans le texte défilant une fois prête.
 export function ConvoyLoader({ profile, isMapReady = false }: ConvoyLoaderProps) {
   const translateX = useRef(new Animated.Value(300)).current;
   const [currentLoaderGif, setCurrentLoaderGif] = useState(() => pickLoaderGif());
@@ -38,6 +43,8 @@ export function ConvoyLoader({ profile, isMapReady = false }: ConvoyLoaderProps)
   }[profile];
   const loaderText = isMapReady ? 'Convoi charge !' : 'Chargement en cours...';
 
+  // Fait défiler le texte de droite à gauche en continu, puis le replace
+  // instantanément à droite (duration: 0) pour reprendre le défilement en boucle
   useEffect(() => {
     const animation = Animated.loop(
       Animated.sequence([
@@ -62,6 +69,7 @@ export function ConvoyLoader({ profile, isMapReady = false }: ConvoyLoaderProps)
     };
   }, [translateX]);
 
+  // Change périodiquement le gif affiché pour varier l'animation de chargement
   useEffect(() => {
     const gifRotation = setInterval(() => {
       setCurrentLoaderGif(pickLoaderGif());
@@ -94,6 +102,8 @@ export function ConvoyLoader({ profile, isMapReady = false }: ConvoyLoaderProps)
   );
 }
 
+// Écran de route dédié à /loader : affiche ConvoyLoader puis redirige
+// automatiquement vers la carte après un délai fixe
 export default function LoaderScreen() {
   const router = useRouter();
   const { role } = useAuth();

@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/context/auth';
 
+// Affiche le nom du convoi courant dans la barre supérieure de l'écran carte
 export default function ConvoyName() {
   const { trip } = useAuth();
   const convoyName = trip?.trip_name?.trim() || 'C15 Fiesta Tour #1';

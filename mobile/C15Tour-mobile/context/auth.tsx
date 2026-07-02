@@ -19,6 +19,10 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Contexte d'authentification "légère" de l'application : il n'y a pas de compte
+// utilisateur à proprement parler, on est "connecté" dès qu'on a rejoint un
+// trajet (via le code participant ou admin) avec un rôle donné. Non persisté :
+// fermer l'application déconnecte l'utilisateur (voir app/login.tsx pour la ré-authentification).
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [role, setRole] = useState<Role | null>(null);
@@ -40,6 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Hook d'accès au contexte d'authentification, à utiliser dans tout composant
+// enfant de AuthProvider (déclaré dans app/_layout.tsx)
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');

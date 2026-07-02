@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import SearchIcon from "@shared/global_assets/pictos/Search.svg";
 
+// Normalise un texte pour la comparaison : minuscules, sans accents, sans espaces superflus
 const normalize = (text = "") =>
   text
     .toLowerCase()
@@ -8,6 +9,7 @@ const normalize = (text = "") =>
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
 
+// Extrait le nom de localit\u00e9 le plus pertinent disponible dans une adresse structur\u00e9e
 const getLocationLabel = (address = {}) =>
   address.city ||
   address.town ||
@@ -17,6 +19,8 @@ const getLocationLabel = (address = {}) =>
   address.county ||
   "";
 
+// Calcule un score de pertinence pour une suggestion d'adresse par rapport \u00e0 la
+// recherche de l'utilisateur, afin de classer les meilleurs r\u00e9sultats en premier
 const scoreSuggestion = (item, rawQuery) => {
   const query = normalize(rawQuery);
   if (!query) return 0;
@@ -40,11 +44,15 @@ const scoreSuggestion = (item, rawQuery) => {
   return score;
 };
 
+// Barre de recherche d'adresse avec autocompl\u00e9tion. Interroge plusieurs services de
+// g\u00e9ocodage en cascade (API adresse du gouvernement fran\u00e7ais, puis Nominatim, puis
+// Photon) jusqu'\u00e0 obtenir des r\u00e9sultats, afin de maximiser les chances de trouver l'adresse.
 export default function ResearchBar({ value, onChange, onSelect }) {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchInputRef = useRef(null);
 
+  // 1er service interrogé : l'API adresse du gouvernement français (précise sur la France)
   const fetchAdresseGouv = async (query) => {
     const params = new URLSearchParams({
       q: query,
@@ -95,6 +103,8 @@ export default function ResearchBar({ value, onChange, onSelect }) {
       .filter(Boolean);
   };
 
+  // 2e service : Nominatim (OpenStreetMap), utilisé en repli si l'API gouvernementale
+  // ne renvoie rien. Peut être restreint ("bounded") à la zone géographique française.
   const fetchNominatim = async (query, { bounded = true } = {}) => {
     const params = new URLSearchParams({
       q: query,
@@ -120,6 +130,7 @@ export default function ResearchBar({ value, onChange, onSelect }) {
     return Array.isArray(payload) ? payload : [];
   };
 
+  // 3e service (dernier recours) : Photon, souvent plus tolérant sur les recherches partielles
   const fetchPhoton = async (query) => {
     const params = new URLSearchParams({
       q: query,
@@ -171,6 +182,7 @@ export default function ResearchBar({ value, onChange, onSelect }) {
       .filter(Boolean);
   };
 
+  // Ferme la liste de suggestions si l'utilisateur clique en dehors de la barre de recherche
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (searchInputRef.current && !searchInputRef.current.contains(event.target)) {
@@ -184,7 +196,8 @@ export default function ResearchBar({ value, onChange, onSelect }) {
     };
   }, []);
 
-  // Fonction pour récupérer les suggestions
+  // Récupère les suggestions d'adresse en essayant successivement chaque service de
+  // géocodage jusqu'à obtenir un résultat non vide (chaîne de repli/fallback)
   const fetchSuggestions = async (query) => {
     if (!query || query.length < 3) {
       setSuggestions([]);
@@ -194,17 +207,18 @@ export default function ResearchBar({ value, onChange, onSelect }) {
     try {
       let data = await fetchAdresseGouv(query);
 
-      // 
+      // Repli 1 : Nominatim restreint à la France
       if (!Array.isArray(data) || data.length === 0) {
         data = await fetchNominatim(query, { bounded: true });
       }
 
-      // 
+      // Repli 2 : Nominatim sans restriction géographique
       if (!Array.isArray(data) || data.length === 0) {
         data = await fetchNominatim(query, { bounded: false });
       }
 
-      //
+      // Repli 3 : on retire un éventuel numéro de rue en tête de requête (souvent
+      // source d'échec de recherche) et on retente avec Nominatim
       if (!Array.isArray(data) || data.length === 0) {
         const withoutLeadingNumber = query.replace(/^\s*\d+[A-Za-z]?\s+/, "").trim();
         if (withoutLeadingNumber && withoutLeadingNumber !== query) {
@@ -212,7 +226,7 @@ export default function ResearchBar({ value, onChange, onSelect }) {
         }
       }
 
-      //
+      // Repli 4 (dernier recours) : Photon
       if (!Array.isArray(data) || data.length === 0) {
         data = await fetchPhoton(query);
       }
@@ -246,6 +260,7 @@ export default function ResearchBar({ value, onChange, onSelect }) {
     }
   };
 
+  // Répercute la saisie vers le parent et relance la recherche de suggestions
   const handleInputChange = (e) => {
     const newValue = e.target.value;
     onChange?.(newValue);

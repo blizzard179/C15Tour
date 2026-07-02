@@ -1,5 +1,9 @@
 import stepService from '../services/stepService.js';
 
+// Contrôleurs CRUD des étapes d'un trajet (lecture, création, modification,
+// suppression, réordonnancement) : chaque fonction délègue au service et
+// retourne le code HTTP approprié (201 création, 204 suppression, etc.).
+
 // GET /api/trips/:tripId/steps
 const getStepsByTrip = async (req, res, next) => {
   try {

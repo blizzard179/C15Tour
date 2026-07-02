@@ -1,5 +1,7 @@
 import { useRouteError, isRouteErrorResponse } from 'react-router-dom';
 
+// Composant d'erreur affiché par React Router quand une route échoue à charger
+// (erreur HTTP, exception JavaScript, etc.), avec un message adapté selon le type d'erreur.
 function Error() {
   const error = useRouteError();
 

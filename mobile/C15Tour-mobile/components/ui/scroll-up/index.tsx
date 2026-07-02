@@ -15,6 +15,9 @@ type ScrollUpProps = {
     collapsedSheetPosition: number;
 };
 
+// Contenu du bottom sheet de l'écran de connexion : un en-tête toujours visible
+// (LoginHeader) et un corps (LoginBody, formulaires de connexion) qui s'estompe
+// et glisse légèrement quand le panneau se replie, pour une transition plus douce.
 function ScrollUp({
     collapsed = false,
     animatedPosition,

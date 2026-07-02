@@ -1,4 +1,7 @@
-// Fallback for using MaterialIcons on Android and web.
+// Composant fourni par le template Expo par défaut : équivalent Material Icons
+// pour Android/web des icônes SF Symbols (voir icon-symbol.ios.tsx pour iOS).
+// Non utilisé actuellement dans l'application (qui utilise directement
+// @expo/vector-icons/MaterialIcons dans ses propres écrans/composants).
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SymbolWeight, SymbolViewProps } from 'expo-symbols';

@@ -1,3 +1,8 @@
+// Fonctions utilitaires partagées pour la recherche/le classement des suggestions
+// d'adresse. Reprend la logique interne de components/ResearchBar.jsx sous forme
+// exportable/réutilisable et testable indépendamment (voir search.test.js).
+
+// Normalise un texte pour la comparaison : minuscules, sans accents, sans espaces superflus
 export const normalize = (text = "") =>
   text
     .toLowerCase()
@@ -5,6 +10,7 @@ export const normalize = (text = "") =>
     .replace(/[̀-ͯ]/g, "")
     .trim();
 
+// Extrait le nom de localité le plus pertinent disponible dans une adresse structurée
 export const getLocationLabel = (address = {}) =>
   address.city ||
   address.town ||
@@ -14,6 +20,7 @@ export const getLocationLabel = (address = {}) =>
   address.county ||
   "";
 
+// Calcule un score de pertinence pour une suggestion d'adresse par rapport à la recherche
 export const scoreSuggestion = (item, rawQuery) => {
   const query = normalize(rawQuery);
   if (!query) return 0;
